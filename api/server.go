@@ -12,19 +12,16 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	gcommon "github.com/ethereum/go-ethereum/common"
-	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
+	v1 "github.com/vultisig/commondata/go/vultisig/keysign/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
 
 	"github.com/vultisig/vultisigner/common"
@@ -633,57 +630,58 @@ func (s *Server) runPluginTest() {
 	}
 
 	// 2. Create ERC20 transfer transaction
-	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
-	if err != nil {
-		s.logger.Errorf("Failed to parse ABI: %v", err)
-		return
-	}
 
-	// Create transfer data
+	// Create payload data
+	amount_string := "1000000"
 	amount := new(big.Int)
-	amount.SetString("1000000", 10) // 1 USDC
-	recipient := gcommon.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")
+	amount.SetString(amount_string, 10) // 1 USDC
+	recipient_string := "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
 
-	inputData, err := parsedABI.Pack("transfer", recipient, amount)
-	if err != nil {
-		s.logger.Errorf("Failed to pack transfer data: %v", err)
-		return
+	memo := ""
+	payload := &v1.KeysignPayload{
+		Coin: &v1.Coin{
+			Chain:         "Ethereum",
+			Ticker:        "USDC",
+			Decimals:      6,
+			Address:       "0xe5F238C95142be312852e864B830daADB9B7D290", //what is this field?
+			IsNativeToken: false,
+			//HexPublicKey:    "03bb1adf8c0098258e4632af6c055c37135477e269b7e7eb4f600fe66d9ca9fd78", //what is this field?
+			ContractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+		},
+		ToAddress: recipient_string,
+		ToAmount:  amount_string,
+		BlockchainSpecific: &v1.KeysignPayload_EthereumSpecific{
+			EthereumSpecific: &v1.EthereumSpecific{
+				MaxFeePerGasWei: "2000000000",
+				PriorityFee:     "1",
+				Nonce:           0,
+				GasLimit:        "100000",
+			},
+		},
+		Memo:                &memo,
+		VaultPublicKeyEcdsa: "0200f9d07b02d182cd130afa088823f3c9dea027322dd834f5cffcb4b5e4a972e4",
+		VaultLocalPartyId:   "Server-1234",
 	}
 
-	// Create transaction
-	tx := gtypes.NewTransaction(
-		0, // nonce
-		gcommon.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"), // USDC contract
-		big.NewInt(0),          // value
-		100000,                 // gas limit
-		big.NewInt(2000000000), // gas price (2 gwei)
-		inputData,
-	)
-
-	// Get the raw transaction bytes
-	rawTx, err := tx.MarshalBinary()
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		s.logger.Errorf("Failed to marshal transaction: %v", err)
+		s.logger.Errorf("Failed to marshal payload: %v", err)
 		return
 	}
-
-	// Calculate transaction hash
-	txHash := tx.Hash().Hex()[2:]
 
 	// 3. Create signing request
 	signRequest := types.PluginKeysignRequest{
 		KeysignRequest: types.KeysignRequest{
 			PublicKey:        "0200f9d07b02d182cd130afa088823f3c9dea027322dd834f5cffcb4b5e4a972e4",
-			Messages:         []string{txHash},
+			Messages:         []string{string(payloadBytes)},
 			SessionID:        uuid.New().String(),
 			HexEncryptionKey: "0123456789abcdef0123456789abcdef",
 			DerivePath:       "m/44/60/0/0/0",
 			IsECDSA:          true,
 			VaultPassword:    "your-secure-password",
 		},
-		Transactions: []string{hex.EncodeToString(rawTx)},
-		PluginID:     "erc20-transfer",
-		PolicyID:     policyID,
+		PluginID: "erc20-transfer",
+		PolicyID: policyID,
 	}
 
 	signBytes, err := json.Marshal(signRequest)
