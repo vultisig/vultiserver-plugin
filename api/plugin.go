@@ -68,64 +68,18 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
 
-	var payload v1.KeysignPayload
-	err = json.Unmarshal([]byte(req.Messages[0]), &payload)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %w", err)
-	}
+	var payload = req.Messages[0]
 
 	//construct the transaction from the payload
 
-	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
+	rawTx, err := generateTransactionHash(payload)
 	if err != nil {
-		s.logger.Errorf("Failed to parse ABI: %v", err)
-		return fmt.Errorf("failed to parse ABI: %w", err)
+		return fmt.Errorf("failed to generate transaction hash: %w", err)
 	}
-	inputData, err := parsedABI.Pack("transfer", payload.ToAddress, payload.ToAmount)
-	if err != nil {
-		s.logger.Errorf("Failed to pack transfer data: %v", err)
-		return fmt.Errorf("failed to pack transfer data: %w", err)
-	}
-
-	contractAddress := gcommon.HexToAddress(payload.Coin.ContractAddress)
-	gasLimit, _ := strconv.ParseUint(payload.GetEthereumSpecific().GasLimit, 10, 64)
-	nonce := uint64(payload.GetEthereumSpecific().Nonce)
-
-	// Convert string max fee to big.Int
-	maxFee := new(big.Int)
-	maxFee.SetString(payload.GetEthereumSpecific().MaxFeePerGasWei, 10)
-
-	tx := gtypes.NewTransaction(
-		nonce,           // nonce
-		contractAddress, // contract address
-		big.NewInt(0),   // value
-		gasLimit,        // gas limit
-		maxFee,          // gas price
-		inputData,       // data
-	)
-
-	// Get the raw transaction bytes
-	rawTx, err := tx.MarshalBinary()
-	if err != nil {
-		s.logger.Errorf("Failed to marshal transaction: %v", err)
-		return fmt.Errorf("failed to marshal transaction: %w", err)
-	}
-
-	// Calculate transaction hash
-	//txHash := tx.Hash().Hex()[2:]
 
 	// Validate transaction matches policy
 	if err := validateTransaction(string(rawTx), payrollPolicy); err != nil {
 		return fmt.Errorf("transaction validation failed: %w", err)
-	}
-
-	// Validate message hash matches transaction
-	txHash, err := calculateTransactionHash(string(rawTx))
-	if err != nil {
-		return fmt.Errorf("fail to calculate transaction hash: %w", err)
-	}
-	if txHash != req.Messages[0] {
-		return fmt.Errorf("message hash does not match transaction hash. expected %s, got %s", txHash, req.Messages[0])
 	}
 
 	// Reuse existing signing logic
@@ -281,6 +235,39 @@ func calculateTransactionHash(txData string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	hash := tx.Hash().Hex()[2:]
+	return hash, nil
+}
+
+// right now, this functon if for payroll plugin on evm chains
+// TODO: add support for other plugins and be chain agnostic
+func generateTransactionHash(payload *v1.KeysignPayload) (string, error) {
+	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse ABI: %w", err)
+	}
+	inputData, err := parsedABI.Pack("transfer", payload.ToAddress, payload.ToAmount)
+	if err != nil {
+		return "", fmt.Errorf("failed to pack transfer data: %w", err)
+	}
+
+	contractAddress := gcommon.HexToAddress(payload.Coin.ContractAddress)
+	gasLimit, _ := strconv.ParseUint(payload.GetEthereumSpecific().GasLimit, 10, 64)
+	nonce := uint64(payload.GetEthereumSpecific().Nonce)
+
+	// Convert string max fee to big.Int
+	maxFee := new(big.Int)
+	maxFee.SetString(payload.GetEthereumSpecific().MaxFeePerGasWei, 10)
+
+	tx := gtypes.NewTransaction(
+		nonce,           // nonce
+		contractAddress, // contract address
+		big.NewInt(0),   // value
+		gasLimit,        // gas limit
+		maxFee,          // gas price
+		inputData,       // data
+	)
 
 	hash := tx.Hash().Hex()[2:]
 	return hash, nil
