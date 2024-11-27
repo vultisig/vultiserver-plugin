@@ -20,9 +20,12 @@ import (
 	"github.com/vultisig/mobile-tss-lib/tss"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/vultisig/vultisigner/chainhelper"
 	"github.com/vultisig/vultisigner/internal/types"
 	"github.com/vultisig/vultisigner/relay"
+	"github.com/vultisig/vultisigner/walletcore/core"
 
+	v1 "github.com/vultisig/commondata/go/vultisig/keysign/v1"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 )
 
@@ -372,7 +375,7 @@ func unpad(data []byte) ([]byte, error) {
 	return data[:length-paddingLen], nil
 }
 
-func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.KeysignResponse, error) {
+func (s *WorkerService) JoinKeySign(req types.KeysignRequest, messages []string) (map[string]tss.KeysignResponse, error) {
 	result := map[string]tss.KeysignResponse{}
 	keyFolder := s.cfg.Server.VaultsFilePath
 	serverURL := s.cfg.Relay.Server
@@ -413,7 +416,8 @@ func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.Ke
 		return nil, fmt.Errorf("failed to create TSS service: %w", err)
 	}
 
-	for _, message := range req.Messages {
+	for _, message := range messages {
+
 		var signature *tss.KeysignResponse
 		for attempt := 0; attempt < 3; attempt++ {
 			signature, err = s.keysignWithRetry(serverURL,
@@ -494,4 +498,16 @@ func (s *WorkerService) keysignWithRetry(serverURL, localPartyId string,
 	close(endCh)
 	wg.Wait()
 	return signature, nil
+}
+
+// now this function only support eth
+// TODO: support other chains
+func getTxHashFromMessage(message *v1.KeysignPayload) (string, error) {
+	helper := chainhelper.NewERC20ChainHelper(core.CoinTypeEthereum)
+	res, err := helper.GetPreSignedImageHash(message)
+	if err != nil {
+		return "", fmt.Errorf("GetPreSignedImageHash() error = %v", err)
+	}
+	txHash := res[0]
+	return txHash, nil
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
+	v1 "github.com/vultisig/commondata/go/vultisig/keysign/v1"
 	"github.com/vultisig/vultisigner/common"
 	"github.com/vultisig/vultisigner/internal/tasks"
 	"github.com/vultisig/vultisigner/internal/types"
@@ -42,9 +44,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	if len(req.Messages) != 1 {
 		return fmt.Errorf("plugin signing requires exactly one message hash")
 	}
-	if len(req.Transactions) != 1 {
-		return fmt.Errorf("plugin signing requires exactly one transaction")
-	}
 
 	// Get policy
 	policyPath := fmt.Sprintf("policies/%s.json", req.PolicyID)
@@ -69,18 +68,18 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
 
-	// Validate transaction matches policy
-	if err := validateTransaction(req.Transactions[0], payrollPolicy); err != nil {
-		return fmt.Errorf("transaction validation failed: %w", err)
+	var payload = req.Messages[0]
+
+	//construct the transaction from the payload
+
+	rawTx, err := generateTransactionHash(payload)
+	if err != nil {
+		return fmt.Errorf("failed to generate transaction hash: %w", err)
 	}
 
-	// Validate message hash matches transaction
-	txHash, err := calculateTransactionHash(req.Transactions[0])
-	if err != nil {
-		return fmt.Errorf("fail to calculate transaction hash: %w", err)
-	}
-	if txHash != req.Messages[0] {
-		return fmt.Errorf("message hash does not match transaction hash. expected %s, got %s", txHash, req.Messages[0])
+	// Validate transaction matches policy
+	if err := validateTransaction(string(rawTx), payrollPolicy); err != nil {
+		return fmt.Errorf("transaction validation failed: %w", err)
 	}
 
 	// Reuse existing signing logic
@@ -236,6 +235,39 @@ func calculateTransactionHash(txData string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	hash := tx.Hash().Hex()[2:]
+	return hash, nil
+}
+
+// right now, this functon if for payroll plugin on evm chains
+// TODO: add support for other plugins and be chain agnostic
+func generateTransactionHash(payload *v1.KeysignPayload) (string, error) {
+	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse ABI: %w", err)
+	}
+	inputData, err := parsedABI.Pack("transfer", payload.ToAddress, payload.ToAmount)
+	if err != nil {
+		return "", fmt.Errorf("failed to pack transfer data: %w", err)
+	}
+
+	contractAddress := gcommon.HexToAddress(payload.Coin.ContractAddress)
+	gasLimit, _ := strconv.ParseUint(payload.GetEthereumSpecific().GasLimit, 10, 64)
+	nonce := uint64(payload.GetEthereumSpecific().Nonce)
+
+	// Convert string max fee to big.Int
+	maxFee := new(big.Int)
+	maxFee.SetString(payload.GetEthereumSpecific().MaxFeePerGasWei, 10)
+
+	tx := gtypes.NewTransaction(
+		nonce,           // nonce
+		contractAddress, // contract address
+		big.NewInt(0),   // value
+		gasLimit,        // gas limit
+		maxFee,          // gas price
+		inputData,       // data
+	)
 
 	hash := tx.Hash().Hex()[2:]
 	return hash, nil

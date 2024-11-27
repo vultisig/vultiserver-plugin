@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 
+	"github.com/vultisig/vultisigner/chainhelper"
 	"github.com/vultisig/vultisigner/config"
 	"github.com/vultisig/vultisigner/contexthelper"
 	"github.com/vultisig/vultisigner/internal/types"
@@ -128,12 +129,21 @@ func (s *WorkerService) HandleKeySign(ctx context.Context, t *asynq.Task) error 
 	s.logger.WithFields(logrus.Fields{
 		"PublicKey":  p.PublicKey,
 		"session":    p.SessionID,
-		"Messages":   p.Messages,
+		"Messages":   p.Payload,
 		"DerivePath": p.DerivePath,
 		"IsECDSA":    p.IsECDSA,
 	}).Info("joining keysign")
 
-	signatures, err := s.JoinKeySign(p)
+	helper, err := chainhelper.NewChainHelper(p.Payload.Coin.Chain)
+	if err != nil {
+		return fmt.Errorf("failed to create chain helper: %w", err)
+	}
+	messages, err := helper.GetPreSignedImageHash(p.Payload)
+	if err != nil {
+		return fmt.Errorf("failed to get pre-signed image hash: %w", err)
+	}
+
+	signatures, err := s.JoinKeySign(p, messages)
 	if err != nil {
 		s.logger.Errorf("join keysign failed: %v", err)
 		return fmt.Errorf("join keysign failed: %v: %w", err, asynq.SkipRetry)
