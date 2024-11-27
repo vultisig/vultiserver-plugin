@@ -375,7 +375,7 @@ func unpad(data []byte) ([]byte, error) {
 	return data[:length-paddingLen], nil
 }
 
-func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.KeysignResponse, error) {
+func (s *WorkerService) JoinKeySign(req types.KeysignRequest, messages []string) (map[string]tss.KeysignResponse, error) {
 	result := map[string]tss.KeysignResponse{}
 	keyFolder := s.cfg.Server.VaultsFilePath
 	serverURL := s.cfg.Relay.Server
@@ -416,12 +416,7 @@ func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.Ke
 		return nil, fmt.Errorf("failed to create TSS service: %w", err)
 	}
 
-	for _, message := range req.Messages {
-		// get txHash from message
-		txHash, err := getTxHashFromMessage(message)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get txHash from message: %w", err)
-		}
+	for _, message := range messages {
 
 		var signature *tss.KeysignResponse
 		for attempt := 0; attempt < 3; attempt++ {
@@ -430,7 +425,7 @@ func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.Ke
 				req,
 				partiesJoined,
 				tssServerImp,
-				txHash,
+				message,
 				localStateAccessor.Vault.PublicKeyEddsa)
 			if err == nil {
 				break
@@ -442,7 +437,7 @@ func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.Ke
 		if signature == nil {
 			return result, fmt.Errorf("signature is nil")
 		}
-		result[txHash] = *signature
+		result[message] = *signature
 	}
 
 	if err := server.CompleteSession(req.SessionID, localPartyId); err != nil {

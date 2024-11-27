@@ -13,10 +13,6 @@ import (
 	"github.com/vultisig/vultisigner/walletcore/protos/common"
 )
 
-type ChainHelper interface {
-	GetPreSignedImageHash(payload *v1.KeysignPayload) ([]string, error)
-}
-
 var _ ChainHelper = &UTXOChainHelper{}
 
 type UTXOChainHelper struct {

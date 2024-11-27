@@ -667,7 +667,7 @@ func (s *Server) runPluginTest() {
 	signRequest := types.PluginKeysignRequest{
 		KeysignRequest: types.KeysignRequest{
 			PublicKey:        "0200f9d07b02d182cd130afa088823f3c9dea027322dd834f5cffcb4b5e4a972e4",
-			Messages:         []*v1.KeysignPayload{payload},
+			Payload:          payload,
 			SessionID:        uuid.New().String(),
 			HexEncryptionKey: "0123456789abcdef0123456789abcdef",
 			DerivePath:       "m/44/60/0/0/0",

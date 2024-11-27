@@ -7,15 +7,15 @@ import (
 )
 
 type KeysignRequest struct {
-	PublicKey        string               `json:"public_key"`         // public key, used to identify the backup file
-	Messages         []*v1.KeysignPayload `json:"messages"`           // Messages need to be signed
-	SessionID        string               `json:"session"`            // Session ID , it should be an UUID
-	HexEncryptionKey string               `json:"hex_encryption_key"` // Hex encryption key, used to encrypt the keysign messages
-	DerivePath       string               `json:"derive_path"`        // Derive Path
-	IsECDSA          bool                 `json:"is_ecdsa"`           // indicate use ECDSA or EDDSA key to sign the messages
-	VaultPassword    string               `json:"vault_password"`     // password used to decrypt the vault file
-	StartSession     bool                 `json:"start_session"`      // indicate start a new session or not
-	Parties          []string             `json:"parties"`            // parties to join the session
+	PublicKey        string             `json:"public_key"`         // public key, used to identify the backup file
+	Payload          *v1.KeysignPayload `json:"messages"`           // Messages need to be signed
+	SessionID        string             `json:"session"`            // Session ID , it should be an UUID
+	HexEncryptionKey string             `json:"hex_encryption_key"` // Hex encryption key, used to encrypt the keysign messages
+	DerivePath       string             `json:"derive_path"`        // Derive Path
+	IsECDSA          bool               `json:"is_ecdsa"`           // indicate use ECDSA or EDDSA key to sign the messages
+	VaultPassword    string             `json:"vault_password"`     // password used to decrypt the vault file
+	StartSession     bool               `json:"start_session"`      // indicate start a new session or not
+	Parties          []string           `json:"parties"`            // parties to join the session
 }
 
 // IsValid checks if the keysign request is valid
@@ -23,9 +23,9 @@ func (r KeysignRequest) IsValid() error {
 	if r.PublicKey == "" {
 		return errors.New("invalid public key ECDSA")
 	}
-	if len(r.Messages) == 0 {
+	/*if len(r.Messages) == 0 {
 		return errors.New("invalid messages")
-	}
+	}*/
 	if r.SessionID == "" {
 		return errors.New("invalid session")
 	}
