@@ -98,10 +98,10 @@ func (h *CosmosChainHelper) getPreSignedInputData(payload *v1.KeysignPayload) ([
 						Amounts: []*cosmos.Amount{
 							{
 								Denom:  h.getDenom(),
-								Amount: payload.ToAmount,
+								Amount: payload.Outputs[0].Amount,
 							},
 						},
-						ToAddress: payload.ToAddress,
+						ToAddress: payload.Outputs[0].Address,
 					},
 				},
 			},

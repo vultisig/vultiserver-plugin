@@ -22,8 +22,12 @@ func getTestKeysignPayload() v1.KeysignPayload {
 			IsNativeToken: true,
 			HexPublicKey:  "02bd71faf6447dd28ecc7936729c543e8de0483c9641ed65fcd4f223b010263c67",
 		},
-		ToAddress: "thor1vzltn37rqccwk95tny657au9j2z072dhgstcmn",
-		ToAmount:  "1000000",
+		Outputs: []*v1.Output{
+			{
+				Address: "thor1vzltn37rqccwk95tny657au9j2z072dhgstcmn",
+				Amount:  "1000000",
+			},
+		},
 		BlockchainSpecific: &v1.KeysignPayload_ThorchainSpecific{
 			ThorchainSpecific: &v1.THORChainSpecific{
 				AccountNumber: 1,

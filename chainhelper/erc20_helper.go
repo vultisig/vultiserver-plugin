@@ -47,12 +47,12 @@ func (h *ERC20ChainHelper) getPreSignedInputData(payload *v1.KeysignPayload) ([]
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse PriorityFee: %w", err)
 	}
-	toAmount, err := strconv.ParseInt(payload.ToAmount, 10, 64)
+	toAmount, err := strconv.ParseInt(payload.Outputs[0].Amount, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ToAmount: %w", err)
 	}
 	transfer := &ethereum.Transaction_ERC20Transfer{
-		To:     payload.ToAddress,
+		To:     payload.Outputs[0].Address,
 		Amount: big.NewInt(toAmount).Bytes(),
 	}
 

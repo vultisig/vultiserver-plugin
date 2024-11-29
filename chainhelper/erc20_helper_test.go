@@ -22,8 +22,12 @@ func TestERC20Helper_GetPreSignedImageHash(t *testing.T) {
 			HexPublicKey:    "03bb1adf8c0098258e4632af6c055c37135477e269b7e7eb4f600fe66d9ca9fd78",
 			ContractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		},
-		ToAddress: "0xfA0635a1d083D0bF377EFbD48DA46BB17e0106cA",
-		ToAmount:  "10000000",
+		Outputs: []*v1.Output{
+			{
+				Address: "0xfA0635a1d083D0bF377EFbD48DA46BB17e0106cA",
+				Amount:  "10000000",
+			},
+		},
 		BlockchainSpecific: &v1.KeysignPayload_EthereumSpecific{
 			EthereumSpecific: &v1.EthereumSpecific{
 				MaxFeePerGasWei: "10",

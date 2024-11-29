@@ -48,7 +48,7 @@ func (h *EVMChainHelper) getPreSignedInputData(payload *v1.KeysignPayload) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse PriorityFee: %w", err)
 	}
-	toAmount, err := strconv.ParseInt(payload.ToAmount, 10, 64)
+	toAmount, err := strconv.ParseInt(payload.Outputs[0].Amount, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ToAmount: %w", err)
 	}
@@ -71,7 +71,7 @@ func (h *EVMChainHelper) getPreSignedInputData(payload *v1.KeysignPayload) ([]by
 		GasLimit:              big.NewInt(gasLimit).Bytes(),
 		MaxInclusionFeePerGas: big.NewInt(priorityFee).Bytes(),
 		MaxFeePerGas:          big.NewInt(maxFeePerGasWei).Bytes(),
-		ToAddress:             payload.ToAddress,
+		ToAddress:             payload.Outputs[0].Address,
 		Transaction:           tx,
 	}
 	return proto.Marshal(input)

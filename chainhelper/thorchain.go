@@ -78,7 +78,7 @@ func (h *THORChainHelper) GetPreSignedInputData(payload *v1.KeysignPayload) ([]b
 				Ticker: "RUNE",
 				Synth:  false,
 			},
-			Amount:   payload.ToAmount,
+			Amount:   payload.Outputs[0].Amount,
 			Decimals: 8,
 		}
 		messages = []*cosmos.Message{
@@ -95,7 +95,7 @@ func (h *THORChainHelper) GetPreSignedInputData(payload *v1.KeysignPayload) ([]b
 			},
 		}
 	} else {
-		toAddrData := core.GetAnyAddressData(payload.ToAddress, h.coinType)
+		toAddrData := core.GetAnyAddressData(payload.Outputs[0].Address, h.coinType)
 		messages = []*cosmos.Message{
 			{
 				MessageOneof: &cosmos.Message_ThorchainSendMessage{
@@ -104,7 +104,7 @@ func (h *THORChainHelper) GetPreSignedInputData(payload *v1.KeysignPayload) ([]b
 						Amounts: []*cosmos.Amount{
 							{
 								Denom:  "rune",
-								Amount: payload.ToAmount,
+								Amount: payload.Outputs[0].Amount,
 							},
 						},
 						ToAddress: toAddrData,

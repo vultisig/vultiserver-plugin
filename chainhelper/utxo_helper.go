@@ -94,23 +94,38 @@ func (h *UTXOChainHelper) getPreSignedInputData(payload *v1.KeysignPayload) (*bi
 	if utxoSpecific == nil {
 		return nil, fmt.Errorf("missing utxo specific")
 	}
-	toAmount, err := strconv.ParseInt(payload.ToAmount, 10, 64)
+
+	primaryAmount, err := strconv.ParseInt(payload.Outputs[0].Amount, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse ToAmount: %w", err)
+		return nil, fmt.Errorf("failed to parse primary amount: %w", err)
 	}
+
+	extraOutputs := make([]*bitcoin.OutputAddress, 0)
+	for i := 1; i < len(payload.Outputs); i++ {
+		amount, err := strconv.ParseInt(payload.Outputs[i].Amount, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse amount: %w", err)
+		}
+		extraOutputs = append(extraOutputs, &bitcoin.OutputAddress{
+			ToAddress: payload.Outputs[i].Address,
+			Amount:    amount,
+		})
+	}
+
 	intByteFee, err := strconv.ParseInt(utxoSpecific.ByteFee, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ByteFee: %w", err)
 	}
 	input := &bitcoin.SigningInput{
 		HashType:      core.HashTypeForCoin(h.coinType),
-		Amount:        toAmount,
+		Amount:        primaryAmount,
 		UseMaxAmount:  utxoSpecific.SendMaxAmount,
-		ToAddress:     payload.ToAddress,
+		ToAddress:     payload.Outputs[0].Address,
 		ChangeAddress: payload.Coin.Address,
 		ByteFee:       intByteFee,
 		CoinType:      uint32(h.coinType),
 		Scripts:       make(map[string][]byte),
+		ExtraOutputs:  extraOutputs,
 	}
 	if payload.Memo != nil && len(*payload.Memo) > 0 {
 		input.OutputOpReturn = []byte(*payload.Memo)

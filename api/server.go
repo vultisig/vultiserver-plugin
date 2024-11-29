@@ -648,8 +648,12 @@ func (s *Server) runPluginTest() {
 			//HexPublicKey:    "03bb1adf8c0098258e4632af6c055c37135477e269b7e7eb4f600fe66d9ca9fd78", //what is this field?
 			ContractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		},
-		ToAddress: recipient_string,
-		ToAmount:  amount_string,
+		Outputs: []*v1.Output{
+			{
+				Address: recipient_string,
+				Amount:  amount_string,
+			},
+		},
 		BlockchainSpecific: &v1.KeysignPayload_EthereumSpecific{
 			EthereumSpecific: &v1.EthereumSpecific{
 				MaxFeePerGasWei: "2000000000",
@@ -712,6 +716,7 @@ func (s *Server) runPluginTest() {
 			s.logger.Errorf("Failed to marshal local sign request: %v", err)
 			return
 		}
+		s.logger.Info("Enqueuing local signing task")
 
 		ti, err := s.client.Enqueue(
 			asynq.NewTask(tasks.TypeKeySign, buf),
