@@ -42,7 +42,7 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9090"
     volumes:
-      - "minio_data:/data"
+      - minio_data:/data
 
 volumes:
   db_data:
