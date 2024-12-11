@@ -114,7 +114,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		asynq.MaxRetry(-1),
 		asynq.Timeout(2*time.Minute),
 		asynq.Retention(5*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
+		asynq.Queue(tasks.SIGNER_DEFAULT_QUEUE))
 
 	if err != nil {
 		return fmt.Errorf("fail to enqueue task, err: %w", err)

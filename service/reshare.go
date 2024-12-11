@@ -203,7 +203,7 @@ func (s *WorkerService) SaveVaultAndScheduleEmail(vault *vaultType.Vault,
 	}
 	taskInfo, err := s.queueClient.Enqueue(asynq.NewTask(tasks.TypeEmailVaultBackup, buf),
 		asynq.Retention(10*time.Minute),
-		asynq.Queue(tasks.EMAIL_QUEUE_NAME))
+		asynq.Queue(tasks.SIGNER_EMAIL_QUEUE))
 	if err != nil {
 		s.logger.Errorf("fail to enqueue email task: %v", err)
 	}
