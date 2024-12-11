@@ -16,12 +16,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	sdClient, err := statsd.New("127.0.0.1:8125")
+	sdClient, err := statsd.New(cfg.Datadog.Host + ":" + cfg.Datadog.Port)
 	if err != nil {
 		panic(err)
 	}
-	port := cfg.Server.Port
 
 	redisStorage, err := storage.NewRedisStorage(*cfg)
 	if err != nil {
@@ -48,12 +46,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	server := api.NewServer(port,
+	server := api.NewServer(
+		cfg.Server.Port,
 		redisStorage,
 		client,
 		inspector,
-		cfg.Server.VaultsFilePath, sdClient, blockStorage,
-		cfg.Server.Mode, cfg.Plugin.Type, cfg.Database.DSN)
+		cfg.Server.VaultsFilePath,
+		sdClient,
+		blockStorage,
+		cfg.Server.Mode,
+		cfg.Plugin.Type,
+		cfg.Database.DSN,
+	)
 	if err := server.StartServer(); err != nil {
 		panic(err)
 	}
