@@ -8,17 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"math/rand"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	gcommon "github.com/ethereum/go-ethereum/common"
-	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
@@ -28,6 +23,7 @@ import (
 	"github.com/vultisig/mobile-tss-lib/tss"
 
 	"github.com/vultisig/vultisigner/common"
+	"github.com/vultisig/vultisigner/internal/scheduler"
 	"github.com/vultisig/vultisigner/internal/tasks"
 	"github.com/vultisig/vultisigner/internal/types"
 	"github.com/vultisig/vultisigner/plugin"
@@ -47,6 +43,8 @@ type Server struct {
 	blockStorage  *storage.BlockStorage
 	mode          string
 	plugin        plugin.Plugin
+	db            *postgres.PostgresBackend
+	scheduler     *scheduler.SchedulerService
 }
 
 // NewServer returns a new server.
@@ -60,12 +58,17 @@ func NewServer(port int64,
 	mode string,
 	pluginType string,
 	dsn string) *Server {
+
+	logrus.Info("Initializing new server...")
+	logrus.Infof("Server mode: %s, plugin type: %s", mode, pluginType)
+
 	db, err := postgres.NewPostgresBackend(false, dsn)
 	if err != nil {
 		logrus.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	var plugin plugin.Plugin
+	var schedulerService *scheduler.SchedulerService
 	if mode == "pluginserver" {
 		switch pluginType {
 		case "payroll":
@@ -73,6 +76,13 @@ func NewServer(port int64,
 		default:
 			logrus.Fatalf("Invalid plugin type: %s", pluginType)
 		}
+		schedulerService = scheduler.NewSchedulerService(
+			db,
+			logrus.WithField("service", "scheduler").Logger,
+			client,
+		)
+		schedulerService.Start()
+		logrus.Info("Scheduler service started")
 	}
 	return &Server{
 		port:          port,
@@ -85,6 +95,8 @@ func NewServer(port int64,
 		blockStorage:  blockStorage,
 		mode:          mode,
 		plugin:        plugin,
+		db:            db,
+		scheduler:     schedulerService,
 	}
 }
 
@@ -102,6 +114,7 @@ func (s *Server) StartServer() error {
 	e.Use(middleware.RateLimiter(limiterStore))
 	e.GET("/ping", s.Ping)
 	e.GET("/getDerivedPublicKey", s.GetDerivedPublicKey)
+	e.POST("/signFromPlugin", s.SignPluginMessages)
 	grp := e.Group("/vault")
 
 	grp.POST("/create", s.CreateVault)
@@ -114,7 +127,7 @@ func (s *Server) StartServer() error {
 	grp.POST("/sign", s.SignMessages)       // Sign messages
 	grp.POST("/resend", s.ResendVaultEmail) // request server to send vault share , code through email again
 	grp.GET("/verify/:publicKeyECDSA/:code", s.VerifyCode)
-	//grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
+	grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
 	pluginGroup := e.Group("/plugin")
 	// Only enable plugin signing routes if the server is running in plugin mode
@@ -134,7 +147,8 @@ func (s *Server) StartServer() error {
 	// policy mode is always available since it is used by both vultiserver and pluginserver
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 
-	go s.runPluginTest()
+	//go s.runPluginTest()
+	go s.runPluginTestSchedule()
 
 	return e.Start(fmt.Sprintf(":%d", s.port))
 }
@@ -292,7 +306,9 @@ func (s *Server) DownloadVault(c echo.Context) error {
 
 	content, err := s.blockStorage.GetFile(publicKeyECDSA + ".bak")
 	if err != nil {
-		return fmt.Errorf("fail to read file, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to read file in DownloadVault, err: %w", err)
+		s.logger.Error(wrappedErr)
+		return wrappedErr
 	}
 
 	_, err = common.DecryptVaultFromBackup(passwd, content)
@@ -331,7 +347,9 @@ func (s *Server) GetVault(c echo.Context) error {
 	}
 	content, err := s.blockStorage.GetFile(publicKeyECDSA + ".bak")
 	if err != nil {
-		return fmt.Errorf("fail to read file, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to read file in GetVault, err: %w", err)
+		s.logger.Error(wrappedErr)
+		return wrappedErr
 	}
 
 	vault, err := common.DecryptVaultFromBackup(passwd, content)
@@ -363,7 +381,9 @@ func (s *Server) DeleteVault(c echo.Context) error {
 
 	content, err := s.blockStorage.GetFile(publicKeyECDSA + ".bak")
 	if err != nil {
-		return fmt.Errorf("fail to read file, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to read file in DeleteVault, err: %w", err)
+		s.logger.Error(wrappedErr)
+		return wrappedErr
 	}
 
 	vault, err := common.DecryptVaultFromBackup(passwd, content)
@@ -403,7 +423,10 @@ func (s *Server) SignMessages(c echo.Context) error {
 	filePathName := req.PublicKey + ".bak"
 	content, err := s.blockStorage.GetFile(filePathName)
 	if err != nil {
-		return fmt.Errorf("fail to read file, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to read file in SignMessages, err: %w", err)
+		s.logger.Infof("fail to read file in SignMessages, err: %v", err)
+		s.logger.Error(wrappedErr)
+		return wrappedErr
 	}
 
 	_, err = common.DecryptVaultFromBackup(req.VaultPassword, content)
@@ -435,24 +458,15 @@ func (s *Server) GetKeysignResult(c echo.Context) error {
 	if taskID == "" {
 		return fmt.Errorf("task id is required")
 	}
-	task, err := s.inspector.GetTaskInfo(tasks.QUEUE_NAME, taskID)
+	result, err := tasks.GetTaskResult(s.inspector, taskID)
 	if err != nil {
-		return fmt.Errorf("fail to find task, err: %w", err)
+		if err.Error() == "task is still in progress" {
+			return c.JSON(http.StatusOK, "Task is still in progress")
+		}
+		return err
 	}
 
-	if task == nil {
-		return fmt.Errorf("task not found")
-	}
-
-	if task.State == asynq.TaskStatePending {
-		return c.JSON(http.StatusOK, "Task is still in progress")
-	}
-
-	if task.State == asynq.TaskStateCompleted {
-		return c.JSON(http.StatusOK, task.Result)
-	}
-
-	return fmt.Errorf("task state is invalid")
+	return c.JSON(http.StatusOK, result)
 }
 func (s *Server) isValidHash(hash string) bool {
 	if len(hash) != 66 {
@@ -509,7 +523,7 @@ func (s *Server) ResendVaultEmail(c echo.Context) error {
 	}
 	content, err := s.blockStorage.GetFile(publicKeyECDSA + ".bak")
 	if err != nil {
-		s.logger.Errorf("fail to read file, err: %v", err)
+		s.logger.Errorf("fail to read file in ResendVaultEmail, err: %v", err)
 		return c.NoContent(http.StatusBadRequest)
 	}
 
@@ -587,8 +601,8 @@ func (s *Server) VerifyCode(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (s *Server) runPluginTest() {
-	if s.port == 8081 {
+func (s *Server) runPluginTestSchedule() {
+	if s.port == 8080 { //8080 is vultiserver, and vultiserver does not create plugins.
 		return
 	}
 	// Wait 5 seconds after startup
@@ -600,19 +614,37 @@ func (s *Server) runPluginTest() {
 	policyID := uuid.New().String()
 	policy := types.PluginPolicy{
 		ID:            policyID,
-		PublicKey:     "0200f9d07b02d182cd130afa088823f3c9dea027322dd834f5cffcb4b5e4a972e4",
+		PublicKey:     "02058220c4614eb1e93fc22ec50d039c41e0087a5030aa06120976ff1eb06c1623",
 		PluginID:      "erc20-transfer",
 		PluginVersion: "1.0.0",
 		PolicyVersion: "1.0.0",
 		PluginType:    "payroll",
 		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
+		/*Policy: types.PayrollPolicy{
+			ChainID: "1",
+			TokenID: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+			Recipients: []types.PayrollRecipient{
+				{
+					Address: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+					Amount:  "1000000",
+				},
+			},
+			Schedule: types.Schedule{
+				Frequency: "weekly",
+				StartTime: time.Now().Add(7 * 24 * time.Hour).Format(time.RFC3339),
+			},
+		},*/
 		Policy: json.RawMessage(`{
 			"chain_id": "1",
 			"token_id": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 			"recipients": [{
 				"address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
 				"amount": "1000000"
-			}]
+			}],
+			"schedule": {
+				"frequency": "monthly",
+				"start_time": "` + time.Now().Add(20*time.Second).Format(time.RFC3339) + `"
+			}
 		}`),
 	}
 
@@ -623,8 +655,8 @@ func (s *Server) runPluginTest() {
 	}
 
 	// Create policy
-	policyResp, err := http.Post(
-		fmt.Sprintf("http://localhost:%d/plugin/policy", 8081),
+	policyResp, err := http.Post( //plugins tells to vultiserver to create that policy, but once this is done, plugin server does not save the policy in its own db. Change this
+		fmt.Sprintf("http://localhost:%d/plugin/policy", 8080),
 		"application/json",
 		bytes.NewBuffer(policyBytes),
 	)
@@ -634,115 +666,26 @@ func (s *Server) runPluginTest() {
 	}
 	defer policyResp.Body.Close()
 
+	s.logger.Info("Policy sent to vultiserver")
+
 	if policyResp.StatusCode != http.StatusOK {
 		s.logger.Errorf("Failed to create policy, status: %d", policyResp.StatusCode)
 		return
 	}
 
-	// 2. Create ERC20 transfer transaction
-	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
-	if err != nil {
-		s.logger.Errorf("Failed to parse ABI: %v", err)
+	// 2. store policy in plugin's database
+	if err := s.db.InsertPluginPolicy(policy); err != nil {
+		s.logger.Errorf("Failed to insert policy in local database: %v", err)
 		return
 	}
 
-	// Create transfer data
-	amount := new(big.Int)
-	amount.SetString("1000000", 10) // 1 USDC
-	recipient := gcommon.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")
+	s.logger.Info("Creating time trigger for the policy")
 
-	inputData, err := parsedABI.Pack("transfer", recipient, amount)
-	if err != nil {
-		s.logger.Errorf("Failed to pack transfer data: %v", err)
+	// Create time trigger for the policy
+	if err := s.scheduler.CreateTimeTrigger(policy); err != nil {
+		s.logger.Errorf("Failed to create time trigger: %v", err)
 		return
 	}
 
-	// Create transaction
-	tx := gtypes.NewTransaction(
-		0, // nonce
-		gcommon.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"), // USDC contract
-		big.NewInt(0),          // value
-		100000,                 // gas limit
-		big.NewInt(2000000000), // gas price (2 gwei)
-		inputData,
-	)
-
-	// Get the raw transaction bytes
-	rawTx, err := tx.MarshalBinary()
-	if err != nil {
-		s.logger.Errorf("Failed to marshal transaction: %v", err)
-		return
-	}
-
-	// Calculate transaction hash
-	txHash := tx.Hash().Hex()[2:]
-
-	// 3. Create signing request
-	signRequest := types.PluginKeysignRequest{
-		KeysignRequest: types.KeysignRequest{
-			PublicKey:        "0200f9d07b02d182cd130afa088823f3c9dea027322dd834f5cffcb4b5e4a972e4",
-			Messages:         []string{txHash},
-			SessionID:        uuid.New().String(),
-			HexEncryptionKey: "0123456789abcdef0123456789abcdef",
-			DerivePath:       "m/44/60/0/0/0",
-			IsECDSA:          true,
-			VaultPassword:    "your-secure-password",
-		},
-		Transactions: []string{hex.EncodeToString(rawTx)},
-		PluginID:     "erc20-transfer",
-		PolicyID:     policyID,
-	}
-
-	signBytes, err := json.Marshal(signRequest)
-	if err != nil {
-		s.logger.Errorf("Failed to marshal sign request: %v", err)
-		return
-	}
-
-	// Make signing request
-	signResp, err := http.Post(
-		fmt.Sprintf("http://localhost:%d/plugin/sign", 8081),
-		"application/json",
-		bytes.NewBuffer(signBytes),
-	)
-	if err != nil {
-		s.logger.Errorf("Failed to make sign request: %v", err)
-		return
-	}
-	defer signResp.Body.Close()
-
-	// Read and log response
-	respBody, err := io.ReadAll(signResp.Body)
-	if err != nil {
-		s.logger.Errorf("Failed to read response: %v", err)
-		return
-	}
-
-	if signResp.StatusCode == http.StatusOK {
-		// Enqueue the same signing request locally
-		signRequest.KeysignRequest.StartSession = true
-		signRequest.KeysignRequest.Parties = []string{"1", "2"}
-		buf, err := json.Marshal(signRequest.KeysignRequest)
-		if err != nil {
-			s.logger.Errorf("Failed to marshal local sign request: %v", err)
-			return
-		}
-
-		ti, err := s.client.Enqueue(
-			asynq.NewTask(tasks.TypeKeySign, buf),
-			asynq.MaxRetry(-1),
-			asynq.Timeout(2*time.Minute),
-			asynq.Retention(5*time.Minute),
-			asynq.Queue(tasks.QUEUE_NAME))
-
-		if err != nil {
-			s.logger.Errorf("Failed to enqueue local task: %v", err)
-			return
-		}
-
-		s.logger.Infof("Local signing task enqueued with ID: %s", ti.ID)
-	}
-
-	s.logger.Infof("Plugin signing test complete. Status: %d, Response: %s",
-		signResp.StatusCode, string(respBody))
+	s.logger.Info("Successfully created policy and scheduled trigger")
 }

@@ -33,6 +33,7 @@ const erc20ABI = `[{
 }]`
 
 func (s *Server) SignPluginMessages(c echo.Context) error {
+	s.logger.Info("Starting SignPluginMessages")
 	var req types.PluginKeysignRequest
 	if err := c.Bind(&req); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
@@ -40,13 +41,13 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	// Plugin-specific validations
 	if len(req.Messages) != 1 {
-		return fmt.Errorf("plugin signing requires exactly one message hash")
+		return fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
 	}
 	if len(req.Transactions) != 1 {
-		return fmt.Errorf("plugin signing requires exactly one transaction")
+		return fmt.Errorf("plugin signing requires exactly one transaction, current: %d", len(req.Transactions))
 	}
 
-	// Get policy
+	/*// Get policy
 	policyPath := fmt.Sprintf("policies/%s.json", req.PolicyID)
 	policyContent, err := s.blockStorage.GetFile(policyPath)
 	if err != nil {
@@ -56,6 +57,12 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	var policy types.PluginPolicy
 	if err := json.Unmarshal(policyContent, &policy); err != nil {
 		return fmt.Errorf("fail to unmarshal policy, err: %w", err)
+	}*/
+
+	// Get policy from database
+	policy, err := s.db.GetPluginPolicy(req.PolicyID)
+	if err != nil {
+		return fmt.Errorf("failed to get policy from database: %w", err)
 	}
 
 	// Validate policy matches plugin
@@ -96,7 +103,10 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	filePathName := req.PublicKey + ".bak"
 	content, err := s.blockStorage.GetFile(filePathName)
 	if err != nil {
-		return fmt.Errorf("fail to read file, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to read file, err: %w", err)
+		s.logger.Infof("fail to read file in SignPluginMessages, err: %v", err)
+		s.logger.Error(wrappedErr)
+		return wrappedErr
 	}
 
 	_, err = common.DecryptVaultFromBackup(req.VaultPassword, content)
@@ -108,6 +118,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("fail to marshal to json, err: %w", err)
 	}
+
+	//Todo : check that tx is done only once per period
 
 	ti, err := s.client.EnqueueContext(c.Request().Context(),
 		asynq.NewTask(tasks.TypeKeySign, buf),
@@ -129,7 +141,8 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
-	policyPath := fmt.Sprintf("policies/%s.json", policy.ID)
+	// Original policy storage logic (to be deleted when the new on works)
+	/*policyPath := fmt.Sprintf("policies/%s.json", policy.ID)
 	content, err := json.Marshal(policy)
 	if err != nil {
 		return fmt.Errorf("fail to marshal policy, err: %w", err)
@@ -137,6 +150,17 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 
 	if err := s.blockStorage.UploadFile(content, policyPath); err != nil {
 		return fmt.Errorf("fail to upload file, err: %w", err)
+	}*/
+
+	//new policy+trigger storage logic
+	if err := s.db.InsertPluginPolicy(policy); err != nil {
+		return fmt.Errorf("failed to insert policy: %w", err)
+	}
+
+	if s.scheduler != nil {
+		if err := s.scheduler.CreateTimeTrigger(policy); err != nil {
+			s.logger.Errorf("Failed to create time trigger: %v", err)
+		}
 	}
 
 	return c.NoContent(http.StatusOK)

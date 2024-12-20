@@ -33,7 +33,7 @@ func main() {
 		DB:       cfg.Redis.DB,
 	}
 	client := asynq.NewClient(redisOptions)
-	workerServce, err := service.NewWorker(*cfg, client, sdClient, blockStorage)
+	workerService, err := service.NewWorker(*cfg, client, sdClient, blockStorage)
 	if err != nil {
 		panic(err)
 	}
@@ -44,18 +44,19 @@ func main() {
 			Logger:      logrus.StandardLogger(),
 			Concurrency: 10,
 			Queues: map[string]int{
-				tasks.QUEUE_NAME:       10,
-				tasks.EMAIL_QUEUE_NAME: 100,
+				tasks.QUEUE_NAME:         10,
+				tasks.EMAIL_QUEUE_NAME:   100,
+				"scheduled_plugin_queue": 10, // new queue
 			},
 		},
 	)
 
-	// mux maps a type to a handler
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(tasks.TypeKeyGeneration, workerServce.HandleKeyGeneration)
-	mux.HandleFunc(tasks.TypeKeySign, workerServce.HandleKeySign)
-	mux.HandleFunc(tasks.TypeEmailVaultBackup, workerServce.HandleEmailVaultBackup)
-	mux.HandleFunc(tasks.TypeReshare, workerServce.HandleReshare)
+	mux.HandleFunc(tasks.TypeKeyGeneration, workerService.HandleKeyGeneration)
+	mux.HandleFunc(tasks.TypeKeySign, workerService.HandleKeySign)
+	mux.HandleFunc(tasks.TypeEmailVaultBackup, workerService.HandleEmailVaultBackup)
+	mux.HandleFunc(tasks.TypeReshare, workerService.HandleReshare)
+
 	if err := srv.Run(mux); err != nil {
 		panic(fmt.Errorf("could not run server: %w", err))
 	}
