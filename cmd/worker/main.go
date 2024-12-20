@@ -18,7 +18,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	sdClient, err := statsd.New("127.0.0.1:8125")
+	sdClient, err := statsd.New(cfg.Datadog.Host + ":" + cfg.Datadog.Port)
 	if err != nil {
 		panic(err)
 	}
@@ -44,8 +44,8 @@ func main() {
 			Logger:      logrus.StandardLogger(),
 			Concurrency: 10,
 			Queues: map[string]int{
-				tasks.QUEUE_NAME:       10,
-				tasks.EMAIL_QUEUE_NAME: 100,
+				tasks.SIGNER_DEFAULT_QUEUE: 10,
+				tasks.SIGNER_EMAIL_QUEUE:   100,
 			},
 		},
 	)

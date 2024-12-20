@@ -1,14 +1,31 @@
+plugin:
+  type: "payroll"
+
 server:
-  port: "8080"
+  # mode: "pluginserver"
+  # port: "8081"
+  # mode: "vultiserver"
+  # port: "8080"
   host: "0.0.0.0"
-  vaultsFilePath: "vaults"
+  vaults_file_path: "vaults"
+
+relay:
+  server: "http://localhost:8080/router"
 
 redis:
   host: "localhost"
   port: "6379"
   password: ""
 
-relay:
-  server: "http://localhost:8080/router"
+database:
+  dsn: "postgres://myuser:mypassword@localhost:5432/mydatabase?sslmode=disable"
+
+block_storage:
+  host: "http://localhost:9000"
+  region: "us-east-1"
+  access_key: "minioadmin"
+  secret: "minioadmin"
+  bucket: "local-bucket"
+
 email_server:
   api_key: "key-1234567890"

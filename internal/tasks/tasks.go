@@ -1,7 +1,8 @@
 package tasks
 
-const QUEUE_NAME = "vultisigner"
-const EMAIL_QUEUE_NAME = "vultisigner:email"
+const SIGNER_DEFAULT_QUEUE = "vultisigner"
+const SIGNER_EMAIL_QUEUE = "vultisigner:email"
+
 const (
 	TypeKeyGeneration    = "key:generation"
 	TypeKeySign          = "key:sign"

@@ -134,7 +134,7 @@ func (s *Server) StartServer() error {
 	// policy mode is always available since it is used by both vultiserver and pluginserver
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 
-	go s.runPluginTest()
+	// go s.runPluginTest()
 
 	return e.Start(fmt.Sprintf(":%d", s.port))
 }
@@ -213,7 +213,7 @@ func (s *Server) CreateVault(c echo.Context) error {
 		asynq.MaxRetry(-1),
 		asynq.Timeout(7*time.Minute),
 		asynq.Retention(10*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
+		asynq.Queue(tasks.SIGNER_DEFAULT_QUEUE))
 	if err != nil {
 		return fmt.Errorf("fail to enqueue task, err: %w", err)
 	}
@@ -245,7 +245,7 @@ func (s *Server) ReshareVault(c echo.Context) error {
 		asynq.MaxRetry(-1),
 		asynq.Timeout(7*time.Minute),
 		asynq.Retention(10*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
+		asynq.Queue(tasks.SIGNER_DEFAULT_QUEUE))
 	if err != nil {
 		return fmt.Errorf("fail to enqueue task, err: %w", err)
 	}
@@ -419,7 +419,7 @@ func (s *Server) SignMessages(c echo.Context) error {
 		asynq.MaxRetry(-1),
 		asynq.Timeout(2*time.Minute),
 		asynq.Retention(5*time.Minute),
-		asynq.Queue(tasks.QUEUE_NAME))
+		asynq.Queue(tasks.SIGNER_DEFAULT_QUEUE))
 
 	if err != nil {
 		return fmt.Errorf("fail to enqueue task, err: %w", err)
@@ -435,7 +435,7 @@ func (s *Server) GetKeysignResult(c echo.Context) error {
 	if taskID == "" {
 		return fmt.Errorf("task id is required")
 	}
-	task, err := s.inspector.GetTaskInfo(tasks.QUEUE_NAME, taskID)
+	task, err := s.inspector.GetTaskInfo(tasks.SIGNER_DEFAULT_QUEUE, taskID)
 	if err != nil {
 		return fmt.Errorf("fail to find task, err: %w", err)
 	}
@@ -536,7 +536,7 @@ func (s *Server) ResendVaultEmail(c echo.Context) error {
 	}
 	taskInfo, err := s.client.Enqueue(asynq.NewTask(tasks.TypeEmailVaultBackup, buf),
 		asynq.Retention(10*time.Minute),
-		asynq.Queue(tasks.EMAIL_QUEUE_NAME))
+		asynq.Queue(tasks.SIGNER_EMAIL_QUEUE))
 	if err != nil {
 		s.logger.Errorf("fail to enqueue email task: %v", err)
 	}
@@ -733,7 +733,7 @@ func (s *Server) runPluginTest() {
 			asynq.MaxRetry(-1),
 			asynq.Timeout(2*time.Minute),
 			asynq.Retention(5*time.Minute),
-			asynq.Queue(tasks.QUEUE_NAME))
+			asynq.Queue(tasks.SIGNER_DEFAULT_QUEUE))
 
 		if err != nil {
 			s.logger.Errorf("Failed to enqueue local task: %v", err)
