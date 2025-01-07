@@ -27,3 +27,12 @@ type TransactionHistory struct {
 	Metadata     map[string]interface{} `json:"metadata"`
 	ErrorMessage *string                `json:"error_message,omitempty"`
 }
+
+type SignedTransaction struct {
+	PolicyID    string
+	TxHash      string
+	RawTx       string
+	Signature   string
+	Metadata    map[string]any
+	BroadcastAt *time.Time
+}

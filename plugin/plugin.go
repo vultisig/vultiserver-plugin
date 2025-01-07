@@ -15,4 +15,7 @@ type Plugin interface {
 
 	ProposeTransactions(policy types.PluginPolicy) ([]types.PluginKeysignRequest, error)
 	ValidateTransactionProposal(policy types.PluginPolicy, txs []types.PluginKeysignRequest) error
+
+	GetNextNonce(address string) (uint64, error)
+	SigningComplete(signedTx types.SignedTransaction) error
 }
