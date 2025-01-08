@@ -47,6 +47,7 @@ type Config struct {
 		SecretKey string `mapstructure:"secret" json:"secret"`
 		Bucket    string `mapstructure:"bucket" json:"bucket"`
 	} `mapstructure:"block_storage" json:"block_storage"`
+	RpcURL string `mapstructure:"rpc_url" json:"rpc_url"`
 }
 
 func GetConfigure() (*Config, error) {

@@ -1,6 +1,7 @@
 package payroll
 
 import (
+	"context"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -11,10 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gcommon "github.com/ethereum/go-ethereum/common"
 	gtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultisigner/plugin"
 	"github.com/vultisig/vultisigner/storage"
 )
 
@@ -33,12 +36,16 @@ const erc20ABI = `[{
 var frontend embed.FS
 
 type PayrollPlugin struct {
-	db storage.DatabaseStorage
+	db           storage.DatabaseStorage
+	nonceManager *plugin.NonceManager
+	rpcClient    *ethclient.Client
 }
 
-func NewPayrollPlugin(db storage.DatabaseStorage) *PayrollPlugin {
+func NewPayrollPlugin(db storage.DatabaseStorage, rpcClient *ethclient.Client) *PayrollPlugin {
 	return &PayrollPlugin{
-		db: db,
+		db:           db,
+		rpcClient:    rpcClient,
+		nonceManager: plugin.NewNonceManager(rpcClient),
 	}
 }
 
@@ -241,4 +248,35 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 
 func (p *PayrollPlugin) Frontend() embed.FS {
 	return frontend
+}
+
+func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {
+	return p.nonceManager.GetNextNonce(address)
+}
+
+func (p *PayrollPlugin) SigningComplete(signedTx types.SignedTransaction) error {
+	// implement broadcast logic
+	tx := new(gtypes.Transaction)
+	if err := tx.UnmarshalBinary([]byte(signedTx.RawTx)); err != nil {
+		return fmt.Errorf("failed to unmarshal transaction: %w", err)
+	}
+
+	signer := gtypes.NewLondonSigner(tx.ChainId()) // or use appropriate signer based on your chain
+	sender, err := signer.Sender(tx)
+	if err != nil {
+		return fmt.Errorf("failed to get transaction sender: %w", err)
+	}
+
+	// send tx
+	err = p.rpcClient.SendTransaction(context.Background(), tx)
+	if err != nil {
+		if strings.Contains(err.Error(), "nonce too low") {
+			// reset nonce tracking and return error for retry
+			p.nonceManager.ResetNonce(sender.Hex())
+			return fmt.Errorf("nonce error, retry needed: %w", err)
+		}
+		return err
+	}
+
+	return nil
 }

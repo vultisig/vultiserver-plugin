@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
@@ -53,9 +54,14 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 
 	var plugin plugin.Plugin
 	if cfg.Server.Mode == "pluginserver" {
+		rpcClient, err := ethclient.Dial(cfg.RpcURL) //todo : add rpc url to config
+		if err != nil {
+			logrus.Fatalf("Failed to connect to RPC: %v", err)
+		}
+
 		switch cfg.Plugin.Type {
 		case "payroll":
-			plugin = payroll.NewPayrollPlugin(db)
+			plugin = payroll.NewPayrollPlugin(db, rpcClient)
 		default:
 			logrus.Fatalf("Invalid plugin type: %s", cfg.Plugin.Type)
 		}
