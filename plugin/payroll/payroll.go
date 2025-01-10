@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/google/uuid"
-	"github.com/klaytn/klaytn/common"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/vultisigner/internal/types"
@@ -260,33 +259,6 @@ func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {
 	return p.nonceManager.GetNextNonce(address)
 }
 
-/*func (p *PayrollPlugin) SigningComplete(signedTx types.SignedTransaction) error {
-	// implement broadcast logic
-	tx := new(gtypes.Transaction)
-	if err := tx.UnmarshalBinary([]byte(signedTx.RawTx)); err != nil {
-		return fmt.Errorf("failed to unmarshal transaction: %w", err)
-	}
-
-	signer := gtypes.NewLondonSigner(tx.ChainId()) // or use appropriate signer based on your chain
-	sender, err := signer.Sender(tx)
-	if err != nil {
-		return fmt.Errorf("failed to get transaction sender: %w", err)
-	}
-
-	// send tx
-	err = p.rpcClient.SendTransaction(context.Background(), tx)
-	if err != nil {
-		if strings.Contains(err.Error(), "nonce too low") {
-			// reset nonce tracking and return error for retry
-			p.nonceManager.ResetNonce(sender.Hex())
-			return fmt.Errorf("nonce error, retry needed: %w", err)
-		}
-		return err
-	}
-
-	return nil
-}*/
-
 func (p *PayrollPlugin) SigningComplete(signedTx types.SignedTransaction) error {
 	tx := new(gtypes.Transaction)
 	if err := tx.UnmarshalBinary([]byte(signedTx.RawTx)); err != nil {
@@ -309,7 +281,7 @@ func (p *PayrollPlugin) SigningComplete(signedTx types.SignedTransaction) error 
 	return p.monitorTransaction(tx)
 }
 
-func (p *PayrollPlugin) handleTransactionError(err error, tx *gtypes.Transaction, sender common.Address) error {
+func (p *PayrollPlugin) handleTransactionError(err error, tx *gtypes.Transaction, sender gcommon.Address) error {
 	errMsg := err.Error()
 
 	switch {

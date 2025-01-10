@@ -29,9 +29,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	if len(req.Messages) != 1 {
 		return fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
 	}
-	if len(req.Transaction) != 1 {
-		return fmt.Errorf("plugin signing requires exactly one transaction, current: %d", len(req.Transaction))
-	}
 
 	// Get policy from database
 	policy, err := s.db.GetPluginPolicy(req.PolicyID)
@@ -48,7 +45,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	var plugin plugin.Plugin
 	switch policy.PluginType {
 	case "payroll":
-		plugin = payroll.NewPayrollPlugin(s.db)
+		plugin = payroll.NewPayrollPlugin(s.db, s.rpcClient)
 	}
 
 	if plugin == nil {
@@ -100,6 +97,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	//Todo : check that tx is done only once per period
+	//should we also copy the db to the vultiserver, so that it can be used by the vultiserver (and use scheduler.go)? or query the blockchain?
 
 	// Create transaction with PENDING status first
 	policyUUID, err := uuid.Parse(req.PolicyID)
@@ -165,7 +163,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	var plugin plugin.Plugin
 	switch policy.PluginType {
 	case "payroll":
-		plugin = payroll.NewPayrollPlugin(s.db)
+		plugin = payroll.NewPayrollPlugin(s.db, s.rpcClient)
 	}
 
 	if plugin == nil {

@@ -71,13 +71,9 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 	if err != nil {
 		return fmt.Errorf("failed to get pending triggers: %w", err)
 	}
-	s.logger.Info("Triggers: ", triggers)
+	//s.logger.Info("Triggers: ", triggers)
 
 	for _, trigger := range triggers {
-		s.logger.WithFields(logrus.Fields{
-			"policy_id": trigger.PolicyID,
-			"last_exec": trigger.LastExecution,
-		}).Info("Processing trigger")
 		// Parse cron expression
 		schedule, err := cron.ParseStandard(trigger.CronExpression)
 		if err != nil {
@@ -96,11 +92,12 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 		nextTime = nextTime.UTC()
 
 		s.logger.WithFields(logrus.Fields{
-			"current_time": time.Now().UTC(),
-			"next_time":    nextTime,
 			"policy_id":    trigger.PolicyID,
 			"last_exec":    trigger.LastExecution,
-		}).Info("Checking execution time")
+			"current_time": time.Now().UTC(),
+			"next_time":    nextTime,
+		}).Info("Processing trigger")
+
 		if time.Now().UTC().After(nextTime) {
 			triggerEvent := types.PluginTriggerEvent{
 				PolicyID: trigger.PolicyID,

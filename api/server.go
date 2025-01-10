@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -43,6 +44,7 @@ type Server struct {
 	plugin        plugin.Plugin
 	db            storage.DatabaseStorage
 	scheduler     *scheduler.SchedulerService
+	rpcClient     *ethclient.Client
 }
 
 // NewServer returns a new server.
@@ -55,10 +57,17 @@ func NewServer(port int64,
 	blockStorage *storage.BlockStorage,
 	mode string,
 	pluginType string,
-	dsn string) *Server {
+	dsn string,
+	rpcURL string,
+) *Server {
 
 	logrus.Info("Initializing new server...")
 	logrus.Infof("Server mode: %s, plugin type: %s", mode, pluginType)
+
+	rpcClient, err := ethclient.Dial(rpcURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to RPC: %v", err)
+	}
 
 	db, err := postgres.NewPostgresBackend(false, dsn)
 	if err != nil {
@@ -70,7 +79,7 @@ func NewServer(port int64,
 	if mode == "pluginserver" {
 		switch pluginType {
 		case "payroll":
-			plugin = payroll.NewPayrollPlugin(db)
+			plugin = payroll.NewPayrollPlugin(db, rpcClient)
 		default:
 			logrus.Fatalf("Invalid plugin type: %s", pluginType)
 		}

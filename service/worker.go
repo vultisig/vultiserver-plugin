@@ -54,7 +54,7 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 
 	var plugin plugin.Plugin
 	if cfg.Server.Mode == "pluginserver" {
-		rpcClient, err := ethclient.Dial(cfg.RpcURL) //todo : add rpc url to config
+		rpcClient, err := ethclient.Dial(cfg.RPC.URL)
 		if err != nil {
 			logrus.Fatalf("Failed to connect to RPC: %v", err)
 		}
@@ -338,6 +338,8 @@ func (s *WorkerService) HandleReshare(ctx context.Context, t *asynq.Task) error 
 }
 
 func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Task) error {
+	s.logger.Info("Starting HandlePluginTransaction")
+
 	if err := contexthelper.CheckCancellation(ctx); err != nil {
 		return err
 	}
@@ -350,9 +352,6 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 
 	defer s.measureTime("worker.plugin.transaction.latency", time.Now(), []string{})
 	s.incCounter("worker.plugin.transaction", []string{})
-	s.logger.WithFields(logrus.Fields{
-		"policy_id": triggerEvent.PolicyID,
-	}).Info("plugin transaction request")
 
 	policy, err := s.db.GetPluginPolicy(triggerEvent.PolicyID)
 	if err != nil {
@@ -474,12 +473,22 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 			s.logger.Errorf("Failed to update transaction status: %v", err)
 		}
 
-		if err := s.db.UpdateTriggerExecution(policy.ID); err != nil {
+		if err := s.db.UpdateTriggerExecution(policy.ID); err != nil { //todo : check why this seems to work even when tss fails
 			s.logger.Errorf("Failed to update last execution: %v", err)
 		}
 
 		s.logger.Infof("Plugin signing test complete. Status: %d, Response: %s",
 			signResp.StatusCode, string(respBody))
+
+		//todo : retry
+
+		signingComplete := s.plugin.SigningComplete(types.SignedTransaction{
+			RawTx: string(respBody),
+		})
+		if signingComplete != nil {
+			s.logger.Errorf("Failed to sign transaction: %v", signingComplete)
+			return signingComplete
+		}
 	}
 
 	return nil
