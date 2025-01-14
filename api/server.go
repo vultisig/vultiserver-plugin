@@ -79,7 +79,7 @@ func NewServer(port int64,
 	if mode == "pluginserver" {
 		switch pluginType {
 		case "payroll":
-			plugin = payroll.NewPayrollPlugin(db, rpcClient)
+			plugin = payroll.NewPayrollPlugin(db, logrus.WithField("service", "plugin").Logger, rpcClient)
 		default:
 			logrus.Fatalf("Invalid plugin type: %s", pluginType)
 		}

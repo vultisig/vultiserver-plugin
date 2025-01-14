@@ -42,15 +42,15 @@ type PayrollPlugin struct {
 	db           storage.DatabaseStorage
 	nonceManager *plugin.NonceManager
 	rpcClient    *ethclient.Client
-	logger       *logrus.Logger
+	logger       logrus.FieldLogger
 }
 
-func NewPayrollPlugin(db storage.DatabaseStorage, rpcClient *ethclient.Client) *PayrollPlugin {
+func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rpcClient *ethclient.Client) *PayrollPlugin {
 	return &PayrollPlugin{
 		db:           db,
 		rpcClient:    rpcClient,
 		nonceManager: plugin.NewNonceManager(rpcClient),
-		logger:       logrus.New(),
+		logger:       logger,
 	}
 }
 
@@ -124,11 +124,11 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 		signRequest := types.PluginKeysignRequest{
 			KeysignRequest: types.KeysignRequest{
 				PublicKey:        policy.PublicKey,
-				Messages:         []string{txHash}, //check how to correctly construct tx hash which depends on blockchain infos like nounce
+				Messages:         []string{txHash}, //Todo : check how to correctly construct tx hash which depends on blockchain infos like nounce
 				SessionID:        uuid.New().String(),
 				HexEncryptionKey: "0123456789abcdef0123456789abcdef",
 				DerivePath:       "m/44/60/0/0/0",
-				IsECDSA:          true,
+				IsECDSA:          true, //Todo : make this a parameter
 				VaultPassword:    "your-secure-password",
 			},
 			Transaction: hex.EncodeToString(rawTx),
@@ -259,25 +259,42 @@ func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {
 	return p.nonceManager.GetNextNonce(address)
 }
 
-func (p *PayrollPlugin) SigningComplete(signedTx types.SignedTransaction) error {
-	tx := new(gtypes.Transaction)
-	if err := tx.UnmarshalBinary([]byte(signedTx.RawTx)); err != nil {
-		return fmt.Errorf("failed to unmarshal transaction: %w", err)
-	}
+func (p *PayrollPlugin) SigningComplete(tx *gtypes.Transaction) error {
+	p.logger.WithFields(logrus.Fields{
+		"nonce":    tx.Nonce(),
+		"to":       tx.To(),
+		"value":    tx.Value(),
+		"gasPrice": tx.GasPrice(),
+		"gas":      tx.Gas(),
+		"chainId":  tx.ChainId(),
+		"tx_hash":  tx.Hash().Hex(),
+	}).Info("Attempting to send signed transaction")
 
 	// get sender for logging
-	signer := gtypes.NewLondonSigner(tx.ChainId())
+	signer := gtypes.NewLondonSigner(big.NewInt(0))
 	sender, err := signer.Sender(tx)
 	if err != nil {
-		p.logger.Warnf("Could not determine sender: %v", err)
+		p.logger.WithError(err).Warn("Could not determine sender")
+	} else {
+		p.logger.WithField("sender", sender.Hex()).Info("Transaction sender")
 	}
 
-	// send tx
-	err = p.rpcClient.SendTransaction(context.Background(), tx)
+	// Check if RPC client is initialized
+	if p.rpcClient == nil {
+		return fmt.Errorf("RPC client not initialized")
+	}
+
+	// send tx with context and timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = p.rpcClient.SendTransaction(ctx, tx)
 	if err != nil {
-		return p.handleTransactionError(err, tx, sender) //Todo:the worker gets back the tx error, and acts accordingly
+		p.logger.WithError(err).Error("Failed to send transaction")
+		return p.handleTransactionError(err, tx, sender)
 	}
 
+	p.logger.WithField("hash", tx.Hash().Hex()).Info("Transaction sent successfully")
 	return p.monitorTransaction(tx)
 }
 

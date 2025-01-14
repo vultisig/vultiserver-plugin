@@ -45,7 +45,7 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	var plugin plugin.Plugin
 	switch policy.PluginType {
 	case "payroll":
-		plugin = payroll.NewPayrollPlugin(s.db, s.rpcClient)
+		plugin = payroll.NewPayrollPlugin(s.db, s.logger, s.rpcClient)
 	}
 
 	if plugin == nil {
@@ -163,7 +163,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	var plugin plugin.Plugin
 	switch policy.PluginType {
 	case "payroll":
-		plugin = payroll.NewPayrollPlugin(s.db, s.rpcClient)
+		plugin = payroll.NewPayrollPlugin(s.db, s.logger, s.rpcClient)
 	}
 
 	if plugin == nil {

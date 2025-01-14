@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/vultisigner/internal/types"
@@ -17,14 +16,14 @@ func (p *PostgresBackend) CreateTimeTrigger(trigger types.TimeTrigger) error {
 
 	query := `
         INSERT INTO time_triggers 
-        (policy_id, cron_expression, start_time, last_execution, end_time, frequency) 
-        VALUES ($1, $2, $3, $4, $5, $6)`
+        (policy_id, cron_expression, start_time, end_time, frequency) 
+        VALUES ($1, $2, $3, $4, $5)`
 
 	_, err := p.pool.Exec(context.Background(), query,
 		trigger.PolicyID,
 		trigger.CronExpression,
 		trigger.StartTime,
-		time.Now().UTC(),
+		/*time.Now().UTC(),*/
 		trigger.EndTime,
 		trigger.Frequency)
 

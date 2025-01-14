@@ -3,6 +3,7 @@ package plugin
 import (
 	"embed"
 
+	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/labstack/echo/v4"
 	"github.com/vultisig/vultisigner/internal/types"
 )
@@ -17,5 +18,5 @@ type Plugin interface {
 	ValidateTransactionProposal(policy types.PluginPolicy, txs []types.PluginKeysignRequest) error
 
 	GetNextNonce(address string) (uint64, error)
-	SigningComplete(signedTx types.SignedTransaction) error
+	SigningComplete(signedTx *gtypes.Transaction) error
 }

@@ -4,18 +4,24 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
+	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
+
+	"github.com/vultisig/mobile-tss-lib/tss"
 
 	"github.com/vultisig/vultisigner/config"
 	"github.com/vultisig/vultisigner/contexthelper"
@@ -61,7 +67,7 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 
 		switch cfg.Plugin.Type {
 		case "payroll":
-			plugin = payroll.NewPayrollPlugin(db, rpcClient)
+			plugin = payroll.NewPayrollPlugin(db, logrus.WithField("service", "plugin").Logger, rpcClient)
 		default:
 			logrus.Fatalf("Invalid plugin type: %s", cfg.Plugin.Type)
 		}
@@ -482,11 +488,106 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 
 		//todo : retry
 
-		signingComplete := s.plugin.SigningComplete(types.SignedTransaction{
-			RawTx: string(respBody),
-		})
+		///////////////////////////////////////////////////////////////////////
+
+		var signatures map[string]tss.KeysignResponse
+		if err := json.Unmarshal(result, &signatures); err != nil {
+			s.logger.Errorf("Failed to unmarshal signatures: %v", err)
+			return fmt.Errorf("failed to unmarshal signatures: %w", err)
+		}
+
+		var signature tss.KeysignResponse
+		for _, sig := range signatures {
+			signature = sig
+			break
+		}
+
+		// convert R and S from hex strings to big.Int
+		r := new(big.Int)
+		r.SetString(signature.R, 16) // base 16 for hex
+		if r == nil {
+			return fmt.Errorf("failed to parse R value")
+		}
+
+		s_value := new(big.Int)
+		s_value.SetString(signature.S, 16) // base 16 for hex
+		if s_value == nil {
+			return fmt.Errorf("failed to parse S value")
+		}
+
+		txBytes, err := hex.DecodeString(signRequest.Transaction)
+		if err != nil {
+			s.logger.Errorf("Failed to decode transaction hex: %v", err)
+			return fmt.Errorf("failed to decode transaction hex: %w", err)
+		}
+
+		originalTx := new(gtypes.Transaction)
+		if err := originalTx.UnmarshalBinary(txBytes); err != nil {
+			s.logger.Errorf("Failed to unmarshal transaction: %v", err)
+			return fmt.Errorf("failed to unmarshal transaction: %w", err)
+		}
+
+		chainID := big.NewInt(0) // polygon mainnet chain ID
+
+		recoveryID, err := strconv.ParseInt(signature.RecoveryID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse recovery ID: %w", err)
+		}
+
+		// Calculate V for EIP-155
+		v := new(big.Int).Set(chainID)
+		v.Mul(v, big.NewInt(2))
+		v.Add(v, big.NewInt(35+recoveryID))
+
+		s.logger.Info(
+			logrus.Fields{
+				"chainID":    chainID,
+				"v":          v,
+				"r":          r,
+				"s":          s_value,
+				"recoveryID": recoveryID,
+			},
+		)
+
+		innerTx := &gtypes.LegacyTx{
+			Nonce:    originalTx.Nonce(),
+			GasPrice: originalTx.GasPrice(),
+			Gas:      originalTx.Gas(),
+			To:       originalTx.To(),
+			Value:    originalTx.Value(),
+			Data:     originalTx.Data(),
+			V:        new(big.Int).Add(v, new(big.Int).Mul(chainID, big.NewInt(2))), // EIP-155 calculation,
+			R:        r,
+			S:        s_value,
+		}
+
+		signedTx := gtypes.NewTx(innerTx)
+
+		signer := gtypes.NewLondonSigner(chainID)
+		sender, err := signer.Sender(signedTx)
+		if err != nil {
+			s.logger.Errorf("Failed to get sender: %v", err)
+			return fmt.Errorf("failed to get sender: %w", err)
+		}
+
+		s.logger.WithField("sender", sender.Hex()).Info("Transaction sender")
+		///////////////////////////////////////////////////////////////////////
+
+		s.logger.Info("About to call SigningComplete")
+		signingComplete := s.plugin.SigningComplete( //todo : remove occurances of SignedTransaction type if not neede
+			signedTx,
+		)
+		s.logger.Info("After SigningComplete call")
+
 		if signingComplete != nil {
-			s.logger.Errorf("Failed to sign transaction: %v", signingComplete)
+			s.logger.WithFields(logrus.Fields{
+				"error":      signingComplete,
+				"chainID":    chainID,
+				"v":          v,
+				"r":          r,
+				"s":          s_value,
+				"recoveryID": recoveryID,
+			}).Error("Failed to sign transaction TEST")
 			return signingComplete
 		}
 	}

@@ -71,34 +71,69 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 	if err != nil {
 		return fmt.Errorf("failed to get pending triggers: %w", err)
 	}
-	//s.logger.Info("Triggers: ", triggers)
 
 	for _, trigger := range triggers {
 		// Parse cron expression
 		schedule, err := cron.ParseStandard(trigger.CronExpression)
 		if err != nil {
-			s.logger.Errorf("Failed to parse cron expression: %v", err)
+			s.logger.Errorf("Failed to parse cron expression: %v", err) //todo : remove trigger if cron expression is invalid
 			continue
 		}
 
 		// Check if it's time to execute
 		var nextTime time.Time
 		if trigger.LastExecution != nil {
+			s.logger.Info("Last execution is not nil, using last execution")
+			s.logger.WithFields(logrus.Fields{
+				"last execution": trigger.LastExecution,
+			}).Info("Last execution")
 			nextTime = schedule.Next(*trigger.LastExecution)
 		} else {
-			nextTime = schedule.Next(time.Now().Add(-24 * time.Hour))
+			s.logger.Info("Last execution is nil, using default window")
+			nextTime = schedule.Next(time.Now().Add(-24 * time.Hour)) //todo : change window to a better duration
 		}
+
+		s.logger.WithFields(logrus.Fields{
+			"next time": nextTime,
+		}).Info("Next time")
+
+		s.logger.WithFields(logrus.Fields{
+			"time": time.Now().UTC(),
+		}).Info("Current time")
+
+		s.logger.WithFields(logrus.Fields{
+			"next time greater than current time": time.Now().UTC().After(nextTime),
+		}).Info("Next time greater than current time")
 
 		nextTime = nextTime.UTC()
 
 		s.logger.WithFields(logrus.Fields{
+			"next time": nextTime,
+		}).Info("Next time")
+
+		s.logger.WithFields(logrus.Fields{
+			"time": time.Now().UTC(),
+		}).Info("Current time")
+
+		s.logger.WithFields(logrus.Fields{
+			"next time greater than current time": time.Now().UTC().After(nextTime),
+		}).Info("Next time greater than current time")
+
+		/*s.logger.WithFields(logrus.Fields{
 			"policy_id":    trigger.PolicyID,
 			"last_exec":    trigger.LastExecution,
 			"current_time": time.Now().UTC(),
 			"next_time":    nextTime,
-		}).Info("Processing trigger")
+		}).Info("Processing trigger")*/
 
 		if time.Now().UTC().After(nextTime) {
+			s.logger.WithFields(logrus.Fields{
+				"policy_id":    trigger.PolicyID,
+				"last_exec":    trigger.LastExecution,
+				"current_time": time.Now().UTC(),
+				"next_time":    nextTime,
+			}).Info("Inside if statement")
+
 			triggerEvent := types.PluginTriggerEvent{
 				PolicyID: trigger.PolicyID,
 			}
