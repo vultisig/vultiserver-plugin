@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -11,13 +12,22 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	gtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+
+	//"github.com/klaytn/klaytn/crypto"
+
+	//"github.com/klaytn/klaytn/common"
+	//"github.com/klaytn/klaytn/crypto"
 	"github.com/sirupsen/logrus"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 
@@ -44,6 +54,7 @@ type WorkerService struct {
 	inspector    *asynq.Inspector
 	plugin       plugin.Plugin
 	db           storage.DatabaseStorage
+	rpcClient    *ethclient.Client
 }
 
 // NewWorker creates a new worker service
@@ -58,12 +69,13 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 		logrus.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	rpcClient, err := ethclient.Dial(cfg.RPC.URL)
+	if err != nil {
+		logrus.Fatalf("Failed to connect to RPC: %v", err)
+	}
 	var plugin plugin.Plugin
+
 	if cfg.Server.Mode == "pluginserver" {
-		rpcClient, err := ethclient.Dial(cfg.RPC.URL)
-		if err != nil {
-			logrus.Fatalf("Failed to connect to RPC: %v", err)
-		}
 
 		switch cfg.Plugin.Type {
 		case "payroll":
@@ -83,6 +95,7 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 		plugin:       plugin,
 		db:           db,
 		inspector:    inspector,
+		rpcClient:    rpcClient,
 	}, nil
 }
 
@@ -571,6 +584,85 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 		}
 
 		s.logger.WithField("sender", sender.Hex()).Info("Transaction sender")
+		s.logger.WithField("sender", sender.Hex()).Info("Transaction sender 2")
+
+		s.logger.WithField("rpcClient", s.rpcClient).Info("RPC client 1")
+
+		s.logger.WithField("rpcClient", s.rpcClient).Info("RPC client")
+
+		privateKey := "7a244b3c1f6009afa643637545b83ea97f8394736b83fcb2eb510ffb162ed15f"
+		address, err := GetEthAddress(privateKey)
+		if err != nil {
+			s.logger.WithField("rpcClient", s.rpcClient).WithError(err).Error("Failed to get address")
+		}
+		s.logger.WithField("address", address.Hex()).Info("Ethereum Address")
+
+		s.logger.WithField("rpcClient", s.rpcClient).Info("Attempting to send transaction")
+		err = s.rpcClient.SendTransaction(ctx, signedTx)
+		s.logger.WithField("rpcClient", s.rpcClient).WithError(err).Info("Failed to send transaction?")
+		if err != nil {
+			s.logger.WithField("rpcClient", s.rpcClient).WithError(err).Error("Failed to send transaction")
+			s.logger.WithError(err).Error("Failed to send transaction")
+			return fmt.Errorf("failed to send transaction: %w", err)
+		}
+
+		s.logger.WithFields(logrus.Fields{
+			"txHash": signedTx.Hash().Hex(),
+			"sender": sender.Hex(),
+		}).Info("Transaction sent successfully")
+
+		///
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute) //how much time should we monitor the tx?
+		defer cancel()
+
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+
+		txHash := signedTx.Hash()
+		for {
+			select {
+			case <-ctx.Done():
+				s.logger.WithField("txHash", signedTx.Hash().Hex()).Info("Transaction monitoring timed out")
+				return &types.TransactionError{
+					Code:    types.ErrTxTimeout,
+					Message: fmt.Sprintf("Transaction monitoring timed out for tx: %s", txHash.Hex()),
+				}
+
+			case <-ticker.C:
+				// check tx status
+				_, isPending, err := s.rpcClient.TransactionByHash(ctx, txHash)
+				if err != nil {
+					if err == ethereum.NotFound {
+						s.logger.WithField("txHash", signedTx.Hash().Hex()).Info("Transaction dropped from mempool")
+						return &types.TransactionError{
+							Code:    types.ErrTxDropped,
+							Message: fmt.Sprintf("Transaction dropped from mempool: %s", txHash.Hex()),
+						}
+					}
+					continue // keep trying on other RPC errors
+				}
+
+				if !isPending {
+					receipt, err := s.rpcClient.TransactionReceipt(ctx, txHash)
+					if err != nil {
+						s.logger.WithField("txHash", signedTx.Hash().Hex()).Errorf("Failed to get transaction receipt: %v", err)
+						continue
+					}
+
+					if receipt.Status == 0 {
+						// try to get revert reason
+						/*reason := s.plugin.getRevertReason(ctx, signedTx, receipt.BlockNumber)
+						return &types.TransactionError{
+							Code:    types.ErrExecutionReverted,
+							Message: fmt.Sprintf("Transaction reverted: %s", reason),
+						}*/
+					}
+
+					// Transaction successful
+					return nil
+				}
+			}
+		}
 		///////////////////////////////////////////////////////////////////////
 
 		s.logger.Info("About to call SigningComplete")
@@ -627,4 +719,32 @@ func (s *WorkerService) waitForTaskResult(taskID string, timeout time.Duration) 
 
 		time.Sleep(pollInterval)
 	}
+}
+
+func GetEthAddress(privateKeyHex string) (common.Address, error) {
+	// Remove "0x" prefix if present
+	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
+
+	// Convert hex string to private key
+	privateKeyBytes, err := hex.DecodeString(privateKeyHex)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to decode private key: %w", err)
+	}
+
+	privateKey, err := crypto.ToECDSA(privateKeyBytes)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to convert to ECDSA: %w", err)
+	}
+
+	// Get public key
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}, fmt.Errorf("failed to get public key")
+	}
+
+	// Get Ethereum address
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	return address, nil
 }
