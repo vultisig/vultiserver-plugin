@@ -93,31 +93,7 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 			nextTime = schedule.Next(time.Now().Add(-24 * time.Hour)) //todo : change window to a better duration
 		}
 
-		s.logger.WithFields(logrus.Fields{
-			"next time": nextTime,
-		}).Info("Next time")
-
-		s.logger.WithFields(logrus.Fields{
-			"time": time.Now().UTC(),
-		}).Info("Current time")
-
-		s.logger.WithFields(logrus.Fields{
-			"next time greater than current time": time.Now().UTC().After(nextTime),
-		}).Info("Next time greater than current time")
-
 		nextTime = nextTime.UTC()
-
-		s.logger.WithFields(logrus.Fields{
-			"next time": nextTime,
-		}).Info("Next time")
-
-		s.logger.WithFields(logrus.Fields{
-			"time": time.Now().UTC(),
-		}).Info("Current time")
-
-		s.logger.WithFields(logrus.Fields{
-			"next time greater than current time": time.Now().UTC().After(nextTime),
-		}).Info("Next time greater than current time")
 
 		/*s.logger.WithFields(logrus.Fields{
 			"policy_id":    trigger.PolicyID,

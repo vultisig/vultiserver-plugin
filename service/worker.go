@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -12,22 +11,15 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
-
-	//"github.com/klaytn/klaytn/crypto"
-
-	//"github.com/klaytn/klaytn/common"
-	//"github.com/klaytn/klaytn/crypto"
 	"github.com/sirupsen/logrus"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 
@@ -379,9 +371,10 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 	}
 
 	s.logger.WithFields(logrus.Fields{
-		"policy_id":   policy.ID,
-		"public_key":  policy.PublicKey,
-		"plugin_type": policy.PluginType,
+		"policy_id":         policy.ID,
+		"public_key":        policy.PublicKey,
+		"plugin_type":       policy.PluginType,
+		"policy public key": policy.PublicKey,
 	}).Info("Retrieved policy for signing")
 
 	signRequests, err := s.plugin.ProposeTransactions(policy)
@@ -463,7 +456,7 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 		// Enqueue TypeKeySign directly
 		ti, err := s.queueClient.Enqueue(
 			asynq.NewTask(tasks.TypeKeySign, buf),
-			asynq.MaxRetry(-1),
+			asynq.MaxRetry(0),
 			asynq.Timeout(2*time.Minute),
 			asynq.Retention(5*time.Minute),
 			asynq.Queue(tasks.QUEUE_NAME),
@@ -515,52 +508,57 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 			break
 		}
 
-		// convert R and S from hex strings to big.Int
-		r := new(big.Int)
-		r.SetString(signature.R, 16) // base 16 for hex
-		if r == nil {
-			return fmt.Errorf("failed to parse R value")
-		}
-
-		s_value := new(big.Int)
-		s_value.SetString(signature.S, 16) // base 16 for hex
-		if s_value == nil {
-			return fmt.Errorf("failed to parse S value")
-		}
-
-		txBytes, err := hex.DecodeString(signRequest.Transaction)
+		r, s_value, originalTx, err := s.convertRAndS(signature, signRequest)
 		if err != nil {
-			s.logger.Errorf("Failed to decode transaction hex: %v", err)
-			return fmt.Errorf("failed to decode transaction hex: %w", err)
+			s.logger.Errorf("Failed to convert R and S: %v", err)
+			return fmt.Errorf("failed to convert R and S: %w", err)
 		}
 
-		originalTx := new(gtypes.Transaction)
-		if err := originalTx.UnmarshalBinary(txBytes); err != nil {
-			s.logger.Errorf("Failed to unmarshal transaction: %v", err)
-			return fmt.Errorf("failed to unmarshal transaction: %w", err)
-		}
-
-		chainID := big.NewInt(0) // polygon mainnet chain ID
-
+		chainID := big.NewInt(137) // polygon mainnet chain ID
+		// Calculate V according to EIP-155
 		recoveryID, err := strconv.ParseInt(signature.RecoveryID, 10, 64)
 		if err != nil {
 			return fmt.Errorf("failed to parse recovery ID: %w", err)
 		}
 
-		// Calculate V for EIP-155
 		v := new(big.Int).Set(chainID)
 		v.Mul(v, big.NewInt(2))
 		v.Add(v, big.NewInt(35+recoveryID))
 
-		s.logger.Info(
-			logrus.Fields{
-				"chainID":    chainID,
-				"v":          v,
-				"r":          r,
-				"s":          s_value,
-				"recoveryID": recoveryID,
-			},
-		)
+		///////////
+
+		// Convert compressed public key to address
+		publicKeyBytes, err := hex.DecodeString(policy.PublicKey)
+		if err != nil {
+			return fmt.Errorf("failed to decode public key: %w", err)
+		}
+
+		// Decompress the public key using go-ethereum's crypto
+		pubKey, err := crypto.DecompressPubkey(publicKeyBytes)
+		if err != nil {
+			return fmt.Errorf("failed to decompress public key: %w", err)
+		}
+
+		// Get the address
+		ethAddress := crypto.PubkeyToAddress(*pubKey)
+
+		// Create the transaction with EIP-155 fields
+		/*rawTx, err := rlp.EncodeToBytes([]interface{}{
+			originalTx.Nonce(),
+			originalTx.GasPrice(),
+			originalTx.Gas(),
+			originalTx.To(),
+			originalTx.Value(),
+			originalTx.Data(),
+			chainID,
+			uint(0),
+			uint(0),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to rlp encode transaction: %w", err)
+		}*/
+
+		s.testSignatureRecovery(originalTx.Hash().Bytes(), r, s_value, recoveryID, chainID)
 
 		innerTx := &gtypes.LegacyTx{
 			Nonce:    originalTx.Nonce(),
@@ -569,13 +567,12 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 			To:       originalTx.To(),
 			Value:    originalTx.Value(),
 			Data:     originalTx.Data(),
-			V:        new(big.Int).Add(v, new(big.Int).Mul(chainID, big.NewInt(2))), // EIP-155 calculation,
+			V:        v,
 			R:        r,
 			S:        s_value,
 		}
 
 		signedTx := gtypes.NewTx(innerTx)
-
 		signer := gtypes.NewLondonSigner(chainID)
 		sender, err := signer.Sender(signedTx)
 		if err != nil {
@@ -583,19 +580,35 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 			return fmt.Errorf("failed to get sender: %w", err)
 		}
 
-		s.logger.WithField("sender", sender.Hex()).Info("Transaction sender")
-		s.logger.WithField("sender", sender.Hex()).Info("Transaction sender 2")
+		s.logger.WithFields(logrus.Fields{
+			"policy_pubkey": policy.PublicKey,
+			"length":        len(publicKeyBytes),
+			"prefix":        fmt.Sprintf("%x", publicKeyBytes[0]),
+		}).Info("Original compressed public key")
+		s.logger.WithFields(logrus.Fields{
+			"r":           signature.R,
+			"s":           signature.S,
+			"recovery_id": signature.RecoveryID,
+		}).Info("Received signature from MPC")
 
-		s.logger.WithField("rpcClient", s.rpcClient).Info("RPC client 1")
+		s.logger.WithFields(logrus.Fields{
+			"v":           v.String(),
+			"r":           r.String(),
+			"s":           s_value.String(),
+			"recovery_id": recoveryID,
+		}).Info("V, R, S, recovery_id, after transformation (big int, etc)")
 
-		s.logger.WithField("rpcClient", s.rpcClient).Info("RPC client")
+		s.logger.WithFields(logrus.Fields{
+			"hash_sent_to_mpc, comes from signRequest.Messages[0]":   signRequest.Messages[0],
+			"hash used to sign, comes from signRequest.Transaction ": originalTx.Hash().Hex(),
+		}).Info("Hash sent to MPC and hash used to sign")
 
-		privateKey := "7a244b3c1f6009afa643637545b83ea97f8394736b83fcb2eb510ffb162ed15f"
-		address, err := GetEthAddress(privateKey)
-		if err != nil {
-			s.logger.WithField("rpcClient", s.rpcClient).WithError(err).Error("Failed to get address")
-		}
-		s.logger.WithField("address", address.Hex()).Info("Ethereum Address")
+		s.logger.WithFields(logrus.Fields{
+			"public_key from policy":                     policy.PublicKey,
+			"eth_address derived from policy public key": ethAddress.Hex(),
+			"sender_from_signer":                         sender.Hex(),
+			"matches":                                    ethAddress == sender,
+		}).Info("Comparing recovery methods")
 
 		s.logger.WithField("rpcClient", s.rpcClient).Info("Attempting to send transaction")
 		err = s.rpcClient.SendTransaction(ctx, signedTx)
@@ -612,7 +625,7 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 		}).Info("Transaction sent successfully")
 
 		///
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute) //how much time should we monitor the tx?
+		/*ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute) //how much time should we monitor the tx?
 		defer cancel()
 
 		ticker := time.NewTicker(15 * time.Second)
@@ -651,11 +664,11 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 
 					if receipt.Status == 0 {
 						// try to get revert reason
-						/*reason := s.plugin.getRevertReason(ctx, signedTx, receipt.BlockNumber)
-						return &types.TransactionError{
-							Code:    types.ErrExecutionReverted,
-							Message: fmt.Sprintf("Transaction reverted: %s", reason),
-						}*/
+						//reason := s.plugin.getRevertReason(ctx, signedTx, receipt.BlockNumber)
+						//return &types.TransactionError{
+						//	Code:    types.ErrExecutionReverted,
+						//	Message: fmt.Sprintf("Transaction reverted: %s", reason),
+						//}
 					}
 
 					// Transaction successful
@@ -681,10 +694,39 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 				"recoveryID": recoveryID,
 			}).Error("Failed to sign transaction TEST")
 			return signingComplete
-		}
+		}*/
 	}
 
 	return nil
+}
+
+func (s *WorkerService) convertRAndS(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) (r *big.Int, s_value *big.Int, originalTx *gtypes.Transaction, err error) {
+	// convert R and S from hex strings to big.Int
+	r = new(big.Int)
+	r.SetString(signature.R, 16) // base 16 for hex
+	if r == nil {
+		return nil, nil, nil, fmt.Errorf("failed to parse R value")
+	}
+
+	s_value = new(big.Int)
+	s_value.SetString(signature.S, 16) // base 16 for hex
+	if s_value == nil {
+		return nil, nil, nil, fmt.Errorf("failed to parse S value")
+	}
+
+	txBytes, err := hex.DecodeString(signRequest.Transaction)
+	if err != nil {
+		s.logger.Errorf("Failed to decode transaction hex: %v", err)
+		return nil, nil, nil, fmt.Errorf("failed to decode transaction hex: %w", err)
+	}
+
+	originalTx = new(gtypes.Transaction)
+	if err := originalTx.UnmarshalBinary(txBytes); err != nil {
+		s.logger.Errorf("Failed to unmarshal transaction: %v", err)
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
+	}
+
+	return r, s_value, originalTx, nil
 }
 
 func (s *WorkerService) waitForTaskResult(taskID string, timeout time.Duration) ([]byte, error) {
@@ -721,30 +763,31 @@ func (s *WorkerService) waitForTaskResult(taskID string, timeout time.Duration) 
 	}
 }
 
-func GetEthAddress(privateKeyHex string) (common.Address, error) {
-	// Remove "0x" prefix if present
-	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
+func (s *WorkerService) testSignatureRecovery(txHash []byte, r, s_value *big.Int, recoveryID int64, chainID *big.Int) {
+	s.logger.WithFields(logrus.Fields{
+		"tx_hash_hex": hex.EncodeToString(txHash),
+		"r_hex":       hex.EncodeToString(r.Bytes()),
+		"s_hex":       hex.EncodeToString(s_value.Bytes()),
+		"recovery_id": recoveryID,
+		"chain_id":    chainID,
+	}).Info("Testing signature recovery")
 
-	// Convert hex string to private key
-	privateKeyBytes, err := hex.DecodeString(privateKeyHex)
+	sig := make([]byte, 65)
+	copy(sig[:32], r.Bytes())
+	copy(sig[32:64], s_value.Bytes())
+	sig[64] = byte(recoveryID)
+
+	pubKeyBytes, err := crypto.Ecrecover(txHash, sig)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to decode private key: %w", err)
+		s.logger.WithError(err).Error("Failed to recover public key")
+		return
 	}
-
-	privateKey, err := crypto.ToECDSA(privateKeyBytes)
+	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to convert to ECDSA: %w", err)
+		s.logger.WithError(err).Error("Failed to unmarshal public key")
+		return
 	}
 
-	// Get public key
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return common.Address{}, fmt.Errorf("failed to get public key")
-	}
-
-	// Get Ethereum address
-	address := crypto.PubkeyToAddress(*publicKeyECDSA)
-
-	return address, nil
+	recoveredAddr := crypto.PubkeyToAddress(*pubKey)
+	s.logger.WithField("recovered_address from original_tx_hash bytes", recoveredAddr.Hex()).Info("Recovered address")
 }

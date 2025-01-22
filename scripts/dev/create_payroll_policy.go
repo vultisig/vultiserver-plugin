@@ -106,7 +106,7 @@ func main() {
 	}
 
 	payrollPolicy := types.PayrollPolicy{
-		ChainID:    "1",
+		ChainID:    "137", // Todo : move this elsewhere
 		TokenID:    tokenContract,
 		Recipients: []types.PayrollRecipient{},
 		Schedule: types.Schedule{

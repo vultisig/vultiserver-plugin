@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gcommon "github.com/ethereum/go-ethereum/common"
 	gtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/google/uuid"
@@ -123,7 +125,7 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 		// Create signing request
 		signRequest := types.PluginKeysignRequest{
 			KeysignRequest: types.KeysignRequest{
-				PublicKey:        policy.PublicKey,
+				PublicKey:        policy.PublicKey, //ethAddress.Hex(), //policy.PublicKey, //todo : check if this is the correct public key
 				Messages:         []string{txHash}, //Todo : check how to correctly construct tx hash which depends on blockchain infos like nounce
 				SessionID:        uuid.New().String(),
 				HexEncryptionKey: "0123456789abcdef0123456789abcdef",
@@ -222,33 +224,56 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 		return "", nil, fmt.Errorf("failed to parse ABI: %v", err)
 	}
 
-	// Create transfer data
 	inputData, err := parsedABI.Pack("transfer", recipient, amount)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to pack transfer data: %v", err)
 	}
 
-	// Create transaction
-	tx := gtypes.NewTransaction(
-		0,                             // nonce  //TODO : to be updated.
-		gcommon.HexToAddress(tokenID), // USDC contract
-		big.NewInt(0),                 // value, if it is not eth. If it is eth, we have to set the value. How to tell to send eth at plugin creation?
-		100000,                        // gas limit
-		big.NewInt(2000000000),        // gas price (2 gwei)
-		inputData,
-	)
+	// Parse chain ID
+	chainIDInt := new(big.Int)
+	chainIDInt.SetString(chainID, 10)
 
-	// Get the raw transaction bytes
-	rawTx, err := tx.MarshalBinary()
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to marshal transaction: %v", err)
+	// Create unsigned transaction data
+	txData := []interface{}{
+		uint64(0),                     // nonce
+		big.NewInt(2000000000),        // gas price (2 gwei)
+		uint64(100000),                // gas limit
+		gcommon.HexToAddress(tokenID), // to address
+		big.NewInt(0),                 // value
+		inputData,                     // data
+		chainIDInt,                    // chain id
+		uint(0),                       // empty v
+		uint(0),                       // empty r
 	}
 
-	// Calculate transaction hash
-	txHash := tx.Hash().Hex()[2:]
+	// Log each component separately
+	p.logger.WithFields(logrus.Fields{
+		"nonce":     txData[0],
+		"gas_price": txData[1].(*big.Int).String(),
+		"gas_limit": txData[2],
+		"to":        txData[3].(gcommon.Address).Hex(),
+		"value":     txData[4].(*big.Int).String(),
+		"data_hex":  hex.EncodeToString(txData[5].([]byte)),
+		"chain_id":  txData[6].(*big.Int).String(),
+		"empty_v":   txData[7],
+		"empty_r":   txData[8],
+		"recipient": recipient.Hex(),
+		"amount":    amount.String(),
+	}).Info("Transaction components")
 
-	return txHash, rawTx, nil
+	rawTx, err := rlp.EncodeToBytes(txData)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to RLP encode transaction: %v", err)
+	}
 
+	txHash := crypto.Keccak256(rawTx)
+
+	p.logger.WithFields(logrus.Fields{
+		"raw_tx_hex":   hex.EncodeToString(rawTx),
+		"hash_to_sign": hex.EncodeToString(txHash),
+	}).Info("Final transaction data")
+
+	return hex.EncodeToString(txHash), rawTx, nil
 }
 
 func (p *PayrollPlugin) Frontend() embed.FS {
@@ -271,7 +296,7 @@ func (p *PayrollPlugin) SigningComplete(tx *gtypes.Transaction) error {
 	}).Info("Attempting to send signed transaction")
 
 	// get sender for logging
-	signer := gtypes.NewLondonSigner(big.NewInt(0))
+	signer := gtypes.NewLondonSigner(tx.ChainId())
 	sender, err := signer.Sender(tx)
 	if err != nil {
 		p.logger.WithError(err).Warn("Could not determine sender")
