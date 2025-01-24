@@ -236,7 +236,7 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 	// Create unsigned transaction data
 	txData := []interface{}{
 		uint64(0),                     // nonce
-		big.NewInt(2000000000),        // gas price (2 gwei)
+		big.NewInt(70000000000),       // gas price (2 gwei) //todo : grab the correct params
 		uint64(100000),                // gas limit
 		gcommon.HexToAddress(tokenID), // to address
 		big.NewInt(0),                 // value
