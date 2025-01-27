@@ -1,10 +1,11 @@
 package plugin
 
 import (
+	"context"
 	"embed"
 
-	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/labstack/echo/v4"
+	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/vultisigner/internal/types"
 )
 
@@ -18,5 +19,5 @@ type Plugin interface {
 	ValidateTransactionProposal(policy types.PluginPolicy, txs []types.PluginKeysignRequest) error
 
 	GetNextNonce(address string) (uint64, error)
-	SigningComplete(signedTx *gtypes.Transaction) error
+	SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) error
 }

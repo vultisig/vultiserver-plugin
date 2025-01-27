@@ -9,12 +9,13 @@ import (
 type TransactionStatus string
 
 const (
-	StatusPending       TransactionStatus = "PENDING"
-	StatusSigningFailed TransactionStatus = "SIGNING_FAILED"
-	StatusSigned        TransactionStatus = "SIGNED"
-	StatusBroadcast     TransactionStatus = "BROADCAST"
-	StatusMined         TransactionStatus = "MINED"
-	StatusRejected      TransactionStatus = "REJECTED"
+	StatusSigningInProgress TransactionStatus = "SIGNING_IN_PROGRESS"
+	StatusSigningFailed     TransactionStatus = "SIGNING_FAILED"
+	StatusSigned            TransactionStatus = "SIGNED"
+	StatusBroadcast         TransactionStatus = "BROADCAST"
+	StatusPending           TransactionStatus = "PENDING"
+	StatusMined             TransactionStatus = "MINED"
+	StatusRejected          TransactionStatus = "REJECTED"
 )
 
 type TransactionHistory struct {

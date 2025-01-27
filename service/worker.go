@@ -4,21 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/ethereum/go-ethereum/common"
-	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -510,7 +505,9 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 			break
 		}
 
-		r, s_value, originalTx, chainID, recoveryID, v, err := s.convertRAndS(signature, signRequest)
+		s.plugin.SigningComplete(ctx, signature, signRequest)
+
+		/*r, s_value, originalTx, chainID, recoveryID, v, err := s.convertRAndS(signature, signRequest)
 		if err != nil {
 			s.logger.Errorf("Failed to convert R and S: %v", err)
 			return fmt.Errorf("failed to convert R and S: %w", err)
@@ -589,63 +586,11 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 
 		fmt.Printf("Transaction sent successfully \n")
 		fmt.Printf("txHash: %s\n", signedTx.Hash().Hex())
-		fmt.Printf("sender: %s\n", sender.Hex())
+		fmt.Printf("sender: %s\n", sender.Hex())*/
 
-		///
-		/*ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute) //how much time should we monitor the tx?
-		defer cancel()
-
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
-
-		txHash := signedTx.Hash()
-		for {
-			select {
-			case <-ctx.Done():
-				s.logger.WithField("txHash", signedTx.Hash().Hex()).Info("Transaction monitoring timed out")
-				return &types.TransactionError{
-					Code:    types.ErrTxTimeout,
-					Message: fmt.Sprintf("Transaction monitoring timed out for tx: %s", txHash.Hex()),
-				}
-
-			case <-ticker.C:
-				// check tx status
-				_, isPending, err := s.rpcClient.TransactionByHash(ctx, txHash)
-				if err != nil {
-					if err == ethereum.NotFound {
-						s.logger.WithField("txHash", signedTx.Hash().Hex()).Info("Transaction dropped from mempool")
-						return &types.TransactionError{
-							Code:    types.ErrTxDropped,
-							Message: fmt.Sprintf("Transaction dropped from mempool: %s", txHash.Hex()),
-						}
-					}
-					continue // keep trying on other RPC errors
-				}
-
-				if !isPending {
-					receipt, err := s.rpcClient.TransactionReceipt(ctx, txHash)
-					if err != nil {
-						s.logger.WithField("txHash", signedTx.Hash().Hex()).Errorf("Failed to get transaction receipt: %v", err)
-						continue
-					}
-
-					if receipt.Status == 0 {
-						// try to get revert reason
-						//reason := s.plugin.getRevertReason(ctx, signedTx, receipt.BlockNumber)
-						//return &types.TransactionError{
-						//	Code:    types.ErrExecutionReverted,
-						//	Message: fmt.Sprintf("Transaction reverted: %s", reason),
-						//}
-					}
-
-					// Transaction successful
-					return nil
-				}
-			}
-		}
 		///////////////////////////////////////////////////////////////////////
 
-		s.logger.Info("About to call SigningComplete")
+		/*s.logger.Info("About to call SigningComplete")
 		signingComplete := s.plugin.SigningComplete( //todo : remove occurances of SignedTransaction type if not neede
 			signedTx,
 		)
@@ -667,7 +612,7 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 	return nil
 }
 
-func (s *WorkerService) convertRAndS(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) (r *big.Int, s_value *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, v *big.Int, err error) {
+/*func (s *WorkerService) convertRAndS(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) (r *big.Int, s_value *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, v *big.Int, err error) {
 	// convert R and S from hex strings to big.Int
 	r = new(big.Int)
 	r.SetString(signature.R, 16) // base 16 for hex
@@ -693,7 +638,7 @@ func (s *WorkerService) convertRAndS(signature tss.KeysignResponse, signRequest 
 		return nil, nil, nil, nil, 0, nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
 	}
 
-	chainID = big.NewInt(137) // polygon mainnet chain ID
+	chainID = big.NewInt(137) // polygon mainnet chain ID //
 	// calculate V according to EIP-155
 	recoveryID, err = strconv.ParseInt(signature.RecoveryID, 10, 64)
 	if err != nil {
@@ -705,7 +650,7 @@ func (s *WorkerService) convertRAndS(signature tss.KeysignResponse, signRequest 
 	v.Add(v, big.NewInt(35+recoveryID))
 
 	return r, s_value, originalTx, chainID, recoveryID, v, nil
-}
+}*/
 
 func (s *WorkerService) waitForTaskResult(taskID string, timeout time.Duration) ([]byte, error) {
 	start := time.Now()
@@ -769,7 +714,7 @@ func (s *WorkerService) testSignatureRecovery(txHash []byte, r, s_value *big.Int
 	fmt.Printf("2. Final address: %s\n", recoveredAddr.Hex())
 }
 
-func (s *WorkerService) convertPolicyPublicKeyToAddress2(policy types.PluginPolicy) (common.Address, common.Address, error) {
+/*func (s *WorkerService) convertPolicyPublicKeyToAddress2(policy types.PluginPolicy) (common.Address, common.Address, error) {
 	fmt.Printf("\nDEBUG: Policy Public Key Conversion\n")
 	fmt.Printf(" Input public key: %s\n", policy.PublicKey)
 
@@ -801,11 +746,11 @@ func (s *WorkerService) convertPolicyPublicKeyToAddress2(policy types.PluginPoli
 
 	addr1 := crypto.PubkeyToAddress(*pubKey2)
 
-	/*uncompressed1 := crypto.FromECDSAPub(pubKey)
-	hash1 := crypto.Keccak256(uncompressed1[1:])
-	var addr1 common.Address
-	copy(addr1[:], hash1[12:])
-	fmt.Printf("3a. First possible address: %s\n", addr1.Hex())*/
+	//uncompressed1 := crypto.FromECDSAPub(pubKey)
+	//hash1 := crypto.Keccak256(uncompressed1[1:])
+	//var addr1 common.Address
+	//copy(addr1[:], hash1[12:])
+	//fmt.Printf("3a. First possible address: %s\n", addr1.Hex())
 
 	return addr1, addr1, nil
-}
+}*/

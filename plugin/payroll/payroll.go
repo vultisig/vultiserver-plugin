@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
+	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/vultisigner/internal/types"
 	"github.com/vultisig/vultisigner/plugin"
 	"github.com/vultisig/vultisigner/storage"
@@ -233,9 +235,14 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 	chainIDInt := new(big.Int)
 	chainIDInt.SetString(chainID, 10)
 
+	nextNonce, err := p.GetNextNonce("0x6CD7A4812bbcc94e6e17E5865E996E9e7c14bC9E") //Todo : update this
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get nonce: %v", err)
+	}
+
 	// Create unsigned transaction data
 	txData := []interface{}{
-		uint64(0),                     // nonce
+		uint64(nextNonce),             // nonce
 		big.NewInt(70000000000),       // gas price (2 gwei) //todo : grab the correct params
 		uint64(100000),                // gas limit
 		gcommon.HexToAddress(tokenID), // to address
@@ -284,20 +291,28 @@ func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {
 	return p.nonceManager.GetNextNonce(address)
 }
 
-func (p *PayrollPlugin) SigningComplete(tx *gtypes.Transaction) error {
-	p.logger.WithFields(logrus.Fields{
-		"nonce":    tx.Nonce(),
-		"to":       tx.To(),
-		"value":    tx.Value(),
-		"gasPrice": tx.GasPrice(),
-		"gas":      tx.Gas(),
-		"chainId":  tx.ChainId(),
-		"tx_hash":  tx.Hash().Hex(),
-	}).Info("Attempting to send signed transaction")
+func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) error {
 
-	// get sender for logging
-	signer := gtypes.NewLondonSigner(tx.ChainId())
-	sender, err := signer.Sender(tx)
+	r, s_value, originalTx, chainID, v, err := p.convertRAndS(signature, signRequest)
+	if err != nil {
+		return fmt.Errorf("failed to convert R and S: %v", err)
+	}
+
+	innerTx := &gtypes.LegacyTx{
+		Nonce:    originalTx.Nonce(),
+		GasPrice: originalTx.GasPrice(),
+		Gas:      originalTx.Gas(),
+		To:       originalTx.To(),
+		Value:    originalTx.Value(),
+		Data:     originalTx.Data(),
+		V:        v,
+		R:        r,
+		S:        s_value,
+	}
+
+	signedTx := gtypes.NewTx(innerTx)
+	signer := gtypes.NewLondonSigner(chainID)
+	sender, err := signer.Sender(signedTx)
 	if err != nil {
 		p.logger.WithError(err).Warn("Could not determine sender")
 	} else {
@@ -309,18 +324,15 @@ func (p *PayrollPlugin) SigningComplete(tx *gtypes.Transaction) error {
 		return fmt.Errorf("RPC client not initialized")
 	}
 
-	// send tx with context and timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	err = p.rpcClient.SendTransaction(ctx, tx)
+	err = p.rpcClient.SendTransaction(ctx, signedTx)
 	if err != nil {
 		p.logger.WithError(err).Error("Failed to send transaction")
-		return p.handleTransactionError(err, tx, sender)
+		return p.handleTransactionError(err, signedTx, sender)
 	}
 
-	p.logger.WithField("hash", tx.Hash().Hex()).Info("Transaction sent successfully")
-	return p.monitorTransaction(tx)
+	p.logger.WithField("hash", signedTx.Hash().Hex()).Info("Transaction sent successfully")
+	//return p.monitorTransaction(signedTx)
+	return nil
 }
 
 func (p *PayrollPlugin) handleTransactionError(err error, tx *gtypes.Transaction, sender gcommon.Address) error {
@@ -443,4 +455,44 @@ func (p *PayrollPlugin) getRevertReason(ctx context.Context, tx *gtypes.Transact
 		return err.Error()
 	}
 	return "Unknown revert reason"
+}
+
+func (p *PayrollPlugin) convertRAndS(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) (r *big.Int, s_value *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, v *big.Int, err error) {
+	// convert R and S from hex strings to big.Int
+	r = new(big.Int)
+	r.SetString(signature.R, 16)
+	if r == nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to parse R value")
+	}
+
+	s_value = new(big.Int)
+	s_value.SetString(signature.S, 16)
+	if s_value == nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to parse S value")
+	}
+
+	txBytes, err := hex.DecodeString(signRequest.Transaction)
+	if err != nil {
+		p.logger.Errorf("Failed to decode transaction hex: %v", err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to decode transaction hex: %w", err)
+	}
+
+	originalTx = new(gtypes.Transaction)
+	if err := originalTx.UnmarshalBinary(txBytes); err != nil {
+		p.logger.Errorf("Failed to unmarshal transaction: %v", err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
+	}
+
+	chainID = big.NewInt(137) // polygon mainnet chain ID //todo : make this dynamic
+	// calculate V according to EIP-155
+	recoveryID, err := strconv.ParseInt(signature.RecoveryID, 10, 64)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to parse recovery ID: %w", err)
+	}
+
+	v = new(big.Int).Set(chainID)
+	v.Mul(v, big.NewInt(2))
+	v.Add(v, big.NewInt(35+recoveryID))
+
+	return r, s_value, originalTx, chainID, v, nil
 }

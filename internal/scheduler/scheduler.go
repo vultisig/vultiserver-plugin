@@ -50,7 +50,7 @@ func (s *SchedulerService) Stop() {
 }
 
 func (s *SchedulerService) run() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -83,14 +83,23 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 		// Check if it's time to execute
 		var nextTime time.Time
 		if trigger.LastExecution != nil {
-			s.logger.Info("Last execution is not nil, using last execution")
+
+			nextTime = schedule.Next(trigger.LastExecution.In(time.UTC))
+
 			s.logger.WithFields(logrus.Fields{
-				"last execution": trigger.LastExecution,
-			}).Info("Last execution")
-			nextTime = schedule.Next(*trigger.LastExecution)
+				"current_time_utc": time.Now().UTC(),
+				"next_time_utc":    nextTime.UTC(),
+				"delay_duration":   nextTime.UTC().Sub(time.Now().UTC()),
+			}).Info("Next execution details")
 		} else {
-			s.logger.Info("Last execution is nil, using default window")
-			nextTime = schedule.Next(time.Now().Add(-24 * time.Hour)) //todo : change window to a better duration
+			nextTime = time.Now().UTC().Add(-1 * time.Minute)
+			s.logger.WithFields(logrus.Fields{
+				"current_time": time.Now(),
+				"next_time":    nextTime,
+			}).Info("New trigger details")
+
+			//nextTime = schedule.Next(time.Now().Add(-1 * time.Minute)) //sometimes, Next time is still before current time (for exemple if we call this function at 1h04m30s, next time is 1h05m0s, so we have to wait 30s to reach the next executable time, even if we removed 1 min. to be sure, we have to remove 5 minutes.))
+			//TODO : to changed this, change the way the 5-minutely is handled in cro expression
 		}
 
 		nextTime = nextTime.UTC()
@@ -121,7 +130,7 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 			}
 			ti, err := s.client.Enqueue(
 				asynq.NewTask(tasks.TypePluginTransaction, buf),
-				asynq.MaxRetry(-1),
+				asynq.MaxRetry(0),
 				asynq.Timeout(5*time.Minute),
 				asynq.Retention(10*time.Minute),
 				asynq.Queue(tasks.QUEUE_NAME),
