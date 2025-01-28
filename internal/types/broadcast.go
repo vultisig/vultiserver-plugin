@@ -42,6 +42,12 @@ const (
 	// contract related
 	ErrExecutionReverted = "EXECUTION_REVERTED"
 
+	// retriable errors
+	ErrRetriable = "RETRIABLE_ERROR"
+
+	// permanent failure
+	ErrPermanentFailure = "PERMANENT_FAILURE"
+
 	// other
 	ErrUnknown = "UNKNOWN_ERROR"
 )
