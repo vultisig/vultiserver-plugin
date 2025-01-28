@@ -508,13 +508,13 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 			s.logger.Errorf("Failed to complete signing: %v", err)
 			if err.Error() == types.ErrRetriable {
 				s.logger.Info("Retriable error detected, retrying...")
-				// TODO: relaunch handle plugin tx?
+				s.db.UpdateTriggerStatus(trigger.PolicyID, "Not Running")
 			} else {
 				return err //not return err, but continue and skip the trigger
 				//trigger.status = blocked/completed? we can just retry in the next shceduled time?
 			}
 		}
-		//triger.status = done
+		s.db.UpdateTriggerStatus(trigger.PolicyID, "Not running")
 	}
 
 	return nil

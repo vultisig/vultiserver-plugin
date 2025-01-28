@@ -8,6 +8,7 @@ CREATE TABLE time_triggers (
     end_time TIMESTAMP,
     frequency TEXT NOT NULL,
     last_execution TIMESTAMP,
+    status TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
