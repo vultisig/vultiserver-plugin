@@ -350,8 +350,8 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 		return err
 	}
 
-	var triggerEvent types.PluginTriggerEvent
-	if err := json.Unmarshal(t.Payload(), &triggerEvent); err != nil {
+	var trigger types.TimeTrigger
+	if err := json.Unmarshal(t.Payload(), &trigger); err != nil {
 		s.logger.Errorf("json.Unmarshal failed: %v", err)
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
@@ -359,7 +359,7 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 	defer s.measureTime("worker.plugin.transaction.latency", time.Now(), []string{})
 	s.incCounter("worker.plugin.transaction", []string{})
 
-	policy, err := s.db.GetPluginPolicy(triggerEvent.PolicyID)
+	policy, err := s.db.GetPluginPolicy(trigger.PolicyID)
 	if err != nil {
 		s.logger.Errorf("db.GetPluginPolicy failed: %v", err)
 		return fmt.Errorf("db.GetPluginPolicy failed: %v: %w", err, asynq.SkipRetry)
@@ -510,9 +510,11 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 				s.logger.Info("Retriable error detected, retrying...")
 				// TODO: relaunch handle plugin tx?
 			} else {
-				return err
+				return err //not return err, but continue and skip the trigger
+				//trigger.status = blocked/completed? we can just retry in the next shceduled time?
 			}
 		}
+		//triger.status = done
 	}
 
 	return nil

@@ -24,7 +24,6 @@ func (p *PostgresBackend) CreateTimeTrigger(trigger types.TimeTrigger) error {
 		trigger.PolicyID,
 		trigger.CronExpression,
 		trigger.StartTime,
-		/*time.Now().UTC(),*/
 		trigger.EndTime,
 		trigger.Frequency)
 

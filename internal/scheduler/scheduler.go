@@ -47,7 +47,7 @@ func (s *SchedulerService) Stop() {
 }
 
 func (s *SchedulerService) run() {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -108,7 +108,16 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 			"next_time":    nextTime,
 		}).Info("Processing trigger")*/
 
-		if time.Now().UTC().After(nextTime) {
+		triggerStatus, err := s.db.GetTriggerStatus(trigger.PolicyID)
+		if err != nil {
+			s.logger.Errorf("Failed to get trigger status: %v", err)
+			continue
+		}
+
+		if time.Now().UTC().After(nextTime) && triggerStatus != "Running" {
+
+			s.db.UpdateTriggerStatus(trigger.PolicyID, "Running")
+
 			s.logger.WithFields(logrus.Fields{
 				"policy_id":    trigger.PolicyID,
 				"last_exec":    trigger.LastExecution,
@@ -116,11 +125,7 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 				"next_time":    nextTime,
 			}).Info("Inside if statement")
 
-			triggerEvent := types.PluginTriggerEvent{
-				PolicyID: trigger.PolicyID,
-			}
-
-			buf, err := json.Marshal(triggerEvent)
+			buf, err := json.Marshal(trigger)
 			if err != nil {
 				s.logger.Errorf("Failed to marshal trigger event: %v", err)
 				continue

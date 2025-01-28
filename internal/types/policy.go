@@ -1,9 +1,11 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type PluginTriggerEvent struct {
-	PolicyID string `json:"policy_id"`
+	Trigger TimeTrigger
 }
 
 type PluginPolicy struct {
