@@ -32,6 +32,16 @@ func (p *PostgresBackend) CreateTimeTrigger(trigger types.TimeTrigger) error {
 	return err
 }
 
+func (p *PostgresBackend) DeleteTimeTrigger(policyID string) error {
+	if p.pool == nil {
+		return fmt.Errorf("database pool is nil")
+	}
+
+	query := `DELETE FROM time_triggers WHERE policy_id = $1`
+	_, err := p.pool.Exec(context.Background(), query, policyID)
+	return err
+}
+
 func (p *PostgresBackend) GetPendingTriggers() ([]types.TimeTrigger, error) {
 	if p.pool == nil {
 		return nil, fmt.Errorf("database pool is nil")

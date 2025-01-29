@@ -13,6 +13,8 @@ type DatabaseStorage interface {
 
 	CreateTimeTrigger(trigger types.TimeTrigger) error
 	GetPendingTriggers() ([]types.TimeTrigger, error)
+	DeleteTimeTrigger(policyID string) error
+
 	UpdateTriggerExecution(policyID string) error
 	UpdateTriggerStatus(policyID string, status string) error
 	GetTriggerStatus(policyID string) (string, error)

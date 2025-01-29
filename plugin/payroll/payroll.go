@@ -133,7 +133,7 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 				SessionID:        uuid.New().String(),
 				HexEncryptionKey: "0123456789abcdef0123456789abcdef",
 				DerivePath:       "m/44/60/0/0/0",
-				IsECDSA:          true, //Todo : make this a parameter
+				IsECDSA:          true, //Todo : do a mapping with chain id to know if it is ecdsa?
 				VaultPassword:    "your-secure-password",
 			},
 			Transaction: hex.EncodeToString(rawTx),
@@ -234,7 +234,7 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 
 	// create call message to estimate gas
 	callMsg := ethereum.CallMsg{
-		From:  recipient, //todo : this works, but maybe better to but the correct sender address once we have it
+		From:  recipient, //todo : this works, but maybe better to put the correct sender address once we have it
 		To:    &recipient,
 		Data:  inputData,
 		Value: big.NewInt(0),
@@ -312,7 +312,7 @@ func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {
 }
 
 func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) error {
-	R, S, V, originalTx, chainID, _, err := p.convertData(signature, signRequest)
+	R, S, V, originalTx, chainID, _, err := p.convertData(signature, signRequest, policy)
 	if err != nil {
 		return fmt.Errorf("failed to convert R and S: %v", err)
 	}
@@ -346,7 +346,7 @@ func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.Keysi
 	err = p.rpcClient.SendTransaction(ctx, signedTx)
 	if err != nil {
 		p.logger.WithError(err).Error("Failed to broadcast transaction")
-		return p.handleBroadcastError(err, signedTx, sender)
+		return p.handleBroadcastError(err, sender)
 	}
 
 	p.logger.WithField("hash", signedTx.Hash().Hex()).Info("Transaction successfully broadcast")
@@ -361,12 +361,14 @@ func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.Keysi
 	return p.monitorTransaction(signedTx)
 }
 
-func (p *PayrollPlugin) handleBroadcastError(err error, tx *gtypes.Transaction, sender gcommon.Address) error {
+func (p *PayrollPlugin) handleBroadcastError(err error, sender gcommon.Address) error {
 	errMsg := err.Error()
 
 	switch {
 	case strings.Contains(errMsg, "insufficient funds"):
-		// this is for ETH balance for gas - immediate failure, don't retry
+		// this is for ETH balance for gas - immediate failure, what to do?
+		//goal : retry only when we dectect user send funds
+		// for now : we can skip this trigger and wait for next one
 		return &types.TransactionError{
 			Code:    types.ErrInsufficientFunds,
 			Message: fmt.Sprintf("Account %s has insufficient gas", sender.Hex()),
@@ -378,6 +380,7 @@ func (p *PayrollPlugin) handleBroadcastError(err error, tx *gtypes.Transaction, 
 	case strings.Contains(errMsg, "gas price too low"):
 	case strings.Contains(errMsg, "gas limit reached"):
 		// these are retriable errors - the caller should retry with updated parameters
+		//we should not skip this trigger and retry immediately
 		return &types.TransactionError{
 			Code:    types.ErrRetriable,
 			Message: err.Error(),
@@ -482,7 +485,7 @@ func (p *PayrollPlugin) getRevertReason(ctx context.Context, tx *gtypes.Transact
 	return "Unknown revert reason"
 }
 
-func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) (R *big.Int, S *big.Int, V *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, err error) {
+func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) (R *big.Int, S *big.Int, V *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, err error) {
 	// convert R and S from hex strings to big.Int
 	R = new(big.Int)
 	R.SetString(signature.R, 16)
@@ -508,7 +511,16 @@ func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest t
 		return nil, nil, nil, nil, nil, 0, fmt.Errorf("failed to unmarshal transaction: %w", err)
 	}
 
-	chainID = big.NewInt(137) // polygon mainnet chain ID //todo : make this dynamic
+	policybytes := policy.Policy
+	payrollPolicy := types.PayrollPolicy{}
+	err = json.Unmarshal(policybytes, &payrollPolicy)
+	if err != nil {
+		p.logger.Errorf("Failed to unmarshal policy: %v", err)
+		return nil, nil, nil, nil, nil, 0, fmt.Errorf("failed to unmarshal policy: %w", err)
+	}
+	chainID = new(big.Int)
+	chainID.SetString(payrollPolicy.ChainID, 10)
+
 	// calculate V according to EIP-155
 	recoveryID, err = strconv.ParseInt(signature.RecoveryID, 10, 64)
 	if err != nil {

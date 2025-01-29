@@ -73,7 +73,8 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 		// Parse cron expression
 		schedule, err := cron.ParseStandard(trigger.CronExpression)
 		if err != nil {
-			s.logger.Errorf("Failed to parse cron expression: %v", err) //todo : remove trigger if cron expression is invalid
+			s.logger.Errorf("Failed to parse cron expression: %v", err)
+			s.db.DeleteTimeTrigger(trigger.PolicyID) //trigger is deleted if cron expression is invalid
 			continue
 		}
 
@@ -87,6 +88,7 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 				"current_time_utc": time.Now().UTC(),
 				"next_time_utc":    nextTime.UTC(),
 				"delay_duration":   nextTime.UTC().Sub(time.Now().UTC()),
+				"status":           trigger.Status,
 			}).Info("Next execution details")
 		} else {
 			nextTime = time.Now().UTC().Add(-1 * time.Minute)
@@ -94,19 +96,19 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 				"current_time": time.Now(),
 				"next_time":    nextTime,
 			}).Info("New trigger details")
-
-			//nextTime = schedule.Next(time.Now().Add(-1 * time.Minute)) //sometimes, Next time is still before current time (for exemple if we call this function at 1h04m30s, next time is 1h05m0s, so we have to wait 30s to reach the next executable time, even if we removed 1 min. to be sure, we have to remove 5 minutes.))
-			//TODO : to changed this, change the way the 5-minutely is handled in cro expression
 		}
 
 		nextTime = nextTime.UTC()
+		endTime := trigger.EndTime
 
-		/*s.logger.WithFields(logrus.Fields{
-			"policy_id":    trigger.PolicyID,
-			"last_exec":    trigger.LastExecution,
-			"current_time": time.Now().UTC(),
-			"next_time":    nextTime,
-		}).Info("Processing trigger")*/
+		if endTime != nil && time.Now().UTC().After(*endTime) {
+			s.logger.WithFields(logrus.Fields{
+				"policy_id": trigger.PolicyID,
+				"end_time":  *endTime,
+			}).Info("Trigger end time reached")
+			s.db.DeleteTimeTrigger(trigger.PolicyID)
+			continue
+		}
 
 		triggerStatus, err := s.db.GetTriggerStatus(trigger.PolicyID)
 		if err != nil {
@@ -114,39 +116,33 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 			continue
 		}
 
-		if time.Now().UTC().After(nextTime) && triggerStatus != "Running" {
-
-			s.db.UpdateTriggerStatus(trigger.PolicyID, "Running")
-
-			s.logger.WithFields(logrus.Fields{
-				"policy_id":    trigger.PolicyID,
-				"last_exec":    trigger.LastExecution,
-				"current_time": time.Now().UTC(),
-				"next_time":    nextTime,
-			}).Info("Inside if statement")
-
-			buf, err := json.Marshal(trigger)
-			if err != nil {
-				s.logger.Errorf("Failed to marshal trigger event: %v", err)
-				continue
-			}
-			ti, err := s.client.Enqueue(
-				asynq.NewTask(tasks.TypePluginTransaction, buf),
-				asynq.MaxRetry(0),
-				asynq.Timeout(5*time.Minute),
-				asynq.Retention(10*time.Minute),
-				asynq.Queue(tasks.QUEUE_NAME),
-			)
-			if err != nil {
-				s.logger.Errorf("Failed to enqueue trigger task: %v", err)
-				continue
-			}
-
-			s.logger.WithFields(logrus.Fields{
-				"task_id":   ti.ID,
-				"policy_id": trigger.PolicyID,
-			}).Info("Enqueued trigger task")
+		if time.Now().UTC().Before(nextTime) || triggerStatus == "Running" {
+			continue
 		}
+
+		s.db.UpdateTriggerStatus(trigger.PolicyID, "Running")
+
+		buf, err := json.Marshal(trigger)
+		if err != nil {
+			s.logger.Errorf("Failed to marshal trigger event: %v", err)
+			continue
+		}
+		ti, err := s.client.Enqueue(
+			asynq.NewTask(tasks.TypePluginTransaction, buf),
+			asynq.MaxRetry(0),
+			asynq.Timeout(5*time.Minute),
+			asynq.Retention(10*time.Minute),
+			asynq.Queue(tasks.QUEUE_NAME),
+		)
+		if err != nil {
+			s.logger.Errorf("Failed to enqueue trigger task: %v", err)
+			continue
+		}
+
+		s.logger.WithFields(logrus.Fields{
+			"task_id":   ti.ID,
+			"policy_id": trigger.PolicyID,
+		}).Info("Enqueued trigger task")
 	}
 
 	return nil
@@ -189,7 +185,7 @@ func (s *SchedulerService) CreateTimeTrigger(policy types.PluginPolicy) error {
 func frequencyToCron(frequency string, startTime time.Time) string {
 	switch frequency {
 	case "5-minutely":
-		return "*/5 * * * *"
+		return fmt.Sprintf("%d/5 * * * *", startTime.Minute()%5)
 	case "hourly":
 		return fmt.Sprintf("%d * * * *", startTime.Minute())
 	case "daily":
