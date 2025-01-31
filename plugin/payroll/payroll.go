@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/hibiken/asynq"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gcommon "github.com/ethereum/go-ethereum/common"
@@ -77,6 +78,18 @@ func (p *PayrollPlugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error
 		return fmt.Errorf("no recipients found in payroll policy")
 	}
 
+	if len(payrollPolicy.ChainID) != len(payrollPolicy.Recipients) {
+		p.logger.WithFields(logrus.Fields{
+			"chain_id_length":   payrollPolicy.ChainID,
+			"recipients_length": payrollPolicy.Recipients,
+		}).Error("chain_id array length does not match number of recipients")
+		return fmt.Errorf("chain_id array length must match number of recipients")
+	}
+
+	if len(payrollPolicy.TokenID) != len(payrollPolicy.Recipients) {
+		return fmt.Errorf("token_id array length must match number of recipients")
+	}
+
 	for _, recipient := range payrollPolicy.Recipients {
 		mixedCaseAddress, err := gcommon.NewMixedcaseAddressFromString(recipient.Address)
 		if err != nil {
@@ -119,8 +132,14 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 		return txs, fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
 
-	for _, recipient := range payrollPolicy.Recipients {
-		txHash, rawTx, err := p.generatePayrollTransaction(recipient.Amount, recipient.Address, payrollPolicy.ChainID, payrollPolicy.TokenID)
+	for i, recipient := range payrollPolicy.Recipients {
+		txHash, rawTx, err := p.generatePayrollTransaction(
+			recipient.Amount,
+			recipient.Address,
+			payrollPolicy.ChainID[i],
+			payrollPolicy.TokenID[i],
+		)
+		fmt.Printf("Chain ID TEST 1: %s\n", payrollPolicy.ChainID[i])
 		if err != nil {
 			return []types.PluginKeysignRequest{}, fmt.Errorf("failed to generate transaction hash: %v", err)
 		}
@@ -143,6 +162,22 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 		txs = append(txs, signRequest)
 	}
 
+	signRequest := txs[0]
+	txBytes, err := hex.DecodeString(signRequest.Transaction)
+	if err != nil {
+		p.logger.Errorf("Failed to decode transaction hex: %v", err)
+		return []types.PluginKeysignRequest{}, fmt.Errorf("failed to decode transaction hex: %w", err)
+	}
+	//unmarshal tx from sign req.transaction
+	tx := &gtypes.Transaction{}
+	err = tx.UnmarshalBinary(txBytes)
+	if err != nil {
+		p.logger.Errorf("Failed to unmarshal transaction: %v", err)
+		return []types.PluginKeysignRequest{}, fmt.Errorf("failed to unmarshal transaction: %d:", err)
+	}
+	fmt.Printf("Chain ID TEST 2: %s\n", tx.ChainId().String())
+	fmt.Printf("len TEST 2: %d\n", len(txs))
+
 	return txs, nil
 }
 
@@ -162,7 +197,7 @@ func (p *PayrollPlugin) ValidateTransactionProposal(policy types.PluginPolicy, t
 		return fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
 
-	for _, tx := range txs {
+	for i, tx := range txs {
 		var parsedTx *gtypes.Transaction
 		txBytes, err := hex.DecodeString(tx.Transaction)
 		if err != nil {
@@ -179,7 +214,7 @@ func (p *PayrollPlugin) ValidateTransactionProposal(policy types.PluginPolicy, t
 			return fmt.Errorf("transaction destination is nil")
 		}
 
-		if strings.ToLower(txDestination.Hex()) != strings.ToLower(payrollPolicy.TokenID) {
+		if strings.ToLower(txDestination.Hex()) != strings.ToLower(payrollPolicy.TokenID[i]) { //todo : why we compare to tokenId and not recipient address?
 			return fmt.Errorf("transaction destination does not match token ID")
 		}
 
@@ -254,6 +289,7 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 	// Parse chain ID
 	chainIDInt := new(big.Int)
 	chainIDInt.SetString(chainID, 10)
+	fmt.Printf("Chain ID TEST 3: %s\n", chainIDInt.String())
 
 	nextNonce, err := p.GetNextNonce("0x6CD7A4812bbcc94e6e17E5865E996E9e7c14bC9E") //Todo : update this (first time, put nonce 0, grab the public key,and replace here)
 	if err != nil {
@@ -281,9 +317,8 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 		"to":        txData[3].(gcommon.Address).Hex(),
 		"value":     txData[4].(*big.Int).String(),
 		"data_hex":  hex.EncodeToString(txData[5].([]byte)),
-		"chain_id":  txData[6].(*big.Int).String(),
-		"empty_v":   txData[7],
-		"empty_r":   txData[8],
+		"empty_v":   txData[6],
+		"empty_r":   txData[7],
 		"recipient": recipient.Hex(),
 		"amount":    amount.String(),
 	}).Info("Transaction components")
@@ -300,6 +335,20 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 		"hash_to_sign": hex.EncodeToString(txHash),
 	}).Info("Final transaction data")
 
+	/*txBytes, err := hex.DecodeString(string(rawTx))
+	if err != nil {
+		p.logger.Errorf("Failed to decode transaction hex: %v", err)
+		return []types.PluginKeysignRequest{}, fmt.Errorf("failed to decode transaction hex: %w", err)
+	}*/
+	//unmarshal tx from sign req.transaction
+	tx := &gtypes.Transaction{}
+	err = tx.UnmarshalBinary(rawTx)
+	if err != nil {
+		p.logger.Errorf("Failed to unmarshal transaction: %v", err)
+		return "", nil, fmt.Errorf("failed to unmarshal transaction: %v: %w", err, asynq.SkipRetry)
+	}
+	fmt.Printf("Chain ID TEST 4: %s\n", tx.ChainId().String())
+
 	return hex.EncodeToString(txHash), rawTx, nil
 }
 
@@ -311,8 +360,8 @@ func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {
 	return p.nonceManager.GetNextNonce(address)
 }
 
-func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) error {
-	R, S, V, originalTx, chainID, _, err := p.convertData(signature, signRequest, policy)
+func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) error {
+	R, S, V, originalTx, chainID, _, err := p.convertData(signature, signRequest)
 	if err != nil {
 		return fmt.Errorf("failed to convert R and S: %v", err)
 	}
@@ -485,7 +534,7 @@ func (p *PayrollPlugin) getRevertReason(ctx context.Context, tx *gtypes.Transact
 	return "Unknown revert reason"
 }
 
-func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) (R *big.Int, S *big.Int, V *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, err error) {
+func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) (R *big.Int, S *big.Int, V *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, err error) {
 	// convert R and S from hex strings to big.Int
 	R = new(big.Int)
 	R.SetString(signature.R, 16)
@@ -499,6 +548,7 @@ func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest t
 		return nil, nil, nil, nil, nil, 0, fmt.Errorf("failed to parse S value")
 	}
 
+	// Decode the hex string to bytes first
 	txBytes, err := hex.DecodeString(signRequest.Transaction)
 	if err != nil {
 		p.logger.Errorf("Failed to decode transaction hex: %v", err)
@@ -506,20 +556,13 @@ func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest t
 	}
 
 	originalTx = new(gtypes.Transaction)
-	if err := originalTx.UnmarshalBinary(txBytes); err != nil {
+	if err := rlp.DecodeBytes(txBytes, originalTx); err != nil {
 		p.logger.Errorf("Failed to unmarshal transaction: %v", err)
 		return nil, nil, nil, nil, nil, 0, fmt.Errorf("failed to unmarshal transaction: %w", err)
 	}
 
-	policybytes := policy.Policy
-	payrollPolicy := types.PayrollPolicy{}
-	err = json.Unmarshal(policybytes, &payrollPolicy)
-	if err != nil {
-		p.logger.Errorf("Failed to unmarshal policy: %v", err)
-		return nil, nil, nil, nil, nil, 0, fmt.Errorf("failed to unmarshal policy: %w", err)
-	}
-	chainID = new(big.Int)
-	chainID.SetString(payrollPolicy.ChainID, 10)
+	chainID = originalTx.ChainId()
+	fmt.Printf("Chain ID TEST: %s\n", chainID.String())
 
 	// calculate V according to EIP-155
 	recoveryID, err = strconv.ParseInt(signature.RecoveryID, 10, 64)

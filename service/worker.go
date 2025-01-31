@@ -400,7 +400,8 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 			Metadata: metadata,
 		}
 
-		txID, err := s.db.CreateTransactionHistory(newTx) //where to store txId? what is the best way to retrieve a tx?	Maybe just keep it in this context, and if status is failed at the end then we drop this instance and restart a new one later?
+		txID, err := s.db.CreateTransactionHistory(newTx) //TODO : where to store txId? what is the best way to retrieve a tx?	Maybe just keep it in this context, and if status is failed at the end then we drop this instance and restart a new one later?
+		//TODO : Should we really store each tx in db?
 		if err != nil {
 			s.logger.Errorf("Failed to create transaction history: %v", err)
 			continue
@@ -503,7 +504,7 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 			break
 		}
 
-		err = s.plugin.SigningComplete(ctx, signature, signRequest, policy)
+		err = s.plugin.SigningComplete(ctx, signature, signRequest)
 		if err != nil {
 			s.logger.Errorf("Failed to complete signing: %v", err)
 			if err.Error() == types.ErrRetriable {
