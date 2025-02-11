@@ -1,7 +1,6 @@
 package payroll
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"encoding/hex"
@@ -15,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/hibiken/asynq"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gcommon "github.com/ethereum/go-ethereum/common"
 	gtypes "github.com/ethereum/go-ethereum/core/types"
@@ -138,6 +138,7 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 			recipient.Address,
 			payrollPolicy.ChainID[i],
 			payrollPolicy.TokenID[i],
+			policy.PublicKey,
 		)
 		fmt.Printf("Chain ID TEST 1: %s\n", payrollPolicy.ChainID[i])
 		if err != nil {
@@ -252,7 +253,7 @@ func (p *PayrollPlugin) ValidateTransactionProposal(policy types.PluginPolicy, t
 	return nil
 }
 
-func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipientString string, chainID string, tokenID string) (string, []byte, error) {
+func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipientString string, chainID string, tokenID string, publicKey string) (string, []byte, error) {
 	amount := new(big.Int)
 	amount.SetString(amountString, 10)
 	recipient := gcommon.HexToAddress(recipientString)
@@ -291,7 +292,12 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 	chainIDInt.SetString(chainID, 10)
 	fmt.Printf("Chain ID TEST 3: %s\n", chainIDInt.String())
 
-	nextNonce, err := p.GetNextNonce("0x6CD7A4812bbcc94e6e17E5865E996E9e7c14bC9E") //Todo : update this (first time, put nonce 0, grab the public key,and replace here)
+	derivedAddress, err := DeriveAddress(publicKey, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", "m/44/60/0/0/0")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to derive address: %v", err)
+	}
+
+	nextNonce, err := p.GetNextNonce(derivedAddress.Hex())
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get nonce: %v", err)
 	}
@@ -399,13 +405,6 @@ func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.Keysi
 	}
 
 	p.logger.WithField("hash", signedTx.Hash().Hex()).Info("Transaction successfully broadcast")
-
-	//uncomment this to compare the recovery methods and investigate the error (recovery ID comes from convertData)
-	/*err = p.compareRecoveryMethods(policy, signature, originalTx, signRequest, sender, signedTx, R, S, V, chainID, recoveryID)
-	if err != nil {
-		p.logger.WithError(err).Error("Failed to compare recovery methods")
-		return fmt.Errorf("failed to compare recovery methods: %w", err)
-	}*/
 
 	return p.monitorTransaction(signedTx)
 }
@@ -577,127 +576,26 @@ func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest t
 	return R, S, V, originalTx, chainID, recoveryID, nil
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// These are for comparing addresses from sender and from signature recovery
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func (p *PayrollPlugin) convertPolicyPublicKeyToEthAddress(policy types.PluginPolicy) (gcommon.Address, gcommon.Address, error) {
-	fmt.Printf("\nDEBUG: Policy Public Key Conversion\n")
-	fmt.Printf(" Input public key: %s\n", policy.PublicKey)
-
-	publicKeyBytes, err := hex.DecodeString(policy.PublicKey)
+func DeriveAddress(compressedPubKeyHex, hexChainCode, derivePath string) (*gcommon.Address, error) {
+	derivedPubKeyHex, err := tss.GetDerivedPubKey(compressedPubKeyHex, hexChainCode, derivePath, false)
 	if err != nil {
-		return gcommon.Address{}, gcommon.Address{}, fmt.Errorf("failed to decode public key: %w", err)
-	}
-	fmt.Printf(" After hex decode (%d bytes):\n", len(publicKeyBytes))
-	fmt.Printf("   Full bytes: %x\n", publicKeyBytes)
-	fmt.Printf("   First byte: %x (should be 02 or 03)\n", publicKeyBytes[0])
-	fmt.Printf("   Rest: %x\n", publicKeyBytes[1:])
-
-	pubKey, err := crypto.DecompressPubkey(publicKeyBytes)
-	if err != nil {
-		return gcommon.Address{}, gcommon.Address{}, fmt.Errorf("failed to decompress public key: %w", err)
+		return nil, err
 	}
 
-	uncompressedBytes := crypto.FromECDSAPub(pubKey)
-	fmt.Printf(" After conversion to uncompressed:\n")
-	fmt.Printf("   Full bytes: %x\n", uncompressedBytes)
-	fmt.Printf("   Prefix: %x\n", uncompressedBytes[0])
-	fmt.Printf("   X: %x\n", uncompressedBytes[1:33])
-	fmt.Printf("   Y: %x\n", uncompressedBytes[33:])
-
-	pubKey2, err := crypto.UnmarshalPubkey(uncompressedBytes)
+	derivedPubKeyBytes, err := hex.DecodeString(derivedPubKeyHex)
 	if err != nil {
-		return gcommon.Address{}, gcommon.Address{}, fmt.Errorf("failed to unmarshal uncompressed key: %w", err)
+		return nil, err
 	}
 
-	addr1 := crypto.PubkeyToAddress(*pubKey2)
-	return addr1, addr1, nil
-}
-
-func (p *PayrollPlugin) compareRecoveryMethods(policy types.PluginPolicy, signature tss.KeysignResponse, originalTx *gtypes.Transaction, signRequest types.PluginKeysignRequest, sender gcommon.Address, signedTx *gtypes.Transaction, R *big.Int, S *big.Int, V *big.Int, chainID *big.Int, recoveryID int64) error {
-
-	ethAddress21, ethAddress22, err := p.convertPolicyPublicKeyToEthAddress(policy)
+	derivedPubKey, err := btcec.ParsePubKey(derivedPubKeyBytes)
 	if err != nil {
-		p.logger.Errorf("Failed to convert policy public key to address: %v", err)
-		return fmt.Errorf("failed to convert policy public key to address: %w", err)
+		return nil, err
 	}
 
-	fmt.Printf("Signature from MPC \n")
-	fmt.Printf("r (as string): %s\n", signature.R) // print as string
-	fmt.Printf("r (as hex): %x\n", signature.R)    // print as hex
-	fmt.Printf("r (type): %T\n", signature.R)
+	uncompressedPubKeyBytes := derivedPubKey.SerializeUncompressed()
+	pubKeyBytesWithoutPrefix := uncompressedPubKeyBytes[1:]
+	hash := crypto.Keccak256(pubKeyBytesWithoutPrefix)
+	address := gcommon.BytesToAddress(hash[12:])
 
-	fmt.Printf("s (as string): %s\n", signature.S)
-	fmt.Printf("s (as hex): %x\n", signature.S)
-	fmt.Printf("s (type): %T\n", signature.S)
-
-	fmt.Printf("recovery_id (as string): %s\n", signature.RecoveryID)
-	fmt.Printf("recovery_id (as hex): %x\n", signature.RecoveryID)
-	fmt.Printf("recovery_id (type): %T\n", signature.RecoveryID)
-
-	fmt.Printf("Hash sent to MPC and hash used to sign \n")
-	rawTx, _ := rlp.EncodeToBytes(originalTx) //from  signrequest.Transaction
-	txHash := crypto.Keccak256(rawTx)
-	messageBytes, err := hex.DecodeString(string(signRequest.Messages[0])) //from signRequest.message[0]
-	if err != nil {
-		p.logger.WithError(err).Error("Failed to decode message hex")
-	}
-	fmt.Printf("hash used to sign : %x\n", txHash)
-	fmt.Printf("hash_sent_to_mpc (decoded): %x\n", messageBytes)
-	fmt.Printf("Hashes match( from signRequest.Messages[0] and from signRequest.Transaction) : %v\n", bytes.Equal(messageBytes, txHash))
-
-	fmt.Printf("Comparing recovery methods \n")
-	fmt.Printf("Public key from policy: %s\n", policy.PublicKey)
-	fmt.Printf("Eth address derived from policy public key: %s\n", ethAddress21.Hex())
-	fmt.Printf("Eth address derived from policy public key: %s\n", ethAddress22.Hex())
-
-	fmt.Printf("Sender from signer: %s\n", sender.Hex())
-	fmt.Printf("Matches: %t\n", ethAddress21 == sender)
-	fmt.Printf("Matches: %t\n", ethAddress22 == sender)
-	fmt.Printf("Transaction sent successfully \n")
-	fmt.Printf("txHash: %s\n", signedTx.Hash().Hex())
-	fmt.Printf("sender: %s\n", sender.Hex())
-
-	recoveredAddr, err := p.testSignatureRecovery(txHash, R, S, recoveryID, chainID)
-	if err != nil {
-		p.logger.WithError(err).Error("Failed to recover address")
-		return fmt.Errorf("failed to recover address: %w", err)
-	}
-
-	fmt.Printf("Recovered address: %s\n", recoveredAddr.Hex())
-	fmt.Printf("Matches: %t\n", recoveredAddr == ethAddress21)
-	fmt.Printf("Matches: %t\n", recoveredAddr == ethAddress22)
-
-	return nil
-}
-
-func (p *PayrollPlugin) testSignatureRecovery(txHash []byte, r, s_value *big.Int, recoveryID int64, chainID *big.Int) (gcommon.Address, error) {
-	fmt.Printf("\nRecovering Address from Signature:\n")
-
-	sig := make([]byte, 65)
-	copy(sig[:32], r.Bytes())
-	copy(sig[32:64], s_value.Bytes())
-	sig[64] = byte(recoveryID)
-
-	pubKeyBytes, err := crypto.Ecrecover(txHash, sig)
-	if err != nil {
-		p.logger.WithError(err).Error("Failed to recover public key")
-		return gcommon.Address{}, fmt.Errorf("failed to recover public key: %w", err)
-	}
-	fmt.Printf("1. Recovered public key (hex): %x\n", pubKeyBytes)
-	fmt.Printf("   Prefix: %x\n", pubKeyBytes[0])
-	fmt.Printf("   X: %x\n", pubKeyBytes[1:33])
-	fmt.Printf("   Y: %x\n", pubKeyBytes[33:])
-
-	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
-	if err != nil {
-		p.logger.WithError(err).Error("Failed to unmarshal public key")
-		return gcommon.Address{}, fmt.Errorf("failed to unmarshal public key: %w", err)
-	}
-
-	recoveredAddr := crypto.PubkeyToAddress(*pubKey)
-	fmt.Printf("2. Final address: %s\n", recoveredAddr.Hex())
-
-	return recoveredAddr, nil
+	return &address, nil
 }
