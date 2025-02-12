@@ -504,7 +504,7 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 			break
 		}
 
-		err = s.plugin.SigningComplete(ctx, signature, signRequest)
+		err = s.plugin.SigningComplete(ctx, signature, signRequest, policy)
 		if err != nil {
 			s.logger.Errorf("Failed to complete signing: %v", err)
 			if err.Error() == types.ErrRetriable {

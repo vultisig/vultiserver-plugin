@@ -281,12 +281,13 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 		return "", nil, fmt.Errorf("failed to estimate gas: %v", err)
 	}
 	// add 20% to gas limit for safety
-	gasLimit = gasLimit * 120 / 100
+	gasLimit = gasLimit * 300 / 100
 	// get suggested gas price
 	gasPrice, err := p.rpcClient.SuggestGasPrice(context.Background())
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get gas price: %v", err)
 	}
+	gasPrice = new(big.Int).Mul(gasPrice, big.NewInt(3))
 	// Parse chain ID
 	chainIDInt := new(big.Int)
 	chainIDInt.SetString(chainID, 10)
@@ -366,8 +367,8 @@ func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {
 	return p.nonceManager.GetNextNonce(address)
 }
 
-func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) error {
-	R, S, V, originalTx, chainID, _, err := p.convertData(signature, signRequest)
+func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) error {
+	R, S, V, originalTx, chainID, _, err := p.convertData(signature, signRequest, policy)
 	if err != nil {
 		return fmt.Errorf("failed to convert R and S: %v", err)
 	}
@@ -533,7 +534,7 @@ func (p *PayrollPlugin) getRevertReason(ctx context.Context, tx *gtypes.Transact
 	return "Unknown revert reason"
 }
 
-func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest) (R *big.Int, S *big.Int, V *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, err error) {
+func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) (R *big.Int, S *big.Int, V *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, err error) {
 	// convert R and S from hex strings to big.Int
 	R = new(big.Int)
 	R.SetString(signature.R, 16)
@@ -560,8 +561,18 @@ func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest t
 		return nil, nil, nil, nil, nil, 0, fmt.Errorf("failed to unmarshal transaction: %w", err)
 	}
 
-	chainID = originalTx.ChainId()
-	fmt.Printf("Chain ID TEST: %s\n", chainID.String())
+	policybytes := policy.Policy
+	payrollPolicy := types.PayrollPolicy{}
+	err = json.Unmarshal(policybytes, &payrollPolicy)
+	if err != nil {
+		p.logger.Errorf("Failed to unmarshal policy: %v", err)
+		return nil, nil, nil, nil, nil, 0, fmt.Errorf("failed to unmarshal policy: %w", err)
+	}
+	chainID = new(big.Int)
+	chainID.SetString(payrollPolicy.ChainID[0], 10)
+
+	/*chainID = originalTx.ChainId()
+	fmt.Printf("Chain ID TEST: %s\n", chainID.String())*/
 
 	// calculate V according to EIP-155
 	recoveryID, err = strconv.ParseInt(signature.RecoveryID, 10, 64)
