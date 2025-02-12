@@ -349,10 +349,10 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 	}*/
 	//unmarshal tx from sign req.transaction
 	tx := &gtypes.Transaction{}
-	err = tx.UnmarshalBinary(rawTx)
+	err = rlp.DecodeBytes(rawTx, tx)
 	if err != nil {
-		p.logger.Errorf("Failed to unmarshal transaction: %v", err)
-		return "", nil, fmt.Errorf("failed to unmarshal transaction: %v: %w", err, asynq.SkipRetry)
+		p.logger.Errorf("Failed to RLP decode transaction: %v", err)
+		return "", nil, fmt.Errorf("failed to RLP decode transaction: %v: %w", err, asynq.SkipRetry)
 	}
 	fmt.Printf("Chain ID TEST 4: %s\n", tx.ChainId().String())
 
