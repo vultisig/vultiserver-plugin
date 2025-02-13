@@ -378,6 +378,7 @@ You will be prompted to enter infos, here are dummy ones :
 - Token contract (usdc) `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`
 - Polygon token contract `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174`
 - recipient address `0x07aE8551Be970cB1cCa11Dd7a11F47Ae82e70E67`
+- chain id : `137`
 - amount `10`
 - `done`
 - schedule frequency : `monthly`
