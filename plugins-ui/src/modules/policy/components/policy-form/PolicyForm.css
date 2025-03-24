@@ -66,6 +66,11 @@ fieldset {
     }
 }
 
+input:read-only {
+    cursor: not-allowed;
+    color: var(--text-disabled-color); 
+}
+
 .text-danger {
     color: var(--alert-error-color);
     list-style-type: none;
