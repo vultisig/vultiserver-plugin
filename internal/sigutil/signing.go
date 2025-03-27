@@ -83,6 +83,7 @@ func VerifySignature(vaultPublicKey string, chainCodeHex string, derivePath stri
 	}
 
 	pk, err := btcec.ParsePubKey(publicKeyBytes, btcec.S256())
+	fmt.Println("PK:", pk)
 	if err != nil {
 		return false, err
 	}
