@@ -7,16 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/vultisig/vultisigner/storage"
 	"math/big"
 	"strconv"
 	"strings"
-
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/config"
-	"github.com/vultisig/vultisigner/internal/sigutil"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/pkg/uniswap"
-	"github.com/vultisig/vultisigner/storage"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -27,6 +21,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
+	"github.com/vultisig/vultisigner/common"
+	"github.com/vultisig/vultisigner/config"
+	"github.com/vultisig/vultisigner/internal/sigutil"
+	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultisigner/pkg/uniswap"
 )
 
 const (
