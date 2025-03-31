@@ -1,0 +1,18 @@
+.star-container {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .star {
+    color: var(--alert-warning-color);
+    fill: transparent;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+
+    &.filled {
+        fill: var(--alert-warning-color);
+        color: var(--alert-warning-color);
+    }
+  }
+  
+  
