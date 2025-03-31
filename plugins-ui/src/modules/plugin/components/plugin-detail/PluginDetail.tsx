@@ -81,9 +81,11 @@ const PluginDetail = () => {
             </section>
 
             <section>
-              <h3 className="review-rating">Reviews and Ratings</h3>
-              <LeaveReview />
-              <Rating />
+              <h3 className="review-rating-header">Reviews and Ratings</h3>
+              <div className="review-rating">
+                <LeaveReview />
+                <Rating />
+              </div>
             </section>
 
             <section>
