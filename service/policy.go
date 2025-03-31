@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/vultisigner/internal/syncer"
 	"github.com/vultisig/vultisigner/internal/types"
+	"reflect"
 )
 
 type Policy interface {
@@ -67,14 +68,14 @@ func (s *PolicyService) CreatePolicyWithSync(ctx context.Context, policy types.P
 		}
 
 		// Create time trigger if scheduler is available
-		if s.scheduler != nil {
+		if s.scheduler != nil && !reflect.ValueOf(s.scheduler).IsNil() {
 			if err := s.scheduler.CreateTimeTrigger(ctx, policy, tx); err != nil {
 				return fmt.Errorf("failed to create time trigger: %w", err)
 			}
 		}
 
 		// Sync the policy if syncer is available
-		if s.syncer != nil {
+		if s.syncer != nil && !reflect.ValueOf(s.syncer).IsNil() {
 			err := s.syncer.CreatePolicySync(policy)
 			if err != nil {
 				return fmt.Errorf("failed to sync create policy: %w", err)

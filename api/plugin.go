@@ -214,7 +214,6 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	}
 
 	// We re-init plugin as verification server doesn't have plugin defined
-
 	var plg plugin.Plugin
 	plg, err := s.initializePlugin(policy.PluginType)
 	if err != nil {

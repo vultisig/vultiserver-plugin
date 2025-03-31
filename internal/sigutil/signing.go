@@ -16,7 +16,7 @@ import (
 	"github.com/vultisig/mobile-tss-lib/tss"
 )
 
-func SignLegacyTx(keysignResponse tss.KeysignResponse, txHash string, rawTx string, chainID *big.Int) (*types.Transaction, *common.Address, error) {
+func SignLegacyTx(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*types.Transaction, *common.Address, error) {
 	unsignedTxBytes, err := hex.DecodeString(rawTx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode raw transaction: %w", err)
@@ -83,7 +83,6 @@ func VerifySignature(vaultPublicKey string, chainCodeHex string, derivePath stri
 	}
 
 	pk, err := btcec.ParsePubKey(publicKeyBytes, btcec.S256())
-	fmt.Println("PK:", pk)
 	if err != nil {
 		return false, err
 	}

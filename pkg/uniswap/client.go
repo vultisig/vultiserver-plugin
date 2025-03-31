@@ -15,11 +15,20 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+type ClientInterface interface {
+	GetRouterAddress() *common.Address
+	GetAllowance(owner common.Address, token common.Address) (*big.Int, error)
+	GetTokenBalance(address *common.Address, token common.Address) (*big.Int, error)
+	GetExpectedAmountOut(amountIn *big.Int, path []common.Address) (*big.Int, error)
+	CalculateAmountOutMin(amountOut *big.Int, slippagePercentage float64) *big.Int
+	ApproveERC20Token(chainID *big.Int, from *common.Address, token common.Address, spender common.Address, amount *big.Int, nonce uint64) ([]byte, []byte, error)
+	SwapTokens(chainID *big.Int, from *common.Address, amountIn *big.Int, amountOutMin *big.Int, path []common.Address, nonce uint64) ([]byte, []byte, error)
+}
 type Client struct {
 	cfg *Config
 }
 
-func NewClient(cfg *Config) (*Client, error) {
+func NewClient(cfg *Config) (ClientInterface, error) {
 	return &Client{cfg}, nil
 }
 
