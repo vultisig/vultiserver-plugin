@@ -15,6 +15,11 @@ const (
 	expireDuration = 7 * 24 * time.Hour
 )
 
+type Auth interface {
+	GenerateToken() (string, error)
+	ValidateToken(tokenString string) (*Claims, error)
+}
+
 type AuthService struct {
 	JWTSecret []byte
 }
