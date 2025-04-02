@@ -11,113 +11,19 @@ import (
 	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/vultisig/mobile-tss-lib/tss"
 	"github.com/vultisig/vultisigner/common"
 	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultisigner/test/mocks/database"
+	"github.com/vultisig/vultisigner/test/mocks/ethclient"
+	"github.com/vultisig/vultisigner/test/mocks/uniswapclient"
+
 	"math/big"
 	"testing"
 )
-
-type MockUniswapClient struct {
-	mock.Mock
-}
-
-func (m *MockUniswapClient) GetRouterAddress() *gcommon.Address {
-	args := m.Called()
-	addr := args.Get(0).(gcommon.Address)
-	return &addr
-}
-
-func (m *MockUniswapClient) GetAllowance(owner gcommon.Address, token gcommon.Address) (*big.Int, error) {
-	args := m.Called(owner, token)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*big.Int), args.Error(1)
-}
-
-func (m *MockUniswapClient) GetTokenBalance(address *gcommon.Address, token gcommon.Address) (*big.Int, error) {
-	args := m.Called(address, token)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*big.Int), args.Error(1)
-}
-
-func (m *MockUniswapClient) GetExpectedAmountOut(amountIn *big.Int, path []gcommon.Address) (*big.Int, error) {
-	args := m.Called(amountIn, path)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*big.Int), args.Error(1)
-}
-
-func (m *MockUniswapClient) CalculateAmountOutMin(amountOut *big.Int, slippagePercentage float64) *big.Int {
-	args := m.Called(amountOut, slippagePercentage)
-	return args.Get(0).(*big.Int)
-}
-
-func (m *MockUniswapClient) ApproveERC20Token(chainID *big.Int, from *gcommon.Address, token gcommon.Address, spender gcommon.Address, amount *big.Int, nonce uint64) ([]byte, []byte, error) {
-	args := m.Called(chainID, from, token, spender, amount, nonce)
-	return args.Get(0).([]byte), args.Get(1).([]byte), args.Error(2)
-}
-
-func (m *MockUniswapClient) SwapTokens(chainID *big.Int, from *gcommon.Address, amountIn *big.Int, amountOutMin *big.Int, path []gcommon.Address, nonce uint64) ([]byte, []byte, error) {
-	args := m.Called(chainID, from, amountIn, amountOutMin, path, nonce)
-	return args.Get(0).([]byte), args.Get(1).([]byte), args.Error(2)
-}
-
-type MockEthClient struct {
-	mock.Mock
-}
-
-func (m *MockEthClient) SendTransaction(ctx context.Context, tx *gtypes.Transaction) error {
-	args := m.Called(ctx, tx)
-	return args.Error(0)
-}
-func (m *MockEthClient) TransactionReceipt(ctx context.Context, txHash gcommon.Hash) (*gtypes.Receipt, error) {
-	args := m.Called(ctx, txHash)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*gtypes.Receipt), args.Error(1)
-}
-
-func (m *MockEthClient) CodeAt(ctx context.Context, account gcommon.Address, blockNumber *big.Int) ([]byte, error) {
-	args := m.Called(ctx, account, blockNumber)
-	return args.Get(0).([]byte), args.Error(1)
-}
-
-type MockDB struct {
-	mock.Mock
-}
-
-func (m *MockDB) WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error {
-	args := m.Called(ctx, fn)
-
-	if val, ok := args.Get(0).(bool); ok && val {
-		return fn(ctx, nil)
-	}
-
-	return args.Error(1)
-}
-
-func (m *MockDB) CountTransactions(ctx context.Context, policyUUID uuid.UUID, status types.TransactionStatus, txType string) (int64, error) {
-	args := m.Called(ctx, policyUUID, status, txType)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func (m *MockDB) UpdatePluginPolicyTx(ctx context.Context, tx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
-	args := m.Called(ctx, tx, policy)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*types.PluginPolicy), args.Error(1)
-}
 
 func createValidPolicy() types.PluginPolicy {
 	dcaPolicy := types.DCAPolicy{
@@ -255,9 +161,9 @@ func createKeysignRequest(txHash []byte, rlpTxBytes []byte, policyID string) typ
 // Tests
 
 func TestValidatePluginPolicy(t *testing.T) {
-	mockUniswap := new(MockUniswapClient)
-	mockEth := new(MockEthClient)
-	mockDB := new(MockDB)
+	mockUniswap := new(uniswapclient.MockUniswapClient)
+	mockEth := new(ethclient.MockEthClient)
+	mockDB := new(database.MockDB)
 	logger := logrus.StandardLogger()
 
 	plugin := &DCAPlugin{
@@ -466,9 +372,9 @@ func TestValidatePluginPolicy(t *testing.T) {
 }
 
 func TestCalculateSwapAmountPerOrder(t *testing.T) {
-	mockUniswap := new(MockUniswapClient)
-	mockEth := new(MockEthClient)
-	mockDB := new(MockDB)
+	mockUniswap := new(uniswapclient.MockUniswapClient)
+	mockEth := new(ethclient.MockEthClient)
+	mockDB := new(database.MockDB)
 	logger := logrus.StandardLogger()
 
 	plugin := &DCAPlugin{
@@ -526,7 +432,7 @@ func TestGetCompletedSwapTransactionsCount(t *testing.T) {
 	testCases := []struct {
 		name         string
 		policyID     string
-		mockSetup    func(db *MockDB)
+		mockSetup    func(db *database.MockDB)
 		expected     int64
 		wantErr      bool
 		errorMessage string
@@ -534,7 +440,7 @@ func TestGetCompletedSwapTransactionsCount(t *testing.T) {
 		{
 			name:     "Valid policy ID with completed swaps",
 			policyID: validPolicyID,
-			mockSetup: func(db *MockDB) {
+			mockSetup: func(db *database.MockDB) {
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").Return(int64(5), nil)
 			},
 			expected: 5,
@@ -543,7 +449,7 @@ func TestGetCompletedSwapTransactionsCount(t *testing.T) {
 		{
 			name:     "Valid policy ID with no completed swaps",
 			policyID: validPolicyID,
-			mockSetup: func(db *MockDB) {
+			mockSetup: func(db *database.MockDB) {
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").Return(int64(0), nil)
 			},
 			expected: 0,
@@ -552,7 +458,7 @@ func TestGetCompletedSwapTransactionsCount(t *testing.T) {
 		{
 			name:     "Database error",
 			policyID: validPolicyID,
-			mockSetup: func(db *MockDB) {
+			mockSetup: func(db *database.MockDB) {
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").Return(int64(0), fmt.Errorf("database error"))
 			},
 			expected:     0,
@@ -562,7 +468,7 @@ func TestGetCompletedSwapTransactionsCount(t *testing.T) {
 		{
 			name:         "Invalid policy ID",
 			policyID:     "invalid-uuid",
-			mockSetup:    func(db *MockDB) {},
+			mockSetup:    func(db *database.MockDB) {},
 			expected:     0,
 			wantErr:      true,
 			errorMessage: `invalid policy_id`,
@@ -571,9 +477,9 @@ func TestGetCompletedSwapTransactionsCount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockUniswap := new(MockUniswapClient)
-			mockEth := new(MockEthClient)
-			mockDB := new(MockDB)
+			mockUniswap := new(uniswapclient.MockUniswapClient)
+			mockEth := new(ethclient.MockEthClient)
+			mockDB := new(database.MockDB)
 			logger := logrus.StandardLogger()
 
 			tc.mockSetup(mockDB)
@@ -611,7 +517,7 @@ func TestProposeTransactions(t *testing.T) {
 	testCases := []struct {
 		name         string
 		policy       types.PluginPolicy
-		mockSetup    func(*MockDB, *MockUniswapClient)
+		mockSetup    func(*database.MockDB, *uniswapclient.MockUniswapClient)
 		expected     int
 		wantErr      bool
 		errorMessage string
@@ -619,7 +525,7 @@ func TestProposeTransactions(t *testing.T) {
 		{
 			name:   "All swaps completed",
 			policy: policy,
-			mockSetup: func(db *MockDB, mockUniswap *MockUniswapClient) {
+			mockSetup: func(db *database.MockDB, mockUniswap *uniswapclient.MockUniswapClient) {
 				dcaPolicy := types.DCAPolicy{}
 				err := json.Unmarshal(policy.Policy, &dcaPolicy)
 				require.NoError(t, err)
@@ -643,7 +549,7 @@ func TestProposeTransactions(t *testing.T) {
 		{
 			name:   "Propose approve and swap",
 			policy: policy,
-			mockSetup: func(db *MockDB, uniswap *MockUniswapClient) {
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), nil)
 
@@ -674,7 +580,7 @@ func TestProposeTransactions(t *testing.T) {
 		{
 			name:   "Propose only SWAP (sufficient allowance case)",
 			policy: policy,
-			mockSetup: func(db *MockDB, uniswap *MockUniswapClient) {
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), nil)
 
@@ -699,7 +605,7 @@ func TestProposeTransactions(t *testing.T) {
 		{
 			name:   "Error getting allowance",
 			policy: policy,
-			mockSetup: func(db *MockDB, uniswap *MockUniswapClient) {
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), nil)
 
@@ -717,9 +623,9 @@ func TestProposeTransactions(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			mockUniswap := new(MockUniswapClient)
-			mockEth := new(MockEthClient)
-			mockDB := new(MockDB)
+			mockUniswap := new(uniswapclient.MockUniswapClient)
+			mockEth := new(ethclient.MockEthClient)
+			mockDB := new(database.MockDB)
 			logger := logrus.StandardLogger()
 
 			tc.mockSetup(mockDB, mockUniswap)
@@ -753,13 +659,13 @@ func TestCompletePolicy(t *testing.T) {
 
 	testCases := []struct {
 		name      string
-		mockSetup func(*MockDB)
+		mockSetup func(*database.MockDB)
 		wantError bool
 		errorMsg  string
 	}{
 		{
 			name: "Successful policy completion",
-			mockSetup: func(db *MockDB) {
+			mockSetup: func(db *database.MockDB) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -773,7 +679,7 @@ func TestCompletePolicy(t *testing.T) {
 		},
 		{
 			name: "Transaction error",
-			mockSetup: func(db *MockDB) {
+			mockSetup: func(db *database.MockDB) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(false, errors.New("transaction error"))
 			},
@@ -782,7 +688,7 @@ func TestCompletePolicy(t *testing.T) {
 		},
 		{
 			name: "Update policy error",
-			mockSetup: func(db *MockDB) {
+			mockSetup: func(db *database.MockDB) {
 				// Make WithTransaction execute the function
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
@@ -798,9 +704,9 @@ func TestCompletePolicy(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockUniswap := new(MockUniswapClient)
-			mockEth := new(MockEthClient)
-			mockDB := new(MockDB)
+			mockUniswap := new(uniswapclient.MockUniswapClient)
+			mockEth := new(ethclient.MockEthClient)
+			mockDB := new(database.MockDB)
 			logger := logrus.New()
 
 			tc.mockSetup(mockDB)
@@ -966,7 +872,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 		name         string
 		policy       types.PluginPolicy
 		txRequests   []types.PluginKeysignRequest
-		mockSetup    func(*MockDB, *MockUniswapClient)
+		mockSetup    func(*database.MockDB, *uniswapclient.MockUniswapClient)
 		wantErr      bool
 		errorMessage string
 	}{
@@ -974,7 +880,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 			name:         "No transactions provided",
 			policy:       policy,
 			txRequests:   []types.PluginKeysignRequest{},
-			mockSetup:    func(*MockDB, *MockUniswapClient) {},
+			mockSetup:    func(*database.MockDB, *uniswapclient.MockUniswapClient) {},
 			wantErr:      true,
 			errorMessage: "no transactions provided for validation",
 		},
@@ -982,7 +888,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 			name:         "Policy validation fails",
 			policy:       func() types.PluginPolicy { p := policy; p.PluginType = "invalid"; return p }(),
 			txRequests:   []types.PluginKeysignRequest{validSwapRequest},
-			mockSetup:    func(*MockDB, *MockUniswapClient) {},
+			mockSetup:    func(*database.MockDB, *uniswapclient.MockUniswapClient) {},
 			wantErr:      true,
 			errorMessage: "failed to validate plugin policy",
 		},
@@ -990,7 +896,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 			name:       "All Swaps completed",
 			policy:     policy,
 			txRequests: []types.PluginKeysignRequest{validSwapRequest},
-			mockSetup: func(db *MockDB, uniswap *MockUniswapClient) {
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
 				dcaPolicy := types.DCAPolicy{}
 				err := json.Unmarshal(policy.Policy, &dcaPolicy)
 				require.NoError(t, err)
@@ -1014,7 +920,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 			name:       "Valid swap transaction",
 			policy:     policy,
 			txRequests: []types.PluginKeysignRequest{validSwapRequest},
-			mockSetup: func(db *MockDB, uniswap *MockUniswapClient) {
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
 				// No completed swaps yet
 				db.On("CountTransactions", mock.Anything, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), nil)
@@ -1029,7 +935,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 			name:       "Valid approve transaction",
 			policy:     policy,
 			txRequests: []types.PluginKeysignRequest{validApproveRequest},
-			mockSetup: func(db *MockDB, uniswap *MockUniswapClient) {
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
 				// No completed swaps yet
 				db.On("CountTransactions", mock.Anything, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), nil)
@@ -1043,7 +949,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 			name:       "Invalid transaction (empty data)",
 			policy:     policy,
 			txRequests: []types.PluginKeysignRequest{invalidRequest},
-			mockSetup: func(db *MockDB, uniswap *MockUniswapClient) {
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
 				db.On("CountTransactions", mock.Anything, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), nil)
 
@@ -1055,7 +961,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 			name:       "Database error",
 			policy:     policy,
 			txRequests: []types.PluginKeysignRequest{validSwapRequest},
-			mockSetup: func(db *MockDB, uniswap *MockUniswapClient) {
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
 				// Database error
 				db.On("CountTransactions", mock.Anything, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), errors.New("database error"))
@@ -1067,9 +973,9 @@ func TestValidateProposedTransactions(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockDB := new(MockDB)
-			mockUniswap := new(MockUniswapClient)
-			mockEth := new(MockEthClient)
+			mockDB := new(database.MockDB)
+			mockUniswap := new(uniswapclient.MockUniswapClient)
+			mockEth := new(ethclient.MockEthClient)
 			logger := logrus.StandardLogger()
 
 			tc.mockSetup(mockDB, mockUniswap)
@@ -1131,7 +1037,7 @@ func TestValidateTransaction(t *testing.T) {
 		sourceAddr        *gcommon.Address
 		destAddr          *gcommon.Address
 		signerAddr        *gcommon.Address
-		mockSetup         func(*MockUniswapClient)
+		mockSetup         func(*uniswapclient.MockUniswapClient)
 		wantError         bool
 		errorMsg          string
 	}{
@@ -1146,7 +1052,7 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup: func(uniswap *MockUniswapClient) {
+			mockSetup: func(uniswap *uniswapclient.MockUniswapClient) {
 				uniswap.On("GetRouterAddress").Return(routerAddr)
 			},
 			wantError: false,
@@ -1162,7 +1068,7 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup: func(uniswap *MockUniswapClient) {
+			mockSetup: func(uniswap *uniswapclient.MockUniswapClient) {
 				uniswap.On("GetRouterAddress").Return(routerAddr)
 			},
 			wantError: false,
@@ -1178,7 +1084,7 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup:         func(uniswap *MockUniswapClient) {},
+			mockSetup:         func(uniswap *uniswapclient.MockUniswapClient) {},
 			wantError:         true,
 			errorMsg:          "fail to parse RLP transaction",
 		},
@@ -1193,7 +1099,7 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup:         func(uniswap *MockUniswapClient) {},
+			mockSetup:         func(uniswap *uniswapclient.MockUniswapClient) {},
 			wantError:         true,
 			errorMsg:          "chain ID mismatch",
 		},
@@ -1208,7 +1114,7 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup:         func(uniswap *MockUniswapClient) {},
+			mockSetup:         func(uniswap *uniswapclient.MockUniswapClient) {},
 			wantError:         true,
 			errorMsg:          "invalid gas limit",
 		},
@@ -1223,7 +1129,7 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup:         func(uniswap *MockUniswapClient) {},
+			mockSetup:         func(uniswap *uniswapclient.MockUniswapClient) {},
 			wantError:         true,
 			errorMsg:          "invalid gas price",
 		},
@@ -1238,7 +1144,7 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup:         func(uniswap *MockUniswapClient) {},
+			mockSetup:         func(uniswap *uniswapclient.MockUniswapClient) {},
 			wantError:         true,
 			errorMsg:          "transaction contains empty payload",
 		},
@@ -1253,7 +1159,7 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup: func(uniswap *MockUniswapClient) {
+			mockSetup: func(uniswap *uniswapclient.MockUniswapClient) {
 				uniswap.On("GetRouterAddress").Return(wrongAddr) // Different from tx destination
 			},
 			wantError: true,
@@ -1263,9 +1169,9 @@ func TestValidateTransaction(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockUniswap := new(MockUniswapClient)
-			mockEth := new(MockEthClient)
-			mockDB := new(MockDB)
+			mockUniswap := new(uniswapclient.MockUniswapClient)
+			mockEth := new(ethclient.MockEthClient)
+			mockDB := new(database.MockDB)
 			logger := logrus.StandardLogger()
 
 			tc.mockSetup(mockUniswap)
@@ -1322,7 +1228,7 @@ func TestSigningComplete(t *testing.T) {
 	testCases := []struct {
 		name         string
 		signRequest  types.PluginKeysignRequest
-		mockSetup    func(*MockEthClient)
+		mockSetup    func(*ethclient.MockEthClient)
 		waitMined    func(ctx context.Context, backend bind.DeployBackend, tx *gtypes.Transaction) (*gtypes.Receipt, error)
 		signLegacyTx func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error)
 		wantError    bool
@@ -1330,7 +1236,7 @@ func TestSigningComplete(t *testing.T) {
 	}{
 		{
 			name: "Successful transaction",
-			mockSetup: func(ethClient *MockEthClient) {
+			mockSetup: func(ethClient *ethclient.MockEthClient) {
 				ethClient.On("SendTransaction", mock.Anything, mock.AnythingOfType("*types.Transaction")).
 					Return(nil)
 			},
@@ -1357,7 +1263,7 @@ func TestSigningComplete(t *testing.T) {
 		},
 		{
 			name:      "Empty transaction hash",
-			mockSetup: func(ethClient *MockEthClient) {},
+			mockSetup: func(ethClient *ethclient.MockEthClient) {},
 			signRequest: func() types.PluginKeysignRequest {
 				swapHash, swapRawTx, _ := createSwapTransaction(t,
 					big.NewInt(1),
@@ -1377,7 +1283,7 @@ func TestSigningComplete(t *testing.T) {
 		},
 		{
 			name:      "SignLegacyTx fails",
-			mockSetup: func(ethClient *MockEthClient) {},
+			mockSetup: func(ethClient *ethclient.MockEthClient) {},
 			signRequest: func() types.PluginKeysignRequest {
 				swapHash, swapRawTx, _ := createSwapTransaction(t,
 					big.NewInt(1),
@@ -1399,7 +1305,7 @@ func TestSigningComplete(t *testing.T) {
 		},
 		{
 			name: "SendTransaction fails",
-			mockSetup: func(ethClient *MockEthClient) {
+			mockSetup: func(ethClient *ethclient.MockEthClient) {
 				ethClient.On("SendTransaction", mock.Anything, mock.AnythingOfType("*types.Transaction")).
 					Return(errors.New("network error"))
 			},
@@ -1424,7 +1330,7 @@ func TestSigningComplete(t *testing.T) {
 		},
 		{
 			name: "WaitMined fails",
-			mockSetup: func(ethClient *MockEthClient) {
+			mockSetup: func(ethClient *ethclient.MockEthClient) {
 				ethClient.On("SendTransaction", mock.Anything, mock.AnythingOfType("*types.Transaction")).
 					Return(nil)
 			},
@@ -1452,7 +1358,7 @@ func TestSigningComplete(t *testing.T) {
 		},
 		{
 			name: "Transaction reverted",
-			mockSetup: func(ethClient *MockEthClient) {
+			mockSetup: func(ethClient *ethclient.MockEthClient) {
 				ethClient.On("SendTransaction", mock.Anything, mock.AnythingOfType("*types.Transaction")).
 					Return(nil)
 			},
@@ -1483,9 +1389,9 @@ func TestSigningComplete(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mocks
-			mockUniswap := new(MockUniswapClient)
-			mockEth := new(MockEthClient)
-			mockDB := new(MockDB)
+			mockUniswap := new(uniswapclient.MockUniswapClient)
+			mockEth := new(ethclient.MockEthClient)
+			mockDB := new(database.MockDB)
 			logger := logrus.StandardLogger()
 
 			// Setup mocks

@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hibiken/asynq"
-	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultisigner/test/mocks/database"
+	"github.com/vultisig/vultisigner/test/mocks/queueclient"
 	"testing"
 	"time"
 )
@@ -27,59 +28,6 @@ func (m *MockClock) Now() time.Time {
 func (m *MockClock) NewTicker(d time.Duration) *time.Ticker {
 	args := m.Called(d)
 	return args.Get(0).(*time.Ticker)
-}
-
-// MockTaskClient is a mock implementation of the TaskClient interface
-type MockTaskClient struct {
-	mock.Mock
-}
-
-func (m *MockTaskClient) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
-	args := m.Called(task, opts)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*asynq.TaskInfo), args.Error(1)
-}
-
-// MockDB is a mock implementation of the DatabaseStorage interface
-type MockDB struct {
-	mock.Mock
-}
-
-func (m *MockDB) UpdateTimeTriggerLastExecution(ctx context.Context, policyID string) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *MockDB) UpdateTimeTriggerTx(ctx context.Context, policyID string, trigger types.TimeTrigger, dbTx pgx.Tx) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *MockDB) GetPendingTimeTriggers(ctx context.Context) ([]types.TimeTrigger, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]types.TimeTrigger), args.Error(1)
-}
-
-func (m *MockDB) GetTriggerStatus(ctx context.Context, policyID string) (types.TimeTriggerStatus, error) {
-	args := m.Called(ctx, policyID)
-	return args.Get(0).(types.TimeTriggerStatus), args.Error(1)
-}
-
-func (m *MockDB) UpdateTriggerStatus(ctx context.Context, policyID string, status types.TimeTriggerStatus) error {
-	args := m.Called(ctx, policyID, status)
-	return args.Error(0)
-}
-
-func (m *MockDB) DeleteTimeTrigger(ctx context.Context, policyID string) error {
-	args := m.Called(ctx, policyID)
-	return args.Error(0)
-}
-
-func (m *MockDB) CreateTimeTriggerTx(ctx context.Context, tx pgx.Tx, trigger types.TimeTrigger) error {
-	args := m.Called(ctx, tx, trigger)
-	return args.Error(0)
 }
 
 func TestFrequencyToCron(t *testing.T) {
@@ -434,7 +382,7 @@ func TestProcessTrigger(t *testing.T) {
 	testCases := []struct {
 		name         string
 		trigger      types.TimeTrigger
-		mockSetup    func(*MockDB, *MockClock, *MockTaskClient)
+		mockSetup    func(*database.MockDB, *MockClock, *queueclient.MockQueueClient)
 		wantErr      bool
 		errorMessage string
 	}{
@@ -447,7 +395,7 @@ func TestProcessTrigger(t *testing.T) {
 				Frequency:      "custom",
 				Interval:       1,
 			},
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 				db.On("DeleteTimeTrigger", ctx, "policy1").Return(nil)
 			},
 			wantErr:      true,
@@ -463,7 +411,7 @@ func TestProcessTrigger(t *testing.T) {
 				Frequency:      "daily",
 				Interval:       1,
 			},
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 				clock.On("Now").Return(baseTime)
 				db.On("DeleteTimeTrigger", ctx, "policy1").Return(nil)
 			},
@@ -479,7 +427,7 @@ func TestProcessTrigger(t *testing.T) {
 				Frequency:      "daily",
 				Interval:       1,
 			},
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 				clock.On("Now").Return(baseTime.Add(-1 * time.Hour))
 				db.On("GetTriggerStatus", ctx, "policy1").Return(types.StatusTimeTriggerPending, nil)
 			},
@@ -495,7 +443,7 @@ func TestProcessTrigger(t *testing.T) {
 				Frequency:      "daily",
 				Interval:       1,
 			},
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 				clock.On("Now").Return(baseTime)
 				db.On("GetTriggerStatus", ctx, "policy1").Return(types.StatusTimeTriggerRunning, nil)
 			},
@@ -512,7 +460,7 @@ func TestProcessTrigger(t *testing.T) {
 				Frequency:      "daily",
 				Interval:       1,
 			},
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 				clock.On("Now").Return(baseTime)
 				db.On("GetTriggerStatus", ctx, "policy1").Return(types.StatusTimeTriggerPending, nil)
 				db.On("UpdateTriggerStatus", ctx, "policy1", types.StatusTimeTriggerRunning).Return(nil)
@@ -531,12 +479,12 @@ func TestProcessTrigger(t *testing.T) {
 				Frequency:      "daily",
 				Interval:       1,
 			},
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 				clock.On("Now").Return(baseTime)
 				db.On("GetTriggerStatus", ctx, "policy1").Return(types.StatusTimeTriggerPending, nil)
 				db.On("UpdateTriggerStatus", ctx, "policy1", types.StatusTimeTriggerRunning).Return(nil)
 
-				client.On("Enqueue", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("enqueue failed"))
+				client.On("Enqueue", mock.Anything, mock.Anything).Return(&asynq.TaskInfo{}, fmt.Errorf("enqueue failed"))
 			},
 			wantErr:      true,
 			errorMessage: "failed to enqueue trigger task",
@@ -546,9 +494,9 @@ func TestProcessTrigger(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			mockDB := new(MockDB)
+			mockDB := new(database.MockDB)
 			mockClock := new(MockClock)
-			mockClient := new(MockTaskClient)
+			mockClient := new(queueclient.MockQueueClient)
 
 			tc.mockSetup(mockDB, mockClock, mockClient)
 
@@ -585,13 +533,13 @@ func TestCheckAndEnqueueTasks(t *testing.T) {
 
 	testCases := []struct {
 		name         string
-		mockSetup    func(db *MockDB, clock *MockClock, client *MockTaskClient)
+		mockSetup    func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient)
 		wantErr      bool
 		errorMessage string
 	}{
 		{
 			name: "error fetching pending triggers",
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 				db.On("GetPendingTimeTriggers", mock.Anything).Return([]types.TimeTrigger{}, fmt.Errorf("database error"))
 			},
 			wantErr:      true,
@@ -599,14 +547,14 @@ func TestCheckAndEnqueueTasks(t *testing.T) {
 		},
 		{
 			name: "no triggers found",
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 				db.On("GetPendingTimeTriggers", mock.Anything).Return([]types.TimeTrigger{}, nil)
 			},
 			wantErr: false,
 		},
 		{
 			name: "error processing one trigger but continue with other",
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 				triggers := []types.TimeTrigger{
 					{
 						PolicyID:       "policy1",
@@ -640,7 +588,7 @@ func TestCheckAndEnqueueTasks(t *testing.T) {
 		},
 		{
 			name: "all triggers processed successfully",
-			mockSetup: func(db *MockDB, clock *MockClock, client *MockTaskClient) {
+			mockSetup: func(db *database.MockDB, clock *MockClock, client *queueclient.MockQueueClient) {
 
 				triggers := []types.TimeTrigger{
 					{
@@ -678,9 +626,9 @@ func TestCheckAndEnqueueTasks(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockDB := new(MockDB)
+			mockDB := new(database.MockDB)
 			mockClock := new(MockClock)
-			mockClient := new(MockTaskClient)
+			mockClient := new(queueclient.MockQueueClient)
 
 			tc.mockSetup(mockDB, mockClock, mockClient)
 

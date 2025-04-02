@@ -4,111 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/vultisig/vultisigner/internal/syncer"
 	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultisigner/test/mocks/database"
+	"github.com/vultisig/vultisigner/test/mocks/scheduler"
+	"github.com/vultisig/vultisigner/test/mocks/syncer"
+
 	"testing"
 )
-
-type MockPolicyStorage struct {
-	mock.Mock
-}
-
-func (m *MockPolicyStorage) WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error {
-	args := m.Called(ctx, fn)
-
-	if val, ok := args.Get(0).(bool); ok && val {
-		return fn(ctx, nil)
-	}
-
-	return args.Error(1)
-}
-
-func (m *MockPolicyStorage) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
-	args := m.Called(ctx, dbTx, policy)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*types.PluginPolicy), args.Error(1)
-}
-
-func (m *MockPolicyStorage) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
-	args := m.Called(ctx, dbTx, policy)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*types.PluginPolicy), args.Error(1)
-}
-
-func (m *MockPolicyStorage) UpdateTimeTriggerTx(ctx context.Context, policyID string, trigger types.TimeTrigger, dbTx pgx.Tx) error {
-	args := m.Called(ctx, policyID, trigger, dbTx)
-	return args.Error(0)
-}
-
-func (m *MockPolicyStorage) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id string) error {
-	args := m.Called(ctx, dbTx, id)
-	return args.Error(0)
-}
-
-func (m *MockPolicyStorage) GetAllPluginPolicies(ctx context.Context, pluginType string, publicKey string) ([]types.PluginPolicy, error) {
-	args := m.Called(ctx, pluginType, publicKey)
-	return args.Get(0).([]types.PluginPolicy), args.Error(1)
-}
-
-func (m *MockPolicyStorage) GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(types.PluginPolicy), args.Error(1)
-}
-
-func (m *MockPolicyStorage) GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]types.TransactionHistory, error) {
-	args := m.Called(ctx, policyID, transactionType, take, skip)
-	return args.Get(0).([]types.TransactionHistory), args.Error(1)
-}
-
-// MockPolicySyncer is a mock implementation of the PolicySyncer interface
-type MockPolicySyncer struct {
-	mock.Mock
-}
-
-func (m *MockPolicySyncer) CreatePolicySync(policy types.PluginPolicy) error {
-	args := m.Called(policy)
-	return args.Error(0)
-}
-
-func (m *MockPolicySyncer) UpdatePolicySync(policy types.PluginPolicy) error {
-	args := m.Called(policy)
-	return args.Error(0)
-}
-
-func (m *MockPolicySyncer) DeletePolicySync(policyID string, signature string) error {
-	args := m.Called(policyID, signature)
-	return args.Error(0)
-}
-
-func (m *MockPolicySyncer) SyncTransaction(action syncer.Action, jwtToken string, tx types.TransactionHistory) error {
-	return nil
-}
-
-// MockSchedulerService is a mock implementation of the SchedulerService interface
-type MockSchedulerService struct {
-	mock.Mock
-}
-
-func (m *MockSchedulerService) CreateTimeTrigger(ctx context.Context, policy types.PluginPolicy, tx pgx.Tx) error {
-	args := m.Called(ctx, policy, tx)
-	return args.Error(0)
-}
-
-func (m *MockSchedulerService) GetTriggerFromPolicy(policy types.PluginPolicy) (*types.TimeTrigger, error) {
-	args := m.Called(policy)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*types.TimeTrigger), args.Error(1)
-}
 
 func createSamplePolicy(id string) types.PluginPolicy {
 	return types.PluginPolicy{
@@ -125,39 +30,39 @@ func TestNewPolicyService(t *testing.T) {
 	testCases := []struct {
 		name      string
 		db        PolicyServiceStorage
-		syncer    *MockPolicySyncer
-		scheduler *MockSchedulerService
+		syncer    *syncer.MockSyncer
+		scheduler *scheduler.MockSchedulerService
 		logger    *logrus.Logger
 		wantErr   bool
 	}{
 		{
 			name:      "Valid initialization",
-			db:        &MockPolicyStorage{},
-			syncer:    &MockPolicySyncer{},
-			scheduler: &MockSchedulerService{},
+			db:        &database.MockDB{},
+			syncer:    &syncer.MockSyncer{},
+			scheduler: &scheduler.MockSchedulerService{},
 			logger:    logrus.StandardLogger(),
 			wantErr:   false,
 		},
 		{
 			name:      "Nil database",
 			db:        nil,
-			syncer:    &MockPolicySyncer{},
-			scheduler: &MockSchedulerService{},
+			syncer:    &syncer.MockSyncer{},
+			scheduler: &scheduler.MockSchedulerService{},
 			logger:    logrus.StandardLogger(),
 			wantErr:   true,
 		},
 		{
 			name:      "Nil syncer is allowed",
-			db:        &MockPolicyStorage{},
+			db:        &database.MockDB{},
 			syncer:    nil,
-			scheduler: &MockSchedulerService{},
+			scheduler: &scheduler.MockSchedulerService{},
 			logger:    logrus.StandardLogger(),
 			wantErr:   false,
 		},
 		{
 			name:      "Nil scheduler is allowed",
-			db:        &MockPolicyStorage{},
-			syncer:    &MockPolicySyncer{},
+			db:        &database.MockDB{},
+			syncer:    &syncer.MockSyncer{},
 			scheduler: nil,
 			logger:    logrus.StandardLogger(),
 			wantErr:   false,
@@ -185,14 +90,14 @@ func TestCreatePolicyWithSync(t *testing.T) {
 	testCases := []struct {
 		name         string
 		policy       types.PluginPolicy
-		mockSetup    func(*MockPolicyStorage, *MockPolicySyncer, *MockSchedulerService)
+		mockSetup    func(*database.MockDB, *syncer.MockSyncer, *scheduler.MockSchedulerService)
 		wantErr      bool
 		errorMessage string
 	}{
 		{
 			name:   "Successful policy creation",
 			policy: createSamplePolicy("policy1"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -210,7 +115,7 @@ func TestCreatePolicyWithSync(t *testing.T) {
 		{
 			name:   "Database error",
 			policy: createSamplePolicy("policy2"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -222,7 +127,7 @@ func TestCreatePolicyWithSync(t *testing.T) {
 		{
 			name:   "Scheduler error",
 			policy: createSamplePolicy("policy3"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -237,7 +142,7 @@ func TestCreatePolicyWithSync(t *testing.T) {
 		{
 			name:   "Syncer error",
 			policy: createSamplePolicy("policy4"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -254,7 +159,7 @@ func TestCreatePolicyWithSync(t *testing.T) {
 		{
 			name:   "transaction error",
 			policy: createSamplePolicy("policy5"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(nil, fmt.Errorf("transaction error"))
 			},
@@ -266,9 +171,9 @@ func TestCreatePolicyWithSync(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			mockDB := new(MockPolicyStorage)
-			mockSyncer := new(MockPolicySyncer)
-			mockScheduler := new(MockSchedulerService)
+			mockDB := new(database.MockDB)
+			mockSyncer := new(syncer.MockSyncer)
+			mockScheduler := new(scheduler.MockSchedulerService)
 
 			tc.mockSetup(mockDB, mockSyncer, mockScheduler)
 
@@ -302,14 +207,14 @@ func TestUpdatePolicyWithSync(t *testing.T) {
 	testCases := []struct {
 		name         string
 		policy       types.PluginPolicy
-		mockSetup    func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService)
+		mockSetup    func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService)
 		wantErr      bool
 		errorMessage string
 	}{
 		{
 			name:   "successful policy update",
 			policy: createSamplePolicy("policy1"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -329,7 +234,7 @@ func TestUpdatePolicyWithSync(t *testing.T) {
 		{
 			name:   "database update policy error",
 			policy: createSamplePolicy("policy2"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -341,7 +246,7 @@ func TestUpdatePolicyWithSync(t *testing.T) {
 		{
 			name:   "get trigger error",
 			policy: createSamplePolicy("policy3"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -356,7 +261,7 @@ func TestUpdatePolicyWithSync(t *testing.T) {
 		{
 			name:   "database update time trigger error",
 			policy: createSamplePolicy("policy4"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -374,7 +279,7 @@ func TestUpdatePolicyWithSync(t *testing.T) {
 		{
 			name:   "syncer error",
 			policy: createSamplePolicy("policy5"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -394,7 +299,7 @@ func TestUpdatePolicyWithSync(t *testing.T) {
 		{
 			name:   "transaction error",
 			policy: createSamplePolicy("policy6"),
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer, scheduler *MockSchedulerService) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer, scheduler *scheduler.MockSchedulerService) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(nil, fmt.Errorf("transaction error"))
 			},
@@ -406,9 +311,9 @@ func TestUpdatePolicyWithSync(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			mockDB := new(MockPolicyStorage)
-			mockSyncer := new(MockPolicySyncer)
-			mockScheduler := new(MockSchedulerService)
+			mockDB := new(database.MockDB)
+			mockSyncer := new(syncer.MockSyncer)
+			mockScheduler := new(scheduler.MockSchedulerService)
 
 			tc.mockSetup(mockDB, mockSyncer, mockScheduler)
 
@@ -443,7 +348,7 @@ func TestDeletePolicyWithSync(t *testing.T) {
 		name         string
 		policyID     string
 		signature    string
-		mockSetup    func(*MockPolicyStorage, *MockPolicySyncer)
+		mockSetup    func(*database.MockDB, *syncer.MockSyncer)
 		expectErr    bool
 		errorMessage string
 	}{
@@ -451,7 +356,7 @@ func TestDeletePolicyWithSync(t *testing.T) {
 			name:      "successful policy deletion",
 			policyID:  "policy1",
 			signature: "validSignature",
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -467,7 +372,7 @@ func TestDeletePolicyWithSync(t *testing.T) {
 			name:      "database delete error",
 			policyID:  "policy2",
 			signature: "validSignature",
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -481,7 +386,7 @@ func TestDeletePolicyWithSync(t *testing.T) {
 			name:      "syncer error",
 			policyID:  "policy3",
 			signature: "validSignature",
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer) {
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
 
@@ -498,7 +403,7 @@ func TestDeletePolicyWithSync(t *testing.T) {
 			name:      "transaction error",
 			policyID:  "policy4",
 			signature: "validSignature",
-			mockSetup: func(db *MockPolicyStorage, syncer *MockPolicySyncer) {
+			mockSetup: func(db *database.MockDB, syncer *syncer.MockSyncer) {
 				// Setup transaction mock with error
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(nil, fmt.Errorf("transaction error"))
@@ -510,8 +415,8 @@ func TestDeletePolicyWithSync(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockDB := new(MockPolicyStorage)
-			mockSyncer := new(MockPolicySyncer)
+			mockDB := new(database.MockDB)
+			mockSyncer := new(syncer.MockSyncer)
 
 			tc.mockSetup(mockDB, mockSyncer)
 
@@ -542,7 +447,7 @@ func TestGetPluginPolicies(t *testing.T) {
 		name         string
 		pluginType   string
 		publicKey    string
-		mockSetup    func(*MockPolicyStorage)
+		mockSetup    func(*database.MockDB)
 		expectErr    bool
 		errorMessage string
 		expectedLen  int
@@ -551,7 +456,7 @@ func TestGetPluginPolicies(t *testing.T) {
 			name:       "successful get policies",
 			pluginType: "testType",
 			publicKey:  "testKey",
-			mockSetup: func(db *MockPolicyStorage) {
+			mockSetup: func(db *database.MockDB) {
 				policies := []types.PluginPolicy{
 					createSamplePolicy("policy1"),
 					createSamplePolicy("policy2"),
@@ -566,7 +471,7 @@ func TestGetPluginPolicies(t *testing.T) {
 			name:       "no policies found",
 			pluginType: "emptyType",
 			publicKey:  "emptyKey",
-			mockSetup: func(db *MockPolicyStorage) {
+			mockSetup: func(db *database.MockDB) {
 				db.On("GetAllPluginPolicies", ctx, "emptyType", "emptyKey").
 					Return([]types.PluginPolicy{}, nil)
 			},
@@ -577,7 +482,7 @@ func TestGetPluginPolicies(t *testing.T) {
 			name:       "database error",
 			pluginType: "errorType",
 			publicKey:  "errorKey",
-			mockSetup: func(db *MockPolicyStorage) {
+			mockSetup: func(db *database.MockDB) {
 				db.On("GetAllPluginPolicies", ctx, "errorType", "errorKey").
 					Return([]types.PluginPolicy{}, fmt.Errorf("database error"))
 			},
@@ -588,7 +493,7 @@ func TestGetPluginPolicies(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockDB := new(MockPolicyStorage)
+			mockDB := new(database.MockDB)
 
 			tc.mockSetup(mockDB)
 
@@ -618,14 +523,14 @@ func TestGetPluginPolicy(t *testing.T) {
 	testCases := []struct {
 		name         string
 		policyID     string
-		mockSetup    func(*MockPolicyStorage)
+		mockSetup    func(*database.MockDB)
 		expectErr    bool
 		errorMessage string
 	}{
 		{
 			name:     "successful get policy",
 			policyID: "policy1",
-			mockSetup: func(db *MockPolicyStorage) {
+			mockSetup: func(db *database.MockDB) {
 				policy := createSamplePolicy("policy1")
 				db.On("GetPluginPolicy", ctx, "policy1").
 					Return(policy, nil)
@@ -635,7 +540,7 @@ func TestGetPluginPolicy(t *testing.T) {
 		{
 			name:     "policy not found",
 			policyID: "nonexistent",
-			mockSetup: func(db *MockPolicyStorage) {
+			mockSetup: func(db *database.MockDB) {
 				db.On("GetPluginPolicy", ctx, "nonexistent").
 					Return(types.PluginPolicy{}, fmt.Errorf("not found"))
 			},
@@ -646,7 +551,7 @@ func TestGetPluginPolicy(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockDB := new(MockPolicyStorage)
+			mockDB := new(database.MockDB)
 
 			tc.mockSetup(mockDB)
 
@@ -680,7 +585,7 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 	testCases := []struct {
 		name         string
 		policyID     string
-		mockSetup    func(*MockPolicyStorage)
+		mockSetup    func(*database.MockDB)
 		expectErr    bool
 		errorMessage string
 		expectedLen  int
@@ -688,7 +593,7 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 		{
 			name:     "successful get transaction history",
 			policyID: policyID,
-			mockSetup: func(db *MockPolicyStorage) {
+			mockSetup: func(db *database.MockDB) {
 				transactionHistory := []types.TransactionHistory{
 					{
 						TxHash: "txHash",
@@ -709,7 +614,7 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 		{
 			name:         "invalid policy UUID",
 			policyID:     "nonexistent",
-			mockSetup:    func(db *MockPolicyStorage) {},
+			mockSetup:    func(db *database.MockDB) {},
 			expectErr:    true,
 			errorMessage: "invalid policy_id",
 			expectedLen:  0,
@@ -717,7 +622,7 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 		{
 			name:     "database error",
 			policyID: policyID,
-			mockSetup: func(db *MockPolicyStorage) {
+			mockSetup: func(db *database.MockDB) {
 				db.On("GetTransactionHistory", ctx, policyUUID, "SWAP", 30, 0).
 					Return([]types.TransactionHistory{}, fmt.Errorf("database error"))
 			},
@@ -728,7 +633,7 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockDB := new(MockPolicyStorage)
+			mockDB := new(database.MockDB)
 
 			tc.mockSetup(mockDB)
 
