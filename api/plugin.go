@@ -603,6 +603,19 @@ func (s *Server) DeletePricing(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (s *Server) GetCategories(c echo.Context) error {
+	categories, err := s.db.FindCategories(c.Request().Context())
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to get categories",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	return c.JSON(http.StatusOK, categories)
+}
+
 func (s *Server) GetPlugins(c echo.Context) error {
 	skip, err := strconv.Atoi(c.QueryParam("skip"))
 

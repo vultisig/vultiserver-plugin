@@ -219,6 +219,9 @@ func (s *Server) StartServer() error {
 		e.POST("/login", s.UserLogin)
 		e.GET("/users/me", s.GetLoggedUser, s.userAuthMiddleware)
 
+		categoriesGroup := e.Group("/categories")
+		categoriesGroup.GET("", s.GetCategories)
+
 		pluginsGroup := e.Group("/plugins")
 		pluginsGroup.GET("", s.GetPlugins)
 		pluginsGroup.GET("/:pluginId", s.GetPlugin)

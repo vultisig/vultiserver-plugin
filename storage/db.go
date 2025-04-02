@@ -42,6 +42,8 @@ type DatabaseStorage interface {
 	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]types.TransactionHistory, error)
 	GetTransactionByHash(ctx context.Context, txHash string) (*types.TransactionHistory, error)
 
+	FindCategories(ctx context.Context) ([]types.Category, error)
+
 	FindPlugins(ctx context.Context, take int, skip int, sort string) (types.PlugisDto, error)
 	FindPluginById(ctx context.Context, id string) (*types.Plugin, error)
 	CreatePlugin(ctx context.Context, pluginDto types.PluginCreateDto) (*types.Plugin, error)
