@@ -14,6 +14,7 @@ import (
 )
 
 const PLUGINS_TABLE = "plugins"
+const PLUGIN_TAGS_TABLE = "plugin_tags"
 
 func (p *PostgresBackend) FindPluginById(ctx context.Context, id string) (*types.Plugin, error) {
 	query := fmt.Sprintf(`SELECT * FROM %s WHERE id = $1 LIMIT 1;`, PLUGINS_TABLE)
@@ -186,4 +187,40 @@ func (p *PostgresBackend) DeletePluginById(ctx context.Context, id string) error
 	}
 
 	return nil
+}
+
+func (p *PostgresBackend) AttachTagToPlugin(ctx context.Context, pluginId string, tagId string) (*types.Plugin, error) {
+	query := fmt.Sprintf(`INSERT INTO %s (
+		plugin_id,
+		tag_id
+	) VALUES (
+		@PluginID,
+		@TagID
+	);`, PLUGIN_TAGS_TABLE)
+	args := pgx.NamedArgs{
+		"PluginID": pluginId,
+		"TagID":    tagId,
+	}
+
+	_, err := p.pool.Exec(ctx, query, args)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.FindPluginById(ctx, pluginId)
+}
+
+func (p *PostgresBackend) DetachTagFromPlugin(ctx context.Context, pluginId string, tagId string) (*types.Plugin, error) {
+	query := fmt.Sprintf(`DELETE FROM %s WHERE plugin_id = @PluginID AND tag_id = @TagID;`, PLUGIN_TAGS_TABLE)
+	args := pgx.NamedArgs{
+		"PluginID": pluginId,
+		"TagID":    tagId,
+	}
+
+	_, err := p.pool.Exec(ctx, query, args)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.FindPluginById(ctx, pluginId)
 }

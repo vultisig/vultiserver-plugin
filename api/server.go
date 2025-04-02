@@ -222,12 +222,17 @@ func (s *Server) StartServer() error {
 		categoriesGroup := e.Group("/categories")
 		categoriesGroup.GET("", s.GetCategories)
 
+		tagsGroup := e.Group("/tags")
+		tagsGroup.GET("", s.GetTags)
+
 		pluginsGroup := e.Group("/plugins")
 		pluginsGroup.GET("", s.GetPlugins)
 		pluginsGroup.GET("/:pluginId", s.GetPlugin)
 		pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
 		pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
 		pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
+		pluginsGroup.POST("/:pluginId/tag", s.AttachPluginTag, s.userAuthMiddleware)
+		pluginsGroup.DELETE("/:pluginId/tag/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
 
 		pricingsGroup := e.Group("/pricings")
 		pricingsGroup.GET("/:pricingId", s.GetPricing)
