@@ -32,22 +32,41 @@ func (p *PostgresBackend) FindPluginById(ctx context.Context, id string) (*types
 	return &plugin, nil
 }
 
-func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, sort string) (types.PlugisDto, error) {
+func (p *PostgresBackend) FindPlugins(
+	ctx context.Context,
+	filters types.PluginFilters,
+	skip int,
+	take int,
+	sort string,
+) (types.PluginsPaginatedList, error) {
 	if p.pool == nil {
-		return types.PlugisDto{}, fmt.Errorf("database pool is nil")
+		return types.PluginsPaginatedList{}, fmt.Errorf("database pool is nil")
 	}
 
 	orderBy, orderDirection := common.GetSortingCondition(sort)
 
-	query := fmt.Sprintf(`
-		SELECT *, COUNT(*) OVER() AS total_count
-		FROM %s
-		ORDER BY %s %s
-		LIMIT $1 OFFSET $2`, PLUGINS_TABLE, orderBy, orderDirection)
+	query := fmt.Sprintf(
+		`SELECT *, COUNT(*) OVER() AS total_count FROM %s`,
+		PLUGINS_TABLE,
+	)
 
-	rows, err := p.pool.Query(ctx, query, take, skip)
+	args := pgx.NamedArgs{
+		"@Take": take,
+		"@Skip": skip,
+	}
+
+	if filters.Term != nil {
+		query += fmt.Sprintf(` WHERE name LIKE '%@Term%' OR description LIKE '%@Term%'`)
+		args["@Term"] = filters.Term
+	}
+
+	query += fmt.Sprintf(` ORDER BY %s %s LIMIT @Take OFFSET @Skip`,
+		orderBy, orderDirection,
+	)
+
+	rows, err := p.pool.Query(ctx, query, args)
 	if err != nil {
-		return types.PlugisDto{}, err
+		return types.PluginsPaginatedList{}, err
 	}
 
 	defer rows.Close()
@@ -72,18 +91,18 @@ func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, s
 			&totalCount,
 		)
 		if err != nil {
-			return types.PlugisDto{}, err
+			return types.PluginsPaginatedList{}, err
 		}
 
 		plugins = append(plugins, plugin)
 	}
 
-	pluginsDto := types.PlugisDto{
+	pluginsList := types.PluginsPaginatedList{
 		Plugins:    plugins,
 		TotalCount: totalCount,
 	}
 
-	return pluginsDto, nil
+	return pluginsList, nil
 }
 
 func (p *PostgresBackend) CreatePlugin(ctx context.Context, pluginDto types.PluginCreateDto) (*types.Plugin, error) {

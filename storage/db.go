@@ -49,7 +49,7 @@ type DatabaseStorage interface {
 	FindTagByName(ctx context.Context, name string) (*types.Tag, error)
 	CreateTag(ctx context.Context, tagDto types.CreateTagDto) (*types.Tag, error)
 
-	FindPlugins(ctx context.Context, take int, skip int, sort string) (types.PlugisDto, error)
+	FindPlugins(ctx context.Context, filters types.PluginFilters, skip int, take int, sort string) (types.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, id string) (*types.Plugin, error)
 	CreatePlugin(ctx context.Context, pluginDto types.PluginCreateDto) (*types.Plugin, error)
 	UpdatePlugin(ctx context.Context, id string, updates types.PluginUpdateDto) (*types.Plugin, error)

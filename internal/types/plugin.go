@@ -18,7 +18,11 @@ type Plugin struct {
 	CategoryID     string          `json:"category_id" validate:"required"`
 }
 
-type PlugisDto struct {
+type PluginFilters struct {
+	Term *string `json:"term"`
+}
+
+type PluginsPaginatedList struct {
 	Plugins    []Plugin `json:"plugins"`
 	TotalCount int      `json:"total_count"`
 }

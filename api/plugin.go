@@ -644,7 +644,13 @@ func (s *Server) GetPlugins(c echo.Context) error {
 
 	sort := c.QueryParam("sort")
 
-	plugins, err := s.db.FindPlugins(c.Request().Context(), skip, take, sort)
+	filters := types.PluginFilters{}
+	term := c.QueryParam("term")
+	if term != "" {
+		filters.Term = &term
+	}
+
+	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, skip, take, sort)
 	if err != nil {
 		message := echo.Map{
 			"message": "failed to get plugins",
