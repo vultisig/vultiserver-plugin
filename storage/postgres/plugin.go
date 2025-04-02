@@ -40,7 +40,7 @@ func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, s
 
 	query := fmt.Sprintf(`
 		SELECT *, COUNT(*) OVER() AS total_count
-		FROM %s 
+		FROM %s
 		ORDER BY %s %s
 		LIMIT $1 OFFSET $2`, PLUGINS_TABLE, orderBy, orderDirection)
 
@@ -67,6 +67,7 @@ func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, s
 			&plugin.Metadata,
 			&plugin.ServerEndpoint,
 			&plugin.PricingID,
+			&plugin.CategoryID,
 			&totalCount,
 		)
 		if err != nil {
@@ -91,14 +92,16 @@ func (p *PostgresBackend) CreatePlugin(ctx context.Context, pluginDto types.Plug
 		description,
 		metadata,
 		server_endpoint,
-		pricing_id
+		pricing_id,
+		category_id
 	) VALUES (
 		@Type,
 		@Title,
 		@Description,
 		@Metadata,
 		@ServerEndpoint,
-		@PricingID
+		@PricingID,
+		@CategoryID
 	) RETURNING id;`, PLUGINS_TABLE)
 	args := pgx.NamedArgs{
 		"Type":           pluginDto.Type,
@@ -107,6 +110,7 @@ func (p *PostgresBackend) CreatePlugin(ctx context.Context, pluginDto types.Plug
 		"Metadata":       pluginDto.Metadata,
 		"ServerEndpoint": pluginDto.ServerEndpoint,
 		"PricingID":      pluginDto.PricingID,
+		"CategoryID":     pluginDto.CategoryID,
 	}
 
 	var createdId string

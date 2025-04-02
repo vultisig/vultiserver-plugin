@@ -15,6 +15,7 @@ type Plugin struct {
 	Metadata       json.RawMessage `json:"metadata" validate:"required"`
 	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
 	PricingID      string          `json:"pricing_id" validate:"required"`
+	CategoryID     string          `json:"category_id" validate:"required"`
 }
 
 type PlugisDto struct {
@@ -29,6 +30,7 @@ type PluginCreateDto struct {
 	Metadata       json.RawMessage `json:"metadata" validate:"required"`
 	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
 	PricingID      string          `json:"pricing_id" validate:"required"`
+	CategoryID     string          `json:"category_id" validate:"required"`
 }
 
 // using references on struct fields allows us to process partially field DTOs
@@ -38,4 +40,5 @@ type PluginUpdateDto struct {
 	Metadata       *json.RawMessage `json:"metadata"`
 	ServerEndpoint *string          `json:"server_endpoint"`
 	PricingID      *string          `json:"pricing_id"`
+	CategoryID     *string          `json:"category_id" validate:"required"`
 }
