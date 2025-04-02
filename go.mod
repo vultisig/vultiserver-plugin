@@ -20,8 +20,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.10.0
-	github.com/vultisig/commondata v0.0.0-20241001024659-50cb6f1ca345
-	github.com/vultisig/mobile-tss-lib v0.0.0-20250113110513-b211041c087b
+	github.com/vultisig/commondata v0.0.0-20250122093634-15d19de47495
+	github.com/vultisig/mobile-tss-lib v0.0.0-20250316003201-2e7e570a4a74
 	go-wrapper v0.0.0-00010101000000-000000000000
 	google.golang.org/protobuf v1.35.1
 )
@@ -104,7 +104,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.36.0
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
-	golang.org/x/net v0.36.0 // indirect
+	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
@@ -116,5 +116,5 @@ replace (
 	github.com/agl/ed25519 => github.com/binance-chain/edwards25519 v0.0.0-20200305024217-f36fc4b53d43
 	github.com/cwespare/xxhash/v2 => github.com/cespare/xxhash/v2 v2.1.1
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-	go-wrapper => ../../go-wrappers
+	go-wrapper => ../go-wrappers
 )
