@@ -649,6 +649,10 @@ func (s *Server) GetPlugins(c echo.Context) error {
 	if term != "" {
 		filters.Term = &term
 	}
+	tag := c.QueryParam("tag_id")
+	if tag != "" {
+		filters.TagID = &tag
+	}
 
 	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, skip, take, sort)
 	if err != nil {

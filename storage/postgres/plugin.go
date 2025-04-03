@@ -108,16 +108,46 @@ func (p *PostgresBackend) FindPlugins(
 		LEFT JOIN tags t ON pt.tag_id = t.id`,
 		PLUGINS_TABLE,
 	)
-	queryCount := fmt.Sprintf(`SELECT COUNT(*) OVER() as total_count FROM %s p`, PLUGINS_TABLE)
+	queryCount := fmt.Sprintf(
+		`SELECT COUNT(*) OVER() as total_count
+		FROM %s p
+		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
+		LEFT JOIN tags t ON pt.tag_id = t.id`,
+		PLUGINS_TABLE,
+	)
 
 	args := []any{}
 	currentArgNumber := 1
 
+	filterClause := "WHERE"
 	if filters.Term != nil {
-		queryFilter := fmt.Sprintf(` WHERE p.title ILIKE $%d OR p.description ILIKE $%d`, currentArgNumber, currentArgNumber+1)
+		queryFilter := fmt.Sprintf(
+			` %s (p.title ILIKE $%d OR p.description ILIKE $%d)`,
+			filterClause,
+			currentArgNumber,
+			currentArgNumber+1,
+		)
+		filterClause = "AND"
 		currentArgNumber += 2
+
 		term := "%" + *filters.Term + "%"
 		args = append(args, term, term)
+
+		query += queryFilter
+		queryCount += queryFilter
+	}
+
+	if filters.TagID != nil {
+		queryFilter := fmt.Sprintf(
+			` %s t.id = $%d`,
+			filterClause,
+			currentArgNumber,
+		)
+		filterClause = "AND"
+		currentArgNumber += 1
+
+		args = append(args, filters.TagID)
+
 		query += queryFilter
 		queryCount += queryFilter
 	}
