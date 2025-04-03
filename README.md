@@ -425,7 +425,7 @@ curl --location localhost:8080/pricings --request POST \
 
 **Plugin Listing**
 
-Add new plugin listing
+Add new plugin listing (make sure to use the pricing ID from the previous step)
 
 ```sh
 curl --location localhost:8080/plugins --request POST \
