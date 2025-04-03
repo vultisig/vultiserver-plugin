@@ -1,5 +1,5 @@
 # adjust to point to your local go-wrappers repo
-DYLD_LIBRARY=../go-wrappers/includes/:$LD_LIBRARY_PATH
+DYLD_LIBRARY=../go-wrappers/includes/darwin/:$LD_LIBRARY_PATH
 
 up:
 	@docker compose up -d --remove-orphans;
