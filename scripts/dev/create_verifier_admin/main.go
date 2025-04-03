@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/vultisig/vultisigner/config"
 	pass "github.com/vultisig/vultisigner/internal/password"
 )
@@ -24,7 +25,7 @@ func main() {
 	ctx := context.Background()
 	cfg, err := config.ReadConfig("config-verifier")
 	if err != nil {
-		panic(fmt.Errorf("failed to read verifier config: ", err))
+		panic(fmt.Errorf("failed to read verifier config: %s", err))
 	}
 
 	passwordHash, err := pass.HashPassword(password)

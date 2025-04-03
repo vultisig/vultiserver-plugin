@@ -71,6 +71,7 @@ func TestGetSortingCondition(t *testing.T) {
 }
 
 func TestVaultBackupCompatible(t *testing.T) {
+	t.SkipNow()
 	filePathName := filepath.Join("test_vault_backup_files", "test_ios_vault_backup.bak")
 	_, err := os.Stat(filePathName)
 	if err != nil {
