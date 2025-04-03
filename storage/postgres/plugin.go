@@ -16,18 +16,74 @@ import (
 const PLUGINS_TABLE = "plugins"
 const PLUGIN_TAGS_TABLE = "plugin_tags"
 
+func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) {
+	defer rows.Close()
+
+	var plugins []types.Plugin
+	pluginMap := make(map[string]*types.Plugin)
+	for rows.Next() {
+		var plugin types.Plugin
+		var tag types.Tag
+
+		err := rows.Scan(
+			&plugin.ID,
+			&plugin.CreatedAt,
+			&plugin.UpdatedAt,
+			&plugin.Type,
+			&plugin.Title,
+			&plugin.Description,
+			&plugin.Metadata,
+			&plugin.ServerEndpoint,
+			&plugin.PricingID,
+			&plugin.CategoryID,
+			&tag.ID,
+			&tag.Name,
+			&tag.Color,
+		)
+		if err != nil {
+			return plugins, err
+		}
+
+		// add plugin if does not already exist in the map
+		if _, exists := pluginMap[plugin.ID]; !exists {
+			pluginMap[plugin.ID] = &plugin
+		}
+
+		// add tag to plugin tag list
+		if tag.ID != "" {
+			pluginMap[plugin.ID].Tags = append(pluginMap[plugin.ID].Tags, tag)
+		}
+	}
+
+	// convert map to list
+	for _, p := range pluginMap {
+		plugins = append(plugins, *p)
+	}
+
+	return plugins, nil
+}
+
 func (p *PostgresBackend) FindPluginById(ctx context.Context, id string) (*types.Plugin, error) {
-	query := fmt.Sprintf(`SELECT * FROM %s WHERE id = $1 LIMIT 1;`, PLUGINS_TABLE)
+	query := fmt.Sprintf(
+		`SELECT p.*, t.*
+		FROM %s p
+		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
+		LEFT JOIN tags t ON pt.tag_id = t.id
+		WHERE p.id = $1;`,
+		PLUGINS_TABLE,
+	)
 
 	rows, err := p.pool.Query(ctx, query, id)
 	if err != nil {
 		return nil, err
 	}
 
-	plugin, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[types.Plugin])
+	plugins, err := p.collectPlugins(rows)
 	if err != nil {
 		return nil, err
 	}
+
+	plugin := plugins[0]
 
 	return &plugin, nil
 }
@@ -46,9 +102,13 @@ func (p *PostgresBackend) FindPlugins(
 	orderBy, orderDirection := common.GetSortingCondition(sort)
 
 	query := fmt.Sprintf(
-		`SELECT *, COUNT(*) OVER() AS total_count FROM %s`,
+		`SELECT p.*, t.*
+		FROM %s p
+		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
+		LEFT JOIN tags t ON pt.tag_id = t.id`,
 		PLUGINS_TABLE,
 	)
+	queryCount := fmt.Sprintf(`SELECT COUNT(*) OVER() as total_count FROM %s p`, PLUGINS_TABLE)
 
 	args := pgx.NamedArgs{
 		"@Take": take,
@@ -56,13 +116,15 @@ func (p *PostgresBackend) FindPlugins(
 	}
 
 	if filters.Term != nil {
-		query += fmt.Sprintf(` WHERE name LIKE '%@Term%' OR description LIKE '%@Term%'`)
+		queryFilter := ` WHERE p.name LIKE '%@Term%' OR p.description LIKE '%@Term%'`
+		query += queryFilter
+		queryCount += queryFilter
 		args["@Term"] = filters.Term
 	}
 
-	query += fmt.Sprintf(` ORDER BY %s %s LIMIT @Take OFFSET @Skip`,
-		orderBy, orderDirection,
-	)
+	queryOrderPaginate := fmt.Sprintf(` ORDER BY p.%s %s LIMIT @Take OFFSET @Skip;`, orderBy, orderDirection)
+	query += queryOrderPaginate
+	queryCount += queryOrderPaginate
 
 	rows, err := p.pool.Query(ctx, query, args)
 	if err != nil {
@@ -71,30 +133,15 @@ func (p *PostgresBackend) FindPlugins(
 
 	defer rows.Close()
 
-	var plugins []types.Plugin
+	plugins, err := p.collectPlugins(rows)
+	if err != nil {
+		return types.PluginsPaginatedList{}, err
+	}
+
 	var totalCount int
-
-	for rows.Next() {
-		var plugin types.Plugin
-
-		err := rows.Scan(
-			&plugin.ID,
-			&plugin.CreatedAt,
-			&plugin.UpdatedAt,
-			&plugin.Type,
-			&plugin.Title,
-			&plugin.Description,
-			&plugin.Metadata,
-			&plugin.ServerEndpoint,
-			&plugin.PricingID,
-			&plugin.CategoryID,
-			&totalCount,
-		)
-		if err != nil {
-			return types.PluginsPaginatedList{}, err
-		}
-
-		plugins = append(plugins, plugin)
+	err = p.pool.QueryRow(ctx, queryCount, args).Scan(&totalCount)
+	if err != nil {
+		return types.PluginsPaginatedList{}, err
 	}
 
 	pluginsList := types.PluginsPaginatedList{
