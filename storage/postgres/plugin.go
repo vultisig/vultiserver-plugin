@@ -141,6 +141,17 @@ func (p *PostgresBackend) FindPlugins(
 
 	if filters.TagID != nil {
 		queryFilter := fmt.Sprintf(
+			` %s p.id IN (
+				SELECT pti.plugin_id
+    		FROM plugin_tags pti
+    		JOIN tags ti ON pti.tag_id = ti.id
+    		WHERE ti.id = $%d
+			)`,
+			filterClause,
+			currentArgNumber,
+		)
+
+		queryFilterTotal := fmt.Sprintf(
 			` %s t.id = $%d`,
 			filterClause,
 			currentArgNumber,
@@ -152,7 +163,7 @@ func (p *PostgresBackend) FindPlugins(
 		argsTotal = append(argsTotal, filters.TagID)
 
 		query += queryFilter
-		queryTotal += queryFilter
+		queryTotal += queryFilterTotal
 	}
 
 	queryOrderPaginate := fmt.Sprintf(
