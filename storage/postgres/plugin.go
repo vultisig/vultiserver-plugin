@@ -108,8 +108,8 @@ func (p *PostgresBackend) FindPlugins(
 		LEFT JOIN tags t ON pt.tag_id = t.id`,
 		PLUGINS_TABLE,
 	)
-	queryCount := fmt.Sprintf(
-		`SELECT COUNT(*) OVER() as total_count
+	queryTotal := fmt.Sprintf(
+		`SELECT COUNT(DISTINCT p.id) as total_count
 		FROM %s p
 		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
 		LEFT JOIN tags t ON pt.tag_id = t.id`,
@@ -117,6 +117,7 @@ func (p *PostgresBackend) FindPlugins(
 	)
 
 	args := []any{}
+	argsTotal := []any{}
 	currentArgNumber := 1
 
 	filterClause := "WHERE"
@@ -132,9 +133,10 @@ func (p *PostgresBackend) FindPlugins(
 
 		term := "%" + *filters.Term + "%"
 		args = append(args, term, term)
+		argsTotal = append(argsTotal, term, term)
 
 		query += queryFilter
-		queryCount += queryFilter
+		queryTotal += queryFilter
 	}
 
 	if filters.TagID != nil {
@@ -147,9 +149,10 @@ func (p *PostgresBackend) FindPlugins(
 		currentArgNumber += 1
 
 		args = append(args, filters.TagID)
+		argsTotal = append(argsTotal, filters.TagID)
 
 		query += queryFilter
-		queryCount += queryFilter
+		queryTotal += queryFilter
 	}
 
 	queryOrderPaginate := fmt.Sprintf(
@@ -159,10 +162,10 @@ func (p *PostgresBackend) FindPlugins(
 		currentArgNumber,
 		currentArgNumber+1,
 	)
-	currentArgNumber += 2
 	args = append(args, take, skip)
 	query += queryOrderPaginate
-	queryCount += queryOrderPaginate
+
+	queryTotal += " GROUP BY p.id;"
 
 	rows, err := p.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -177,7 +180,7 @@ func (p *PostgresBackend) FindPlugins(
 	}
 
 	var totalCount int
-	err = p.pool.QueryRow(ctx, queryCount, args...).Scan(&totalCount)
+	err = p.pool.QueryRow(ctx, queryTotal, argsTotal...).Scan(&totalCount)
 	if err != nil {
 		// exactly 1 row expected, if no results return empty list
 		if err.Error() == "no rows in result set" {
