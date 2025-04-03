@@ -797,17 +797,18 @@ func (s *Server) AttachPluginTag(c echo.Context) error {
 	var tag *types.Tag
 	tag, err = s.db.FindTagByName(c.Request().Context(), createTagDto.Name)
 	if err != nil {
-		s.logger.Error(err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "failed to check for existing tag",
-		})
-	}
-	if tag == nil {
-		tag, err = s.db.CreateTag(c.Request().Context(), createTagDto)
-		if err != nil {
+		if err.Error() == "no rows in result set" {
+			tag, err = s.db.CreateTag(c.Request().Context(), createTagDto)
+			if err != nil {
+				s.logger.Error(err)
+				return c.JSON(http.StatusInternalServerError, echo.Map{
+					"message": "failed to create tag",
+				})
+			}
+		} else {
 			s.logger.Error(err)
 			return c.JSON(http.StatusInternalServerError, echo.Map{
-				"message": "failed to create tag",
+				"message": "failed to check for existing tag",
 			})
 		}
 	}

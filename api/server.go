@@ -231,8 +231,8 @@ func (s *Server) StartServer() error {
 		pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
 		pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
 		pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
-		pluginsGroup.POST("/:pluginId/tag", s.AttachPluginTag, s.userAuthMiddleware)
-		pluginsGroup.DELETE("/:pluginId/tag/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
+		pluginsGroup.POST("/:pluginId/tags", s.AttachPluginTag, s.userAuthMiddleware)
+		pluginsGroup.DELETE("/:pluginId/tags/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
 
 		pricingsGroup := e.Group("/pricings")
 		pricingsGroup.GET("/:pricingId", s.GetPricing)
