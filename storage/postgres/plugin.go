@@ -110,23 +110,31 @@ func (p *PostgresBackend) FindPlugins(
 	)
 	queryCount := fmt.Sprintf(`SELECT COUNT(*) OVER() as total_count FROM %s p`, PLUGINS_TABLE)
 
-	args := pgx.NamedArgs{
-		"@Take": take,
-		"@Skip": skip,
-	}
+	args := []any{}
+	currentArgNumber := 1
 
 	if filters.Term != nil {
-		queryFilter := ` WHERE p.name LIKE '%@Term%' OR p.description LIKE '%@Term%'`
+		queryFilter := fmt.Sprintf(` WHERE p.title ILIKE $%d OR p.description ILIKE $%d`, currentArgNumber, currentArgNumber+1)
+		currentArgNumber += 2
+		term := "%" + *filters.Term + "%"
+		args = append(args, term, term)
 		query += queryFilter
 		queryCount += queryFilter
-		args["@Term"] = filters.Term
 	}
 
-	queryOrderPaginate := fmt.Sprintf(` ORDER BY p.%s %s LIMIT @Take OFFSET @Skip;`, orderBy, orderDirection)
+	queryOrderPaginate := fmt.Sprintf(
+		` ORDER BY p.%s %s LIMIT $%d OFFSET $%d;`,
+		pgx.Identifier{orderBy}.Sanitize(),
+		orderDirection,
+		currentArgNumber,
+		currentArgNumber+1,
+	)
+	currentArgNumber += 2
+	args = append(args, take, skip)
 	query += queryOrderPaginate
 	queryCount += queryOrderPaginate
 
-	rows, err := p.pool.Query(ctx, query, args)
+	rows, err := p.pool.Query(ctx, query, args...)
 	if err != nil {
 		return types.PluginsPaginatedList{}, err
 	}
@@ -139,8 +147,15 @@ func (p *PostgresBackend) FindPlugins(
 	}
 
 	var totalCount int
-	err = p.pool.QueryRow(ctx, queryCount, args).Scan(&totalCount)
+	err = p.pool.QueryRow(ctx, queryCount, args...).Scan(&totalCount)
 	if err != nil {
+		// exactly 1 row expected, if no results return empty list
+		if err.Error() == "no rows in result set" {
+			return types.PluginsPaginatedList{
+				Plugins:    plugins,
+				TotalCount: 0,
+			}, nil
+		}
 		return types.PluginsPaginatedList{}, err
 	}
 
