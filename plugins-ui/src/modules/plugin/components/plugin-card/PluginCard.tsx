@@ -10,18 +10,12 @@ const truncateText = (text: string, maxLength: number = 500): string => {
 
 type PluginCardProps = {
   id: string;
-  pluginType: string;
   title: string;
   description: string;
   uiStyle: ViewFilter;
 };
 
-const PluginCard = ({
-  uiStyle,
-  pluginType,
-  title,
-  description,
-}: PluginCardProps) => {
+const PluginCard = ({ id, uiStyle, title, description }: PluginCardProps) => {
   const navigate = useNavigate();
 
   return (
@@ -36,11 +30,11 @@ const PluginCard = ({
       </div>
 
       <Button
-        style={uiStyle === "grid" ? { width: "100%" } : {}}
+        style={uiStyle === "grid" ? { width: "100%" } : { minWidth: "95px" }}
         size={uiStyle === "grid" ? "small" : "mini"}
         type="button"
         styleType="primary"
-        onClick={() => navigate(`/plugin-policy/${pluginType}`)}
+        onClick={() => navigate(`/plugins/${id}`)}
       >
         See details
       </Button>
