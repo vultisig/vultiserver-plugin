@@ -1,8 +1,12 @@
 import Button from "@/modules/core/components/ui/button/Button";
 import VulticonnectWalletService from "./vulticonnectWalletService";
-import { useState } from "react";
-import PolicyService from "@/modules/policy/services/policyService";
-import { derivePathMap, getHexMessage } from "./wallet.utils";
+import { useEffect, useState } from "react";
+import {
+  derivePathMap,
+  getHexMessage,
+  setLocalStorageAuthToken,
+} from "./wallet.utils";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
 const Wallet = () => {
   let chain = localStorage.getItem("chain") as string;
@@ -11,8 +15,11 @@ const Wallet = () => {
     localStorage.setItem("chain", "ethereum");
     chain = localStorage.getItem("chain") as string;
   }
+  const [authToken, setAuthToken] = useState(
+    localStorage.getItem("authToken") || ""
+  );
 
-  const [connectedWallet, setConnectedWallet] = useState(false);
+  const [connectedWallet, setConnectedWallet] = useState(!!authToken);
 
   const connectWallet = async (chain: string) => {
     switch (chain) {
@@ -20,9 +27,6 @@ const Wallet = () => {
       case "ethereum": {
         const accounts =
           await VulticonnectWalletService.connectToVultiConnect();
-        if (accounts.length && accounts[0]) {
-          setConnectedWallet(true);
-        }
 
         const vaults = await VulticonnectWalletService.getVaults();
 
@@ -41,14 +45,15 @@ const Wallet = () => {
         );
 
         if (signature && typeof signature === "string") {
-          const token = await PolicyService.getAuthToken(
+          const token = await MarketplaceService.getAuthToken(
             hexMessage,
             signature,
             publicKey,
             chainCodeHex,
             derivePath
           );
-          localStorage.setItem("authToken", token);
+          setLocalStorageAuthToken(token);
+          setAuthToken(token);
         }
 
         break;
@@ -59,6 +64,20 @@ const Wallet = () => {
         break;
     }
   };
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const hasToken = !!localStorage.getItem("authToken");
+      setConnectedWallet(hasToken);
+    };
+
+    // Listen for storage changes
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [authToken]);
 
   return (
     <Button
