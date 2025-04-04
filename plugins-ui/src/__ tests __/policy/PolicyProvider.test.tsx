@@ -70,7 +70,6 @@ vi.mock("@/modules/policy/services/policyService", () => ({
 
 const TestComponent = () => {
   const { policyMap, addPolicy, updatePolicy, removePolicy } = usePolicies();
-  console.log("policyMap", policyMap);
 
   return (
     <div>
@@ -175,7 +174,7 @@ describe("PolicyProvider", () => {
 
       const consoleErrorSpy = vi
         .spyOn(console, "error")
-        .mockImplementation(() => { });
+        .mockImplementation(() => {});
 
       renderWithProvider();
 
