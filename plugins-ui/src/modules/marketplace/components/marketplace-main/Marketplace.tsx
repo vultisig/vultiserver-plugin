@@ -3,6 +3,7 @@ import PluginCard from "@/modules/plugin/components/plugin-card/PluginCard";
 import { useNavigate } from "react-router-dom";
 import "./Marketplace.css";
 import MarketplaceFilters from "../marketplace-filters/MarketplaceFilters";
+import { PluginFilters } from "../marketplace-filters/MarketplaceFilters";
 import { useEffect, useState } from "react";
 import { PluginMap, ViewFilter } from "../../models/marketplace";
 import Toast from "@/modules/core/components/ui/toast/Toast";
@@ -14,6 +15,7 @@ const getSavedView = (): string => {
 };
 
 const ITEMS_PER_PAGE = 6;
+const DEBOUNCE_DELAY = 500;
 
 const Marketplace = () => {
   const navigate = useNavigate();
@@ -21,6 +23,11 @@ const Marketplace = () => {
 
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [filters, setFilters] = useState<PluginFilters>({
+    term: "",
+    sortBy: "created_at",
+    sortOrder: "DESC"
+  });
 
   const changeView = (view: ViewFilter) => {
     localStorage.setItem("view", view);
@@ -39,6 +46,9 @@ const Marketplace = () => {
     const fetchPlugins = async (): Promise<void> => {
       try {
         const fetchedPlugins = await MarketplaceService.getPlugins(
+          filters.term,
+          filters.sortBy,
+          filters.sortOrder,
           currentPage > 1 ? (currentPage - 1) * ITEMS_PER_PAGE : 0,
           ITEMS_PER_PAGE
         );
@@ -61,8 +71,12 @@ const Marketplace = () => {
       }
     };
 
-    fetchPlugins();
-  }, [currentPage]);
+    const timeout = setTimeout(() => {
+      fetchPlugins();
+    }, DEBOUNCE_DELAY);
+
+    return () => clearTimeout(timeout);
+  }, [filters, currentPage]);
 
   const onCurrentPageChange = (page: number): void => {
     setCurrentPage(page);
@@ -75,7 +89,8 @@ const Marketplace = () => {
           <h2>Plugins Marketplace</h2>
           <MarketplaceFilters
             viewFilter={view as ViewFilter}
-            onChange={changeView}
+            onFilterChange={setFilters}
+            onViewChange={changeView}
           />
           <section className="cards">
             {pluginsMap.plugins?.map((plugin) => (

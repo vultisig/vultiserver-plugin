@@ -7,29 +7,62 @@ import "./MarketplaceFilters.css";
 import { useState } from "react";
 import { ViewFilter } from "../../models/marketplace";
 
-type MarketplaceFiltersProps = {
-  viewFilter: ViewFilter;
-  onChange: (view: ViewFilter) => void;
+export type PluginFilters = {
+  term: string;
+  sortBy: string;
+  sortOrder: string;
 };
 
-const sortOptions = ["Date (ASC)"]
-const DEFAULT_SORTING = "Date (ASC)"
+type MarketplaceFiltersProps = {
+  viewFilter: ViewFilter;
+  onViewChange: (view: ViewFilter) => void;
+  onFilterChange: (filters: PluginFilters) => void;
+};
+
+const sortLabels = ["Date (DESC)", "Date (ASC)"];
+const sortOptions: { [key: string]: { field: string, order: string } } = {
+  "Date (ASC)": {
+    field: "created_at",
+    order: "ASC"
+  },
+  "Date (DESC)": {
+    field: "created_at",
+    order: "DESC"
+  }
+};
+const DEFAULT_SORTING = sortLabels[0];
 
 const MarketplaceFilters = ({
   viewFilter,
-  onChange,
+  onViewChange,
+  onFilterChange,
 }: MarketplaceFiltersProps) => {
   const [view, setView] = useState<ViewFilter>(viewFilter);
-  const [search, setSearch] = useState("");
+  const [term, setTerm] = useState("");
+  const [sortLabel, setSortLabel] = useState(DEFAULT_SORTING);
 
   const changeView = (view: ViewFilter) => {
     setView(view);
-    onChange(view);
+    onViewChange(view);
   };
 
-  const handleSortingChange = () => {
-    console.log('sorting change');
-  }
+  const handleSearchChange = (term: string) => {
+    setTerm(term);
+    onFilterChange({
+      term,
+      sortBy: sortOptions[sortLabel].field,
+      sortOrder: sortOptions[sortLabel].order
+    });
+  };
+
+  const handleSortingChange = (sortOption: string) => {
+    setSortLabel(sortOption);
+    onFilterChange({
+      term,
+      sortBy: sortOptions[sortOption].field,
+      sortOrder: sortOptions[sortOption].order
+    });
+  };
 
   return (
     <div className="filters">
@@ -40,16 +73,16 @@ const MarketplaceFilters = ({
             name="search"
             type="text"
             placeholder="Search by ..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={term}
+            onChange={(e) => handleSearchChange(e.target.value)}
           />
           <Search className="icon" width="20px" height="20px" />
         </div>
       </div>
       <div className="sort">
         <SelectBox
-          options={sortOptions}
-          value={DEFAULT_SORTING}
+          options={sortLabels}
+          value={sortLabel}
           onSelectChange={handleSortingChange}
         />
       </div>
