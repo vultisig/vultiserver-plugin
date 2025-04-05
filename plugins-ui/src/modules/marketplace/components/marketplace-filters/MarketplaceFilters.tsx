@@ -1,6 +1,8 @@
 import Button from "@/modules/core/components/ui/button/Button";
+import SelectBox from "@/modules/core/components/ui/select-box/SelectBox";
 import Grid from "@/assets/Grid.svg?react";
 import List from "@/assets/List.svg?react";
+import Search from "@/assets/Search.svg?react";
 import "./MarketplaceFilters.css";
 import { useState } from "react";
 import { ViewFilter } from "../../models/marketplace";
@@ -10,19 +12,47 @@ type MarketplaceFiltersProps = {
   onChange: (view: ViewFilter) => void;
 };
 
+const sortOptions = ["Date (ASC)"]
+const DEFAULT_SORTING = "Date (ASC)"
+
 const MarketplaceFilters = ({
   viewFilter,
   onChange,
 }: MarketplaceFiltersProps) => {
   const [view, setView] = useState<ViewFilter>(viewFilter);
+  const [search, setSearch] = useState("");
 
   const changeView = (view: ViewFilter) => {
     setView(view);
     onChange(view);
   };
 
+  const handleSortingChange = () => {
+    console.log('sorting change');
+  }
+
   return (
     <div className="filters">
+      <div className="search">
+        <div className="search-input">
+          <input
+            id="plugin-search"
+            name="search"
+            type="text"
+            placeholder="Search by ..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Search className="icon" width="20px" height="20px" />
+        </div>
+      </div>
+      <div className="sort">
+        <SelectBox
+          options={sortOptions}
+          value={DEFAULT_SORTING}
+          onSelectChange={handleSortingChange}
+        />
+      </div>
       <Button
         ariaLabel="Grid view"
         type="button"

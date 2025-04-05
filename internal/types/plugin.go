@@ -20,7 +20,8 @@ type Plugin struct {
 }
 
 type PluginFilters struct {
-	Term *string `json:"term"`
+	Term  *string `json:"term"`
+	TagID *string `json:"tag_id"`
 }
 
 type PluginsPaginatedList struct {
