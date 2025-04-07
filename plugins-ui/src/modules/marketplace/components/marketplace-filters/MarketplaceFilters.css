@@ -20,7 +20,7 @@
 }
 
 .filters .search {
-    min-width: 500px;
+    min-width: 400px;
     margin-right: auto;
 }
 
@@ -46,7 +46,7 @@
     right: 16px;
 }
 
-.filters .sort {
+.filters .select {
     margin-right: 8px;
     min-width: 180px;
 }
@@ -57,8 +57,11 @@
 
 .filters .custom-dropdown .dropdown-toggle {
     height: 100%;
+    align-items: center;
+    border: 1px solid var(--border-light-color);
 }
 
 .filters .custom-dropdown .dropdown-menu, .dropdown-toggle {
     box-sizing: border-box;
+    border: 1px solid var(--border-light-color);
 }

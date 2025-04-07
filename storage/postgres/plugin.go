@@ -101,25 +101,21 @@ func (p *PostgresBackend) FindPlugins(
 
 	orderBy, orderDirection := common.GetSortingCondition(sort)
 
-	query := fmt.Sprintf(
-		`SELECT p.*, t.*
+	joinQuery := fmt.Sprintf(`
 		FROM %s p
 		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
 		LEFT JOIN tags t ON pt.tag_id = t.id`,
 		PLUGINS_TABLE,
 	)
-	queryTotal := fmt.Sprintf(
-		`SELECT COUNT(DISTINCT p.id) as total_count
-		FROM %s p
-		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
-		LEFT JOIN tags t ON pt.tag_id = t.id`,
-		PLUGINS_TABLE,
-	)
+
+	query := `SELECT p.*, t.*` + joinQuery
+	queryTotal := `SELECT COUNT(DISTINCT p.id) as total_count` + joinQuery
 
 	args := []any{}
 	argsTotal := []any{}
 	currentArgNumber := 1
 
+	// filters
 	filterClause := "WHERE"
 	if filters.Term != nil {
 		queryFilter := fmt.Sprintf(
@@ -166,6 +162,23 @@ func (p *PostgresBackend) FindPlugins(
 		queryTotal += queryFilterTotal
 	}
 
+	if filters.CategoryID != nil {
+		queryFilter := fmt.Sprintf(
+			` %s p.category_id = $%d`,
+			filterClause,
+			currentArgNumber,
+		)
+		filterClause = "AND"
+		currentArgNumber += 1
+
+		args = append(args, filters.CategoryID)
+		argsTotal = append(argsTotal, filters.CategoryID)
+
+		query += queryFilter
+		queryTotal += queryFilter
+	}
+
+	// pagination
 	queryOrderPaginate := fmt.Sprintf(
 		` ORDER BY p.%s %s LIMIT $%d OFFSET $%d;`,
 		pgx.Identifier{orderBy}.Sanitize(),
@@ -178,6 +191,7 @@ func (p *PostgresBackend) FindPlugins(
 
 	queryTotal += " GROUP BY p.id;"
 
+	// execute
 	rows, err := p.pool.Query(ctx, query, args...)
 	if err != nil {
 		return types.PluginsPaginatedList{}, err
@@ -190,6 +204,7 @@ func (p *PostgresBackend) FindPlugins(
 		return types.PluginsPaginatedList{}, err
 	}
 
+	// execute total results count
 	var totalCount int
 	err = p.pool.QueryRow(ctx, queryTotal, argsTotal...).Scan(&totalCount)
 	if err != nil {

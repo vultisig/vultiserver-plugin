@@ -6,6 +6,7 @@ import MarketplaceFilters from "../marketplace-filters/MarketplaceFilters";
 import { PluginFilters } from "../marketplace-filters/MarketplaceFilters";
 import { useEffect, useState } from "react";
 import { PluginMap, ViewFilter } from "../../models/marketplace";
+import { Category } from "../../models/category";
 import Toast from "@/modules/core/components/ui/toast/Toast";
 import MarketplaceService from "../../services/marketplaceService";
 import Pagination from "@/modules/core/components/ui/pagination/Pagination";
@@ -25,9 +26,11 @@ const Marketplace = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [filters, setFilters] = useState<PluginFilters>({
     term: "",
+    categoryId: "",
     sortBy: "created_at",
     sortOrder: "DESC"
   });
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const changeView = (view: ViewFilter) => {
     localStorage.setItem("view", view);
@@ -43,10 +46,29 @@ const Marketplace = () => {
   const [pluginsMap, setPlugins] = useState<PluginMap | null>(null);
 
   useEffect(() => {
+    const fetchCategories = async (): Promise<void> => {
+      try {
+        const fetchedCategories = await MarketplaceService.getCategories();
+        setCategories(fetchedCategories);
+      } catch (error: any) {
+        console.error("Failed to get categories:", error.message);
+        setToast({
+          message: "Failed to get categories",
+          error: error.error,
+          type: "error",
+        });
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
     const fetchPlugins = async (): Promise<void> => {
       try {
         const fetchedPlugins = await MarketplaceService.getPlugins(
           filters.term,
+          filters.categoryId,
           filters.sortBy,
           filters.sortOrder,
           currentPage > 1 ? (currentPage - 1) * ITEMS_PER_PAGE : 0,
@@ -84,13 +106,15 @@ const Marketplace = () => {
 
   return (
     <>
-      {pluginsMap && (
+      {categories.length && pluginsMap && (
         <div className="only-section">
           <h2>Plugins Marketplace</h2>
           <MarketplaceFilters
+            categories={categories}
             viewFilter={view as ViewFilter}
-            onFilterChange={setFilters}
             onViewChange={changeView}
+            filters={filters}
+            onFiltersChange={setFilters}
           />
           <section className="cards">
             {pluginsMap.plugins?.map((plugin) => (

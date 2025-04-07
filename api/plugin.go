@@ -644,14 +644,10 @@ func (s *Server) GetPlugins(c echo.Context) error {
 
 	sort := c.QueryParam("sort")
 
-	filters := types.PluginFilters{}
-	term := c.QueryParam("term")
-	if term != "" {
-		filters.Term = &term
-	}
-	tag := c.QueryParam("tag_id")
-	if tag != "" {
-		filters.TagID = &tag
+	filters := types.PluginFilters{
+		Term:       common.GetQueryParam(c, "term"),
+		TagID:      common.GetQueryParam(c, "tag_id"),
+		CategoryID: common.GetQueryParam(c, "category_id"),
 	}
 
 	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, skip, take, sort)

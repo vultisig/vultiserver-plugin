@@ -6,40 +6,62 @@ import Search from "@/assets/Search.svg?react";
 import "./MarketplaceFilters.css";
 import { useState } from "react";
 import { ViewFilter } from "../../models/marketplace";
+import { Category } from "../../models/category";
 
 export type PluginFilters = {
   term: string;
+  categoryId: string;
   sortBy: string;
   sortOrder: string;
 };
 
 type MarketplaceFiltersProps = {
+  categories: Category[];
   viewFilter: ViewFilter;
   onViewChange: (view: ViewFilter) => void;
-  onFilterChange: (filters: PluginFilters) => void;
+  filters: PluginFilters;
+  onFiltersChange: (filters: PluginFilters) => void;
 };
 
-const sortLabels = ["Date (DESC)", "Date (ASC)"];
+const getCategoryIdByName = (categories: Category[], name: string) => {
+  const category = categories.find(c => c.name === name);
+  if (!category) return "";
+
+  return category.id;
+};
+
 const sortOptions: { [key: string]: { field: string, order: string } } = {
-  "Date (ASC)": {
-    field: "created_at",
-    order: "ASC"
-  },
   "Date (DESC)": {
     field: "created_at",
     order: "DESC"
+  },
+  "Date (ASC)": {
+    field: "created_at",
+    order: "ASC"
   }
 };
-const DEFAULT_SORTING = sortLabels[0];
+const sortLabels = Object.keys(sortOptions);
 
 const MarketplaceFilters = ({
+  categories,
   viewFilter,
   onViewChange,
-  onFilterChange,
+  filters,
+  onFiltersChange,
 }: MarketplaceFiltersProps) => {
+  const categoryNames = categories.map(c => c.name);
+  const defaultCategoryName = (categories.find(c => c.id === filters.categoryId) || {}).name || "";
+  const defaultSorting = Object.keys(sortOptions).find((key) => {
+    return (
+      sortOptions[key].field === filters.sortBy &&
+      sortOptions[key].order === filters.sortOrder
+    );
+  }) || "";
+
   const [view, setView] = useState<ViewFilter>(viewFilter);
   const [term, setTerm] = useState("");
-  const [sortLabel, setSortLabel] = useState(DEFAULT_SORTING);
+  const [categoryName, setCategoryName] = useState(defaultCategoryName);
+  const [sortLabel, setSortLabel] = useState(defaultSorting);
 
   const changeView = (view: ViewFilter) => {
     setView(view);
@@ -48,8 +70,19 @@ const MarketplaceFilters = ({
 
   const handleSearchChange = (term: string) => {
     setTerm(term);
-    onFilterChange({
+    onFiltersChange({
       term,
+      categoryId: getCategoryIdByName(categories, categoryName),
+      sortBy: sortOptions[sortLabel].field,
+      sortOrder: sortOptions[sortLabel].order
+    });
+  };
+
+  const handleCategoryChange = (name: string) => {
+    setCategoryName(name);
+    onFiltersChange({
+      term,
+      categoryId: getCategoryIdByName(categories, name),
       sortBy: sortOptions[sortLabel].field,
       sortOrder: sortOptions[sortLabel].order
     });
@@ -57,8 +90,9 @@ const MarketplaceFilters = ({
 
   const handleSortingChange = (sortOption: string) => {
     setSortLabel(sortOption);
-    onFilterChange({
+    onFiltersChange({
       term,
+      categoryId: getCategoryIdByName(categories, categoryName),
       sortBy: sortOptions[sortOption].field,
       sortOrder: sortOptions[sortOption].order
     });
@@ -79,7 +113,15 @@ const MarketplaceFilters = ({
           <Search className="icon" width="20px" height="20px" />
         </div>
       </div>
-      <div className="sort">
+      <div className="select">
+        <SelectBox
+          label="Show:"
+          options={categoryNames}
+          value={categoryName}
+          onSelectChange={handleCategoryChange}
+        />
+      </div>
+      <div className="select">
         <SelectBox
           options={sortLabels}
           value={sortLabel}
