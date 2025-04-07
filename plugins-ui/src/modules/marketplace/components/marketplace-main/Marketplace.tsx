@@ -15,6 +15,13 @@ const getSavedView = (): string => {
   return localStorage.getItem("view") || "grid";
 };
 
+const getCategoryName = (categories: Category[], id: string) => {
+  const category = categories.find(c => c.id === id);
+  if (!category) return "";
+
+  return category.name;
+}
+
 const ITEMS_PER_PAGE = 6;
 const DEBOUNCE_DELAY = 500;
 
@@ -128,6 +135,7 @@ const Marketplace = () => {
                   id={plugin.id}
                   title={plugin.title}
                   description={plugin.description}
+                  categoryName={getCategoryName(categories, plugin.category_id)}
                 />
               </div>
             ))}
