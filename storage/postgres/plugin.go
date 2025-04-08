@@ -23,7 +23,9 @@ func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 	pluginMap := make(map[string]*types.Plugin)
 	for rows.Next() {
 		var plugin types.Plugin
-		var tag types.Tag
+		var tagId *string
+		var tagName *string
+		var tagColor *string
 
 		err := rows.Scan(
 			&plugin.ID,
@@ -36,9 +38,9 @@ func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 			&plugin.ServerEndpoint,
 			&plugin.PricingID,
 			&plugin.CategoryID,
-			&tag.ID,
-			&tag.Name,
-			&tag.Color,
+			&tagId,
+			&tagName,
+			&tagColor,
 		)
 		if err != nil {
 			return plugins, err
@@ -46,12 +48,17 @@ func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) 
 
 		// add plugin if does not already exist in the map
 		if _, exists := pluginMap[plugin.ID]; !exists {
+			plugin.Tags = []types.Tag{}
 			pluginMap[plugin.ID] = &plugin
 		}
 
 		// add tag to plugin tag list
-		if tag.ID != "" {
-			pluginMap[plugin.ID].Tags = append(pluginMap[plugin.ID].Tags, tag)
+		if tagId != nil {
+			pluginMap[plugin.ID].Tags = append(pluginMap[plugin.ID].Tags, types.Tag{
+				ID:    *tagId,
+				Name:  *tagName,
+				Color: *tagColor,
+			})
 		}
 	}
 
@@ -196,8 +203,6 @@ func (p *PostgresBackend) FindPlugins(
 	if err != nil {
 		return types.PluginsPaginatedList{}, err
 	}
-
-	defer rows.Close()
 
 	plugins, err := p.collectPlugins(rows)
 	if err != nil {

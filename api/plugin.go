@@ -861,7 +861,7 @@ func (s *Server) DetachPluginTag(c echo.Context) error {
 	if err != nil {
 		s.logger.Error(err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "failed to attach tag",
+			"message": "failed to detach tag",
 		})
 	}
 
