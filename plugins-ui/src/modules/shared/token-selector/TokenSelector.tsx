@@ -4,13 +4,13 @@ import Search from "@/assets/Search.svg?react";
 import { cloneElement, useState } from "react";
 import { supportedTokens } from "@/modules/shared/data/tokens";
 import Modal from "@/modules/core/components/ui/modal/Modal";
+import { WidgetProps } from "@rjsf/utils";
 
-type TokenSelectorProps = {
-  value: string;
-  onChange: (tokenId: string) => void;
-};
-
-const TokenSelector = ({ value, onChange }: TokenSelectorProps) => {
+const TokenSelector: React.FC<WidgetProps> = ({
+  value,
+  readonly,
+  onChange,
+}) => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [token, setToken] = useState(supportedTokens[value]);
@@ -35,11 +35,13 @@ const TokenSelector = ({ value, onChange }: TokenSelectorProps) => {
         style={{
           justifyContent: "space-between",
           backgroundColor: "#061B3A",
+          color: readonly ? "#718096" : "auto",
           border: "1px solid #11284A",
           borderRadius: "12px",
           width: "100%",
+          cursor: readonly ? "not-allowed" : "pointer",
         }}
-        onClick={() => setModalOpen(true)}
+        onClick={() => !readonly && setModalOpen(true)}
       >
         {token && cloneElement(token.image, { width: 24, height: 24 })}&nbsp;
         {token?.name || "Unknown token"}

@@ -1,6 +1,4 @@
-import Button from "@/modules/core/components/ui/button/Button";
 import PluginCard from "@/modules/plugin/components/plugin-card/PluginCard";
-import { useNavigate } from "react-router-dom";
 import "./Marketplace.css";
 import MarketplaceFilters from "../marketplace-filters/MarketplaceFilters";
 import { PluginFilters } from "../marketplace-filters/MarketplaceFilters";
@@ -26,7 +24,6 @@ const ITEMS_PER_PAGE = 6;
 const DEBOUNCE_DELAY = 500;
 
 const Marketplace = () => {
-  const navigate = useNavigate();
   const [view, setView] = useState<string>(getSavedView());
 
   const [currentPage, setCurrentPage] = useState(0);
@@ -130,7 +127,6 @@ const Marketplace = () => {
                 key={plugin.id}
               >
                 <PluginCard
-                  pluginType={plugin.type}
                   uiStyle={view as ViewFilter}
                   id={plugin.id}
                   title={plugin.title}
@@ -148,15 +144,6 @@ const Marketplace = () => {
               onPageChange={onCurrentPageChange}
             />
           )}
-
-          <Button
-            size="small"
-            type="button"
-            styleType="primary"
-            onClick={() => navigate(`/plugin-detail/1`)}
-          >
-            Open Detail view
-          </Button>
         </div>
       )}
 

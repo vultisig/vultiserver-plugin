@@ -26,7 +26,7 @@ const PolicyActions = ({ policyId }: PolicyActionsProps) => {
   const handleUpdate = () => {
     const policy = policyMap.get(policyId);
     if (policy) {
-      policy.active = !policy.active;
+      policy.active = !policyIsActive;
       updatePolicy(policy).then((updated: boolean) => {
         if (updated) {
           setPolicyIsActive(policy.active);

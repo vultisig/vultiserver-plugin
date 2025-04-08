@@ -6,6 +6,8 @@ import {
   usePolicies,
 } from "@/modules/policy/context/PolicyProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
+import { useParams } from "react-router-dom";
 
 const mockPolicies = [
   {
@@ -34,34 +36,33 @@ const mockPolicies = [
   },
 ];
 
+const mockPlugin = {
+  id: "1",
+  type: "type",
+  title: "Plugin title",
+  description: "Plugin description",
+  metadata: {},
+  server_endpoint: "endpoint",
+  pricing_id: "pricingId",
+};
+
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = (await importOriginal()) as {};
+  return {
+    ...actual,
+    useParams: vi.fn(),
+  };
+});
+
+vi.mock("@/modules/marketplace/services/marketplaceService", () => ({
+  default: {
+    getPlugin: vi.fn(),
+    getPolicies: vi.fn(),
+  },
+}));
+
 vi.mock("@/modules/policy/services/policyService", () => ({
   default: {
-    getPolicies: vi.fn().mockResolvedValue([
-      {
-        id: "1",
-        public_key: "public_key_1",
-        plugin_type: "plugin_type",
-        active: true,
-        signature: "signature",
-        policy: {},
-        is_ecdsa: true,
-        chain_code_hex: "chain_code_hex",
-        derive_path: "derive_path",
-        plugin_id: "plugin_id",
-      },
-      {
-        id: "2",
-        public_key: "public_key_2",
-        plugin_type: "plugin_type",
-        active: false,
-        signature: "signature",
-        policy: {},
-        is_ecdsa: true,
-        chain_code_hex: "chain_code_hex",
-        derive_path: "derive_path",
-        plugin_id: "plugin_id",
-      },
-    ]),
     createPolicy: vi.fn(),
     updatePolicy: vi.fn(),
     deletePolicy: vi.fn(),
@@ -70,7 +71,6 @@ vi.mock("@/modules/policy/services/policyService", () => ({
 
 const TestComponent = () => {
   const { policyMap, addPolicy, updatePolicy, removePolicy } = usePolicies();
-  console.log("policyMap", policyMap);
 
   return (
     <div>
@@ -159,7 +159,10 @@ describe("PolicyProvider", () => {
 
   describe("getPolicies", () => {
     it("should fetch & store policies in context", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
       renderWithProvider();
 
       await waitFor(() => {
@@ -168,14 +171,17 @@ describe("PolicyProvider", () => {
       });
     });
 
-    it("should handle API failure and set toast error", async () => {
+    it("should handle API failure and set toast error when getPolicies request fails", async () => {
       const mockError = new Error("API Error");
 
-      (PolicyService.getPolicies as Mock).mockRejectedValue(mockError);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockRejectedValue(mockError);
 
       const consoleErrorSpy = vi
         .spyOn(console, "error")
-        .mockImplementation(() => { });
+        .mockImplementation(() => {});
 
       renderWithProvider();
 
@@ -199,7 +205,9 @@ describe("PolicyProvider", () => {
 
   describe("addPolicy", () => {
     it("should add policy in context", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
 
       (PolicyService.createPolicy as Mock).mockResolvedValue({
         id: "3",
@@ -233,7 +241,10 @@ describe("PolicyProvider", () => {
     });
 
     it("should set error message if request fails", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
 
       (PolicyService.createPolicy as Mock).mockRejectedValue("API Error");
 
@@ -256,7 +267,10 @@ describe("PolicyProvider", () => {
 
   describe("updatePolicy", () => {
     it("should update policy in context", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
 
       (PolicyService.updatePolicy as Mock).mockResolvedValue({
         id: "2",
@@ -289,7 +303,10 @@ describe("PolicyProvider", () => {
     });
 
     it("should set error message if request fails", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
 
       (PolicyService.updatePolicy as Mock).mockRejectedValue("API Error");
 

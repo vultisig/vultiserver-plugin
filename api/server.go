@@ -209,10 +209,7 @@ func (s *Server) StartServer() error {
 	// policy mode is always available since it is used by both verifier server and plugin server
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
-	pluginGroup.GET("/policy", s.GetAllPluginPolicies, s.AuthMiddleware)
-	pluginGroup.GET("/policy/history/:policyId", s.GetPluginPolicyTransactionHistory, s.AuthMiddleware)
 	pluginGroup.GET("/policy/schema", s.GetPolicySchema)
-	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById, s.AuthMiddleware)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 
 	if s.mode == "verifier" {
@@ -227,6 +224,10 @@ func (s *Server) StartServer() error {
 
 		pluginsGroup := e.Group("/plugins")
 		pluginsGroup.GET("", s.GetPlugins)
+		pluginsGroup.GET("/my", s.GetPlugins, s.AuthMiddleware) // TODO get only my installed policies
+		pluginsGroup.GET("/policies", s.GetAllPluginPolicies, s.AuthMiddleware)
+		pluginsGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory, s.AuthMiddleware)
+
 		pluginsGroup.GET("/:pluginId", s.GetPlugin)
 		pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
 		pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
