@@ -2,8 +2,8 @@ import Button from "@/modules/core/components/ui/button/Button";
 import { useNavigate } from "react-router-dom";
 import logo from "../../../../assets/DCA-image.png"; // Adjust path based on file location
 import { ViewFilter } from "@/modules/marketplace/models/marketplace";
+import PluginCategoryTag from "@/modules/plugin/components/category-tag/PluginCategoryTag";
 import "./PluginCard.css";
-import PluginCategoryTag from "./PluginCategoryTag";
 
 const truncateText = (text: string, maxLength: number = 500): string => {
   return text.length > maxLength ? text.slice(0, maxLength) + "..." : text;
