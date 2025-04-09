@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/vultisig/vultisigner/storage"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/vultisigner/internal/types"
 )
+
+var _ storage.TimeTriggerRepository = (*PostgresBackend)(nil)
 
 func (p *PostgresBackend) CreateTimeTriggerTx(ctx context.Context, tx pgx.Tx, trigger types.TimeTrigger) error {
 	if p.pool == nil {

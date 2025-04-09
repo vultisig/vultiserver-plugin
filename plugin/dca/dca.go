@@ -12,13 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/internal/sigutil"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/pkg/uniswap"
-	"github.com/vultisig/vultisigner/storage"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gcommon "github.com/ethereum/go-ethereum/common"
@@ -26,8 +19,14 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
+	"github.com/vultisig/vultisigner/common"
+	"github.com/vultisig/vultisigner/internal/sigutil"
+	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultisigner/pkg/uniswap"
 )
 
 const (
@@ -46,13 +45,32 @@ var (
 	ErrCompletedPolicy = errors.New("policy completed all swaps")
 )
 
-type DCAPlugin struct {
-	uniswapClient *uniswap.Client
-	rpcClient     *ethclient.Client
-	db            storage.DatabaseStorage
-	logger        *logrus.Logger
+type EthClient interface {
+	SendTransaction(ctx context.Context, tx *gtypes.Transaction) error
 }
 
+type DCAStorage interface {
+	WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
+	CountTransactions(ctx context.Context, policyUUID uuid.UUID, status types.TransactionStatus, txType string) (int64, error)
+	UpdatePluginPolicyTx(ctx context.Context, tx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
+}
+
+type DCAPlugin struct {
+	uniswapClient uniswap.Client
+	rpcClient     EthClient
+	db            DCAStorage
+	logger        *logrus.Logger
+	waitMined     func(ctx context.Context, backend bind.DeployBackend, tx *gtypes.Transaction) (*gtypes.Receipt, error)
+	signLegacyTx  func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error)
+}
+
+type RawTxData struct {
+	TxHash     []byte
+	RlpTxBytes []byte
+	Type       string
+}
+
+// TODO: refactor
 type DCAPluginConfig struct {
 	RpcURL  string `mapstructure:"rpc_url" json:"rpc_url"`
 	Uniswap struct {
@@ -61,7 +79,7 @@ type DCAPluginConfig struct {
 	} `mapstructure:"uniswap" json:"uniswap"`
 }
 
-func NewDCAPlugin(db storage.DatabaseStorage, logger *logrus.Logger, rawConfig map[string]interface{}) (*DCAPlugin, error) {
+func NewDCAPlugin(db DCAStorage, logger *logrus.Logger, rawConfig map[string]interface{}) (*DCAPlugin, error) {
 	var cfg DCAPluginConfig
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
 		return nil, err
@@ -91,6 +109,8 @@ func NewDCAPlugin(db storage.DatabaseStorage, logger *logrus.Logger, rawConfig m
 		rpcClient:     rpcClient,
 		db:            db,
 		logger:        logger,
+		waitMined:     bind.WaitMined,
+		signLegacyTx:  sigutil.SignLegacyTx,
 	}, nil
 }
 
@@ -116,19 +136,19 @@ func (p *DCAPlugin) SigningComplete(
 		return errors.New("transaction hash is missing")
 	}
 
-	signedTx, _, err := sigutil.SignLegacyTx(signature, txHash, signRequest.Transaction, chainID)
+	signedTx, _, err := p.signLegacyTx(signature, signRequest.Transaction, chainID)
 	if err != nil {
 		p.logger.Error("fail to sign transaction: ", err)
 		return fmt.Errorf("fail to sign transaction: %w", err)
 	}
 
-	err = p.rpcClient.SendTransaction(context.Background(), signedTx)
+	err = p.rpcClient.SendTransaction(ctx, signedTx)
 	if err != nil {
 		p.logger.Error("fail to send transaction: ", err)
 		return fmt.Errorf("failed to send transaction: %w", err)
 	}
 
-	receipt, err := bind.WaitMined(context.Background(), p.rpcClient, signedTx)
+	receipt, err := p.waitMined(ctx, p.rpcClient.(bind.DeployBackend), signedTx)
 	if err != nil {
 		p.logger.Error("fail to wait for transaction receipt: ", err)
 		return fmt.Errorf("fail to wait for transaction to be mined: %w", err)
@@ -478,7 +498,6 @@ func (p *DCAPlugin) validateTransaction(keysignRequest types.PluginKeysignReques
 	if tx.To() == nil {
 		return fmt.Errorf("transaction has no destination")
 	}
-
 	// Validate transaction data exists
 	if len(tx.Data()) == 0 {
 		p.logger.Error("transaction contains empty payload")
@@ -517,7 +536,6 @@ func (p *DCAPlugin) validateSwapTransaction(tx *gtypes.Transaction, completedSwa
 	if method != nil && method.Name != "swapExactTokensForTokens" {
 		return fmt.Errorf("unexpected transaction method: expected 'swapExactTokensForTokens', got %s'", method.Name)
 	}
-
 	if err = p.validateSwapParameters(tx, method, completedSwaps, policyTotalAmount, policyTotalOrders, sourceAddrPolicy, destAddrPolicy, signerAddress); err != nil {
 		return fmt.Errorf("failed to validate swap parameters: %w", err)
 	}
@@ -623,6 +641,101 @@ func (p *DCAPlugin) validateSwapParameters(tx *gtypes.Transaction, method *abi.M
 	return nil
 }
 
+func (p *DCAPlugin) generateSwapTransactions(chainID *big.Int, signerAddress *gcommon.Address, srcToken, destToken string, swapAmount *big.Int) ([]RawTxData, error) {
+	srcTokenAddress := gcommon.HexToAddress(srcToken)
+	destTokenAddress := gcommon.HexToAddress(destToken)
+
+	// TODO: validate the price range (if specified)
+	var rawTxsData []RawTxData
+	// from a UX perspective, it is better to do the "approve" tx as part of the DCA execution rather than having it be part of the policy creation/update
+	// approve Router to spend input token.
+	allowance, err := p.uniswapClient.GetAllowance(*signerAddress, srcTokenAddress)
+	if err != nil {
+		return []RawTxData{}, fmt.Errorf("failed to get allowance: %w", err)
+	}
+	p.logger.Info("DCA: ALLOWANCE: ", allowance.String())
+
+	// Propose APPROVE if allowance is insufficient
+	var swapNonce uint64
+	if allowance.Cmp(swapAmount) < 0 {
+		txHash, rawTx, err := p.uniswapClient.ApproveERC20Token(chainID, signerAddress, srcTokenAddress, *p.uniswapClient.GetRouterAddress(), swapAmount, 0)
+		if err != nil {
+			return []RawTxData{}, fmt.Errorf("failed to make APPROVE transaction: %w", err)
+		}
+		rawTxsData = append(rawTxsData, RawTxData{txHash, rawTx, "APPROVE"})
+		p.logger.Info("DCA: Proposed APPROVE transaction")
+		swapNonce = 1
+	}
+	p.logger.Info("DCA: SWAP NONCE: ", swapNonce)
+
+	// Propose SWAP transaction
+	tokensPair := []gcommon.Address{srcTokenAddress, destTokenAddress}
+	expectedAmountOut, err := p.uniswapClient.GetExpectedAmountOut(swapAmount, tokensPair)
+	if err != nil {
+		return []RawTxData{}, fmt.Errorf("failed to get expected amount out: %w", err)
+	}
+	p.logger.Info("DCA: EXPECTED AMOUNT OUT: ", expectedAmountOut.String())
+
+	slippagePercentage := 1.0
+	amountOutMin := p.uniswapClient.CalculateAmountOutMin(expectedAmountOut, slippagePercentage)
+
+	txHash, rawTx, err := p.uniswapClient.SwapTokens(chainID, signerAddress, swapAmount, amountOutMin, tokensPair, swapNonce)
+	if err != nil {
+		return []RawTxData{}, fmt.Errorf("failed to make SWAP transaction: %w", err)
+	}
+	rawTxsData = append(rawTxsData, RawTxData{txHash, rawTx, "SWAP"})
+
+	return rawTxsData, nil
+}
+
+func (p *DCAPlugin) getCompletedSwapTransactionsCount(ctx context.Context, policyID string) (int64, error) {
+	policyUUID, err := uuid.Parse(policyID)
+	if err != nil {
+		return 0, fmt.Errorf("invalid policy_id: %s", policyID)
+	}
+	count, err := p.db.CountTransactions(ctx, policyUUID, types.StatusMined, "SWAP")
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (p *DCAPlugin) calculateSwapAmountPerOrder(totalAmount, totalOrders *big.Int, completedSwaps int64) *big.Int {
+	baseAmount := new(big.Int).Div(totalAmount, totalOrders)
+	p.logger.Info("DCA: BASE AMOUNT: ", baseAmount.String())
+	remainder := new(big.Int).Mod(totalAmount, totalOrders)
+	p.logger.Info("DCA: REMAINDER: ", remainder.String())
+
+	// Determine swap amount for the next order
+	swapAmount := new(big.Int).Set(baseAmount)
+	if big.NewInt(completedSwaps+1).Cmp(remainder) <= 0 {
+		p.logger.Info("DCA: REMAINDER ADDING")
+		swapAmount.Add(swapAmount, big.NewInt(1)) // Add 1 to distribute remainder
+	}
+	return swapAmount
+}
+
+func (p *DCAPlugin) completePolicy(ctx context.Context, policy types.PluginPolicy) error {
+	p.logger.WithFields(logrus.Fields{
+		"policy_id": policy.ID,
+	}).Info("DCA: All orders completed, no transactions to propose")
+
+	// TODO: Sync a COMPLETED state for the policy with the verifier database.
+	//err := p.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
+	//	policy.Active = false
+	//	_, err := p.db.UpdatePluginPolicyTx(ctx, tx, policy)
+	//	if err != nil {
+	//		return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
+	//	}
+	//	return nil
+	//})
+	//if err != nil {
+	//	return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
+	//}
+
+	return nil
+}
+
 func (p *DCAPlugin) getSwapABI() (abi.ABI, error) {
 	routerABI := `[
         {
@@ -684,125 +797,4 @@ func (p *DCAPlugin) getApproveABI() (abi.ABI, error) {
 
 func (p *DCAPlugin) FrontendSchema() embed.FS {
 	return embed.FS{}
-}
-
-type RawTxData struct {
-	TxHash     []byte
-	RlpTxBytes []byte
-	Type       string
-}
-
-func (p *DCAPlugin) generateSwapTransactions(chainID *big.Int, signerAddress *gcommon.Address, srcToken, destToken string, swapAmount *big.Int) ([]RawTxData, error) {
-	srcTokenAddress := gcommon.HexToAddress(srcToken)
-	destTokenAddress := gcommon.HexToAddress(destToken)
-
-	// TODO: validate the price range (if specified)
-	var rawTxsData []RawTxData
-	// from a UX perspective, it is better to do the "approve" tx as part of the DCA execution rather than having it be part of the policy creation/update
-	// approve Router to spend input token.
-	allowance, err := p.uniswapClient.GetAllowance(*signerAddress, srcTokenAddress)
-	if err != nil {
-		return []RawTxData{}, fmt.Errorf("failed to get allowance: %w", err)
-	}
-	p.logger.Info("DCA: ALLOWANCE: ", allowance.String())
-
-	// Propose APPROVE if allowance is insufficient
-	var swapNonce uint64
-	if allowance.Cmp(swapAmount) < 0 {
-		txHash, rawTx, err := p.uniswapClient.ApproveERC20Token(chainID, signerAddress, srcTokenAddress, *p.uniswapClient.GetRouterAddress(), swapAmount, 0)
-		if err != nil {
-			return []RawTxData{}, fmt.Errorf("failed to make APPROVE transaction: %w", err)
-		}
-		rawTxsData = append(rawTxsData, RawTxData{txHash, rawTx, "APPROVE"})
-		p.logger.Info("DCA: Proposed APPROVE transaction")
-		swapNonce = 1
-	}
-	p.logger.Info("DCA: SWAP NONCE: ", swapNonce)
-
-	// Propose SWAP transaction
-	tokensPair := []gcommon.Address{srcTokenAddress, destTokenAddress}
-	expectedAmountOut, err := p.uniswapClient.GetExpectedAmountOut(swapAmount, tokensPair)
-	if err != nil {
-		return []RawTxData{}, fmt.Errorf("failed to get expected amount out: %w", err)
-	}
-	p.logger.Info("DCA: EXPECTED AMOUNT OUT: ", expectedAmountOut.String())
-
-	slippagePercentage := 1.0
-	amountOutMin := p.uniswapClient.CalculateAmountOutMin(expectedAmountOut, slippagePercentage)
-
-	txHash, rawTx, err := p.uniswapClient.SwapTokens(chainID, signerAddress, swapAmount, amountOutMin, tokensPair, swapNonce)
-	if err != nil {
-		return []RawTxData{}, fmt.Errorf("failed to make SWAP transaction: %w", err)
-	}
-	rawTxsData = append(rawTxsData, RawTxData{txHash, rawTx, "SWAP"})
-	p.logTokenBalances(p.uniswapClient, signerAddress, srcTokenAddress, destTokenAddress)
-
-	return rawTxsData, nil
-}
-
-func (p *DCAPlugin) logTokenBalances(client *uniswap.Client, signerAddress *gcommon.Address, tokenInAddress, tokenOutAddress gcommon.Address) {
-	tokenInBalance, err := client.GetTokenBalance(signerAddress, tokenInAddress)
-	if err != nil {
-		p.logger.Error("Input token balance: ", err)
-		return
-	}
-	p.logger.Info("Input token balance: ", tokenInBalance.String())
-
-	tokenOutBalance, err := client.GetTokenBalance(signerAddress, tokenOutAddress)
-	if err != nil {
-		p.logger.Error("Output token balance: ", err)
-		return
-	}
-	p.logger.Info("Output token balance: ", tokenOutBalance.String())
-}
-
-func (p *DCAPlugin) getCompletedSwapTransactionsCount(ctx context.Context, policyID string) (int64, error) {
-	policyUUID, err := uuid.Parse(policyID)
-	if err != nil {
-		return 0, fmt.Errorf("invalid policy_id: %s", policyID)
-	}
-	count, err := p.db.CountTransactions(ctx, policyUUID, types.StatusMined, "SWAP")
-	if err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-func (p *DCAPlugin) calculateSwapAmountPerOrder(totalAmount, totalOrders *big.Int, completedSwaps int64) *big.Int {
-	baseAmount := new(big.Int).Div(totalAmount, totalOrders)
-	p.logger.Info("DCA: BASE AMOUNT: ", baseAmount.String())
-	remainder := new(big.Int).Mod(totalAmount, totalOrders)
-	p.logger.Info("DCA: REMAINDER: ", remainder.String())
-
-	// Determine swap amount for the next order
-	swapAmount := new(big.Int).Set(baseAmount)
-	if big.NewInt(completedSwaps+1).Cmp(remainder) <= 0 {
-		p.logger.Info("DCA: REMAINDER ADDING")
-		swapAmount.Add(swapAmount, big.NewInt(1)) // Add 1 to distribute remainder
-	}
-	return swapAmount
-}
-
-func (p *DCAPlugin) completePolicy(ctx context.Context, policy types.PluginPolicy) error {
-	p.logger.WithFields(logrus.Fields{
-		"policy_id": policy.ID,
-	}).Info("DCA: All orders completed, no transactions to propose")
-
-	// TODO: Sync a COMPLETED state for the policy with the verifier database.
-	dbTx, err := p.db.Pool().Begin(ctx)
-	defer dbTx.Rollback(ctx)
-	if err != nil {
-		return fmt.Errorf("fail to begin transaction: %w", err)
-	}
-	policy.Active = false
-	_, err = p.db.UpdatePluginPolicyTx(ctx, dbTx, policy)
-	if err != nil {
-		return fmt.Errorf("fail to update policy: %w", err)
-	}
-
-	if err := dbTx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
 }
