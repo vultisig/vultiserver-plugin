@@ -22,11 +22,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// TODO: remove once the plugin installation is implemented (resharding)
 const (
-	// TODO: once the new resharding is done
-	PluginPartyID   = "MihailGenchev’s MacBook Pro-F87" // change this to "plugin-service"
-	VerifierPartyID = "iPhone-E7E"                      // change this to "verifier-service"
+	PluginPartyID   = "Rado’s MacBook Pro-FD0"
+	VerifierPartyID = "Server-58253"
+)
 
+const (
 	vaultBackupSuffix = ".bak.vult"
 )
 
