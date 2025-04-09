@@ -27,6 +27,8 @@ type DatabaseStorage interface {
 	UserRepository
 	PricingRepository
 	PluginRepository
+	CategoryRepository
+	TagRepository
 	Close() error
 }
 
@@ -64,14 +66,6 @@ type UserRepository interface {
 	FindUserByName(ctx context.Context, username string) (*types.UserWithPassword, error)
 }
 
-// TODO: add repos for categories and tags
-// FindCategories(ctx context.Context) ([]types.Category, error)
-
-// FindTags(ctx context.Context) ([]types.Tag, error)
-// FindTagById(ctx context.Context, id string) (*types.Tag, error)
-// FindTagByName(ctx context.Context, name string) (*types.Tag, error)
-// CreateTag(ctx context.Context, tagDto types.CreateTagDto) (*types.Tag, error)
-
 type PricingRepository interface {
 	FindPricingById(ctx context.Context, id string) (*types.Pricing, error)
 	CreatePricing(ctx context.Context, pricingDto types.PricingCreateDto) (*types.Pricing, error)
@@ -88,4 +82,15 @@ type PluginRepository interface {
 	DetachTagFromPlugin(ctx context.Context, pluginId string, tagId string) (*types.Plugin, error)
 
 	Pool() *pgxpool.Pool
+}
+
+type CategoryRepository interface {
+	FindCategories(ctx context.Context) ([]types.Category, error)
+}
+
+type TagRepository interface {
+	FindTags(ctx context.Context) ([]types.Tag, error)
+	FindTagById(ctx context.Context, id string) (*types.Tag, error)
+	FindTagByName(ctx context.Context, name string) (*types.Tag, error)
+	CreateTag(ctx context.Context, tagDto types.CreateTagDto) (*types.Tag, error)
 }
