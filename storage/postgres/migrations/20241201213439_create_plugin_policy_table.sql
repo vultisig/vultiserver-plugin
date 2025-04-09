@@ -5,15 +5,14 @@ CREATE TYPE plugin_type AS ENUM ('payroll', 'dca');
 CREATE TABLE plugin_policies (
     id UUID PRIMARY KEY,
     public_key TEXT NOT NULL,
-    plugin_id TEXT NOT NULL,
     plugin_version TEXT NOT NULL,
     policy_version TEXT NOT NULL,
     plugin_type plugin_type NOT NULL,
     signature TEXT NOT NULL,
     policy JSONB NOT NULL
 );
--- Index for faster lookups on plugin_id
-CREATE INDEX idx_plugin_policies_plugin_id ON plugin_policies(plugin_id);
+-- Index for faster lookups on plugin_type
+CREATE INDEX idx_plugin_policies_plugin_type ON plugin_policies(plugin_type);
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin

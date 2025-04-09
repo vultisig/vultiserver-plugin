@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/vultisig/vultisigner/common"
 	"math/big"
 	"strconv"
 	"strings"
+
+	"github.com/vultisig/vultisigner/common"
 
 	"github.com/google/uuid"
 
@@ -63,7 +64,7 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 				VaultPassword:    "your-secure-password",
 			},
 			Transaction: hex.EncodeToString(rawTx),
-			PluginID:    policy.PluginID,
+			PluginType:  pluginType,
 			PolicyID:    policy.ID,
 		}
 		txs = append(txs, signRequest)

@@ -15,3 +15,6 @@ plugin-server:
 
 plugin-worker:
 	VS_CONFIG_NAME=config-plugin go run cmd/worker/main.go
+
+tests:
+	@go test -v `go list ./... | grep -v scripts | grep -v chainhelper`

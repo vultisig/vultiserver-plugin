@@ -14,7 +14,6 @@ type PluginPolicy struct {
 	IsEcdsa       bool            `json:"is_ecdsa" validate:"required"`
 	ChainCodeHex  string          `json:"chain_code_hex" validate:"required"`
 	DerivePath    string          `json:"derive_path" validate:"required"`
-	PluginID      string          `json:"plugin_id" validate:"required"`
 	PluginVersion string          `json:"plugin_version" validate:"required"`
 	PolicyVersion string          `json:"policy_version" validate:"required"`
 	PluginType    string          `json:"plugin_type" validate:"required"`

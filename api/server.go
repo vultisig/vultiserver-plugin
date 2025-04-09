@@ -85,8 +85,8 @@ func NewServer(
 	}
 
 	var plugin plugin.Plugin
-	var schedulerService *scheduler.SchedulerService
-	var syncerService syncer.PolicySyncer
+	var schedulerService *scheduler.SchedulerService = nil
+	var syncerService syncer.PolicySyncer = nil
 	if mode == "plugin" {
 		switch pluginType {
 		case "payroll":
@@ -111,6 +111,7 @@ func NewServer(
 		default:
 			logger.Fatalf("Invalid plugin type: %s", pluginType)
 		}
+
 		schedulerService = scheduler.NewSchedulerService(
 			db,
 			logger.WithField("service", "scheduler").Logger,

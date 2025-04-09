@@ -3,7 +3,9 @@ package scheduler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/vultisig/vultisigner/storage"
 	"strconv"
 	"time"
 
@@ -14,7 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/vultisigner/internal/tasks"
 	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/storage"
 )
 
 const (
@@ -22,12 +23,45 @@ const (
 	secondsInWeek = 7 * 24 * 60 * 60
 )
 
+var (
+	ErrTriggerNotReady = errors.New("trigger is not ready")
+	ErrEndTimeReached  = errors.New("trigger end time reached")
+)
+
+type Clock interface {
+	Now() time.Time
+	NewTicker(d time.Duration) *time.Ticker
+}
+
+type RealClock struct{}
+
+func (c *RealClock) Now() time.Time {
+	return time.Now().UTC()
+}
+func (c *RealClock) NewTicker(d time.Duration) *time.Ticker {
+	return time.NewTicker(d)
+}
+
+// Task client abstracts asynq client operations
+type TaskClient interface {
+	Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)
+}
+
+type AsynqTaskClient struct {
+	client *asynq.Client
+}
+
+func (a *AsynqTaskClient) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+	return a.client.Enqueue(task, opts...)
+}
+
 type SchedulerService struct {
-	db        storage.DatabaseStorage
-	logger    *logrus.Logger
-	client    *asynq.Client
-	inspector *asynq.Inspector
-	done      chan struct{}
+	db         storage.TimeTriggerRepository
+	logger     *logrus.Logger
+	taskClient TaskClient
+	inspector  *asynq.Inspector
+	clock      Clock
+	done       chan struct{}
 }
 
 func NewSchedulerService(db storage.DatabaseStorage, logger *logrus.Logger, client *asynq.Client, redisOpts asynq.RedisClientOpt) *SchedulerService {
@@ -39,11 +73,12 @@ func NewSchedulerService(db storage.DatabaseStorage, logger *logrus.Logger, clie
 	inspector := asynq.NewInspector(redisOpts)
 
 	return &SchedulerService{
-		db:        db,
-		logger:    logger,
-		client:    client,
-		inspector: inspector,
-		done:      make(chan struct{}),
+		db:         db,
+		logger:     logger,
+		taskClient: &AsynqTaskClient{client},
+		clock:      &RealClock{},
+		inspector:  inspector,
+		done:       make(chan struct{}),
 	}
 }
 
@@ -56,7 +91,7 @@ func (s *SchedulerService) Stop() {
 }
 
 func (s *SchedulerService) run() {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := s.clock.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -80,90 +115,102 @@ func (s *SchedulerService) checkAndEnqueueTasks() error {
 	s.logger.Infof("Found %d active triggers: %+v: ", len(triggers), triggers)
 
 	for _, trigger := range triggers {
-		s.logger.WithFields(logrus.Fields{
-			"policy_id": trigger.PolicyID,
-			"last_exec": trigger.LastExecution,
-		}).Info("Processing trigger")
-
-		// Parse cron expression
-		schedule, err := createSchedule(trigger.CronExpression, trigger.Frequency, trigger.StartTime, trigger.Interval)
-		if err != nil {
-			s.logger.Errorf("Failed to create schedule: %v", err)
-			err := s.db.DeleteTimeTrigger(ctx, trigger.PolicyID)
-			if err != nil {
-				return fmt.Errorf("failed to delete time trigger: %w", err)
+		if err := s.processTrigger(ctx, trigger); err != nil {
+			if !errors.Is(err, ErrTriggerNotReady) {
+				s.logger.Errorf("Failed to process trigger: %v", err)
 			}
 			continue
 		}
-
-		// Check if it's time to execute
-		var nextTime time.Time
-		if trigger.LastExecution != nil {
-			nextTime = schedule.Next(*trigger.LastExecution)
-		} else {
-			nextTime = trigger.StartTime
-		}
-
-		nextTime = nextTime.UTC()
-		endTime := trigger.EndTime
-
-		if endTime != nil && time.Now().UTC().After(*endTime) {
-			// TODO: Check if this end time was ever set anywhere.
-			s.logger.WithFields(logrus.Fields{
-				"policy_id": trigger.PolicyID,
-				"end_time":  *endTime,
-			}).Info("Trigger end time reached")
-			err := s.db.DeleteTimeTrigger(ctx, trigger.PolicyID)
-			if err != nil {
-				return fmt.Errorf("failed to delete time trigger: %w", err)
-			}
-			continue
-		}
-
-		triggerStatus, err := s.db.GetTriggerStatus(ctx, trigger.PolicyID)
-		if err != nil {
-			s.logger.Errorf("Failed to get trigger status: %v", err)
-			continue
-		}
-
-		if time.Now().UTC().Before(nextTime) || triggerStatus == types.StatusTimeTriggerRunning {
-			s.logger.WithFields(logrus.Fields{
-				"policy_id": trigger.PolicyID,
-				"next_time": nextTime,
-				"state":     triggerStatus,
-			}).Info("Trigger have not reached next time or it's in running status")
-			continue
-		}
-
-		if err := s.db.UpdateTriggerStatus(ctx, trigger.PolicyID, types.StatusTimeTriggerRunning); err != nil {
-			s.logger.Errorf("Failed to update trigger status: %v", err)
-			continue
-		}
-
-		buf, err := json.Marshal(trigger)
-		if err != nil {
-			s.logger.Errorf("Failed to marshal trigger event: %v", err)
-			continue
-		}
-		ti, err := s.client.Enqueue(
-			asynq.NewTask(tasks.TypePluginTransaction, buf),
-			asynq.MaxRetry(0),
-			asynq.Timeout(5*time.Minute),
-			asynq.Retention(10*time.Minute),
-			asynq.Queue(tasks.QUEUE_NAME),
-		)
-		if err != nil {
-			s.logger.Errorf("Failed to enqueue trigger task: %v", err)
-			continue
-
-		}
-
-		s.logger.WithFields(logrus.Fields{
-			"task_id":   ti.ID,
-			"policy_id": trigger.PolicyID,
-		}).Info("Enqueued trigger task")
 	}
 
+	return nil
+}
+
+func (s *SchedulerService) processTrigger(ctx context.Context, trigger types.TimeTrigger) error {
+	s.logger.WithFields(logrus.Fields{
+		"policy_id": trigger.PolicyID,
+		"last_exec": trigger.LastExecution,
+	}).Info("Processing trigger")
+
+	// Parse cron expression
+	schedule, err := CreateSchedule(trigger.CronExpression, trigger.Frequency, trigger.StartTime, trigger.Interval)
+	if err != nil {
+		s.logger.Errorf("Failed to create schedule: %v", err)
+		err := s.db.DeleteTimeTrigger(ctx, trigger.PolicyID)
+		if err != nil {
+			return fmt.Errorf("failed to delete time trigger: %w", err)
+		}
+		return fmt.Errorf("invalid schedule: %w", err)
+	}
+
+	// Check if the end time has been readched
+	if endTime := trigger.EndTime; endTime != nil && s.clock.Now().After(*endTime) {
+		// TODO: Check if this end time was ever set anywhere.
+		s.logger.WithFields(logrus.Fields{
+			"policy_id": trigger.PolicyID,
+			"end_time":  *endTime,
+		}).Info("Trigger end time reached")
+		err := s.db.DeleteTimeTrigger(ctx, trigger.PolicyID)
+		if err != nil {
+			return fmt.Errorf("failed to delete time trigger: %w", err)
+		}
+		return ErrEndTimeReached //TODO: Think if we need an error to say about end time has been reached.
+	}
+
+	// Check if it's time to execute
+	var nextTime time.Time
+	if trigger.LastExecution != nil {
+		nextTime = schedule.Next(*trigger.LastExecution)
+	} else {
+		nextTime = trigger.StartTime
+	}
+
+	nextTime = nextTime.UTC()
+
+	triggerStatus, err := s.db.GetTriggerStatus(ctx, trigger.PolicyID)
+	if err != nil {
+		return fmt.Errorf("failed to get trigger status: %w", err)
+	}
+
+	if s.clock.Now().Before(nextTime) || triggerStatus == types.StatusTimeTriggerRunning {
+		s.logger.WithFields(logrus.Fields{
+			"policy_id": trigger.PolicyID,
+			"next_time": nextTime,
+			"state":     triggerStatus,
+		}).Info("Trigger have not reached next time or it's in running status")
+		return ErrTriggerNotReady // TODO: Think if we need a special error in this case to say that the trigger is not ready to execute.
+	}
+
+	return s.enqueueTriggerTask(ctx, trigger)
+}
+
+func (s *SchedulerService) enqueueTriggerTask(ctx context.Context, trigger types.TimeTrigger) error {
+	if err := s.db.UpdateTriggerStatus(ctx, trigger.PolicyID, types.StatusTimeTriggerRunning); err != nil {
+		return fmt.Errorf("failed to update trigger status: %w", err)
+	}
+
+	buf, err := json.Marshal(trigger)
+	if err != nil {
+		return fmt.Errorf("failed to marshal trigger event: %w", err)
+	}
+
+	ti, err := s.taskClient.Enqueue(
+		asynq.NewTask(tasks.TypePluginTransaction, buf),
+		asynq.MaxRetry(0),
+		asynq.Timeout(5*time.Minute),
+		asynq.Retention(10*time.Minute),
+		asynq.Queue(tasks.QUEUE_NAME),
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to enqueue trigger task: %w", err)
+
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"task_id":   ti.ID,
+		"policy_id": trigger.PolicyID,
+	}).Info("Enqueued trigger task")
 	return nil
 }
 
@@ -199,11 +246,11 @@ func (s *SchedulerService) GetTriggerFromPolicy(policy types.PluginPolicy) (*typ
 		return nil, fmt.Errorf("failed to parse interval: %w", err)
 	}
 
-	cronExpr := frequencyToCron(policySchedule.Schedule.Frequency, policySchedule.Schedule.StartTime, interval)
+	cronExpr := FrequencyToCron(policySchedule.Schedule.Frequency, policySchedule.Schedule.StartTime, interval)
 	trigger := types.TimeTrigger{
 		PolicyID:       policy.ID,
 		CronExpression: cronExpr,
-		StartTime:      time.Now().UTC(),
+		StartTime:      s.clock.Now(),
 		EndTime:        policySchedule.Schedule.EndTime,
 		Frequency:      policySchedule.Schedule.Frequency,
 		Interval:       interval,
@@ -213,7 +260,7 @@ func (s *SchedulerService) GetTriggerFromPolicy(policy types.PluginPolicy) (*typ
 	return &trigger, nil
 }
 
-func createSchedule(cronExpr, frequency string, startTime time.Time, interval int) (cron.Schedule, error) {
+func CreateSchedule(cronExpr, frequency string, startTime time.Time, interval int) (cron.Schedule, error) {
 	// Use our custom schedule implementation for intervals > 1 and when frequency is daily, weekly, monthly
 	if interval > 1 && (frequency == "daily" || frequency == "weekly" || frequency == "monthly") {
 		return NewIntervalSchedule(frequency, startTime, interval)
@@ -228,7 +275,7 @@ func createSchedule(cronExpr, frequency string, startTime time.Time, interval in
 	return schedule, nil
 }
 
-func frequencyToCron(frequency string, startTime time.Time, interval int) string {
+func FrequencyToCron(frequency string, startTime time.Time, interval int) string {
 	switch frequency {
 	case "minutely":
 		return fmt.Sprintf("*/%d * * * *", interval)

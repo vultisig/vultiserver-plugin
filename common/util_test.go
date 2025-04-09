@@ -71,7 +71,7 @@ func TestGetSortingCondition(t *testing.T) {
 }
 
 func TestVaultBackupCompatible(t *testing.T) {
-	filePathName := filepath.Join("test_vault_backup_files", "test_ios_vault_backup.bak")
+	filePathName := filepath.Join("../test", "test_2of2_vault_backups", "Fast Vault #2-0985-part1of2-Vultiserver.vult")
 	_, err := os.Stat(filePathName)
 	if err != nil {
 		t.Fatal(err)
@@ -82,12 +82,12 @@ func TestVaultBackupCompatible(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	iosVault, err := DecryptVaultFromBackup("ios_test_pwd", content)
+	iosVault, err := DecryptVaultFromBackup("888717", content)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	filePathName = filepath.Join("test_vault_backup_files", "test_android_vault_backup.bak")
+	filePathName = filepath.Join("../test", "test_2of2_vault_backups", "Fast Vault #2-0985-part2of2.vult")
 	_, err = os.Stat(filePathName)
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestVaultBackupCompatible(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	androidVault, err := DecryptVaultFromBackup("android_test_pwd", content)
+	androidVault, err := DecryptVaultFromBackup("888717", content)
 	if err != nil {
 		t.Fatal(err)
 	}
