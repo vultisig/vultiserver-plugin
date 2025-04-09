@@ -15,19 +15,28 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-type Client struct {
+type Client interface {
+	GetRouterAddress() *common.Address
+	GetAllowance(owner common.Address, token common.Address) (*big.Int, error)
+	GetTokenBalance(address *common.Address, token common.Address) (*big.Int, error)
+	GetExpectedAmountOut(amountIn *big.Int, path []common.Address) (*big.Int, error)
+	CalculateAmountOutMin(amountOut *big.Int, slippagePercentage float64) *big.Int
+	ApproveERC20Token(chainID *big.Int, from *common.Address, token common.Address, spender common.Address, amount *big.Int, nonce uint64) ([]byte, []byte, error)
+	SwapTokens(chainID *big.Int, from *common.Address, amountIn *big.Int, amountOutMin *big.Int, path []common.Address, nonce uint64) ([]byte, []byte, error)
+}
+type client struct {
 	cfg *Config
 }
 
-func NewClient(cfg *Config) (*Client, error) {
-	return &Client{cfg}, nil
+func NewClient(cfg *Config) (Client, error) {
+	return &client{cfg}, nil
 }
 
-func (uc *Client) GetRouterAddress() *common.Address {
+func (uc *client) GetRouterAddress() *common.Address {
 	return uc.cfg.routerAddress
 }
 
-func (uc *Client) ApproveERC20Token(chainID *big.Int, signerAddress *common.Address, tokenAddress, spenderAddress common.Address, amount *big.Int, nonceOffset uint64) ([]byte, []byte, error) {
+func (uc *client) ApproveERC20Token(chainID *big.Int, signerAddress *common.Address, tokenAddress, spenderAddress common.Address, amount *big.Int, nonceOffset uint64) ([]byte, []byte, error) {
 	tokenABI := `[
 		{
 			"name": "approve",
@@ -86,7 +95,7 @@ func (uc *Client) ApproveERC20Token(chainID *big.Int, signerAddress *common.Addr
 	return hash, rawTx, err
 }
 
-func (uc *Client) GetAllowance(signerAddress common.Address, tokenAddress common.Address) (*big.Int, error) {
+func (uc *client) GetAllowance(signerAddress common.Address, tokenAddress common.Address) (*big.Int, error) {
 	tokenABI := `[{
         "constant": true,
         "inputs": [
@@ -137,7 +146,7 @@ func (uc *Client) GetAllowance(signerAddress common.Address, tokenAddress common
 	return allowance, nil
 }
 
-func (uc *Client) SwapTokens(chainID *big.Int, signerAddress *common.Address, amountIn, amountOutMin *big.Int, path []common.Address, nonceOffset uint64) ([]byte, []byte, error) {
+func (uc *client) SwapTokens(chainID *big.Int, signerAddress *common.Address, amountIn, amountOutMin *big.Int, path []common.Address, nonceOffset uint64) ([]byte, []byte, error) {
 	log.Println("Swapping tokens...")
 	routerABI := `[
 		{
@@ -198,7 +207,7 @@ func (uc *Client) SwapTokens(chainID *big.Int, signerAddress *common.Address, am
 	return hash, rawTx, err
 }
 
-func (uc *Client) GetTokenBalance(signerAddress *common.Address, tokenAddress common.Address) (*big.Int, error) {
+func (uc *client) GetTokenBalance(signerAddress *common.Address, tokenAddress common.Address) (*big.Int, error) {
 	tokenABI := `[
 		{
 			"name": "balanceOf",
@@ -241,7 +250,7 @@ func (uc *Client) GetTokenBalance(signerAddress *common.Address, tokenAddress co
 	return balance, nil
 }
 
-func (uc *Client) GetExpectedAmountOut(amountIn *big.Int, path []common.Address) (*big.Int, error) {
+func (uc *client) GetExpectedAmountOut(amountIn *big.Int, path []common.Address) (*big.Int, error) {
 	routerABI := `[
 		{
 			"name": "getAmountsOut",
@@ -297,7 +306,7 @@ func (uc *Client) GetExpectedAmountOut(amountIn *big.Int, path []common.Address)
 	return amountsOut[len(amountsOut)-1], nil
 }
 
-func (uc *Client) rlpUnsignedTxAndHash(tx *types.Transaction, chainID *big.Int) ([]byte, []byte, error) {
+func (uc *client) rlpUnsignedTxAndHash(tx *types.Transaction, chainID *big.Int) ([]byte, []byte, error) {
 	// post EIP-155 transaction
 	V := new(big.Int).Set(chainID)
 	V = V.Mul(V, big.NewInt(2))
@@ -323,7 +332,7 @@ func (uc *Client) rlpUnsignedTxAndHash(tx *types.Transaction, chainID *big.Int) 
 	return txHash, rawTx, nil
 }
 
-func (uc *Client) CalculateAmountOutMin(expectedAmountOut *big.Int, slippagePercentage float64) *big.Int {
+func (uc *client) CalculateAmountOutMin(expectedAmountOut *big.Int, slippagePercentage float64) *big.Int {
 	slippageFactor := big.NewFloat(1 - slippagePercentage/100)
 	expectedAmountOutFloat := new(big.Float).SetInt(expectedAmountOut)
 	amountOutMinFloat := new(big.Float).Mul(expectedAmountOutFloat, slippageFactor)

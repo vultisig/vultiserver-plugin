@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"github.com/jackc/pgx/v5"
-
 	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultisigner/storage"
 )
+
+var _ storage.PolicyRepository = (*PostgresBackend)(nil)
 
 func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error) {
 	if p.pool == nil {
