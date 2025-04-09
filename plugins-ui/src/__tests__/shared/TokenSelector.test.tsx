@@ -1,67 +1,13 @@
 import TokenSelector from "@/modules/shared/token-selector/TokenSelector";
-import { TitleFieldProps, WidgetProps } from "@rjsf/utils";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { getWidgetPropsMock } from "@tests-utils/global-mocks";
+import { WETH_TOKEN } from "@/modules/shared/data/tokens";
 
 describe("TokenSelector Component", () => {
-  const mockRegistry: TitleFieldProps["registry"] = {
-    fields: {},
-    widgets: {},
-    rootSchema: {},
-    templates: {
-      ArrayFieldTemplate: () => null,
-      ArrayFieldDescriptionTemplate: () => null,
-      ArrayFieldItemTemplate: () => null,
-      ArrayFieldTitleTemplate: () => null,
-      BaseInputTemplate: () => null,
-      ButtonTemplates: {
-        AddButton: () => null,
-        MoveDownButton: () => null,
-        MoveUpButton: () => null,
-        RemoveButton: () => null,
-        SubmitButton: () => null,
-        CopyButton: () => null,
-      },
-      DescriptionFieldTemplate: () => null,
-      ErrorListTemplate: () => null,
-      FieldErrorTemplate: () => null,
-      FieldHelpTemplate: () => null,
-      FieldTemplate: () => null,
-      ObjectFieldTemplate: () => null,
-      TitleFieldTemplate: () => null,
-      WrapIfAdditionalTemplate: () => null,
-      UnsupportedFieldTemplate: () => null,
-    },
-    schemaUtils: {
-      getDisplayLabel: () => true,
-    } as any,
-    translateString: () => "string",
-    formContext: {},
-  };
-  const mockProps: WidgetProps = {
-    id: "token-selector",
-    name: "token",
-    label: "Token",
-    schema: { type: "string" },
-    uiSchema: {},
-    formContext: {},
-    registry: mockRegistry,
-    options: {},
-    value: "ETH",
-    required: false,
-    readonly: false,
-    disabled: false,
-    autofocus: false,
-    rawErrors: [],
-    onChange: vi.fn(),
-    onBlur: vi.fn(),
-    onFocus: vi.fn(),
-    placeholder: "",
-    hideError: false,
-  };
-
+  const widgetProps = getWidgetPropsMock(WETH_TOKEN);
   it("should open modal when button is clicked", () => {
-    render(<TokenSelector {...mockProps} />);
+    render(<TokenSelector {...widgetProps} />);
 
     const button = screen.getByRole("button", { name: "Open modal" });
     expect(button).toBeInTheDocument();
@@ -74,7 +20,7 @@ describe("TokenSelector Component", () => {
   });
 
   it("should dismiss modal when close button is clicked", () => {
-    render(<TokenSelector {...mockProps} />);
+    render(<TokenSelector {...widgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
@@ -89,7 +35,7 @@ describe("TokenSelector Component", () => {
   });
 
   it("should set selected token & dismiss modal when token is selected", () => {
-    render(<TokenSelector {...mockProps} />);
+    render(<TokenSelector {...widgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
@@ -102,7 +48,7 @@ describe("TokenSelector Component", () => {
   });
 
   it("should filter out tokens that match search & shows all items when input is cleared", () => {
-    render(<TokenSelector {...mockProps} />);
+    render(<TokenSelector {...widgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
@@ -124,7 +70,7 @@ describe("TokenSelector Component", () => {
   });
 
   it("should show message when no matches to the filter are found", () => {
-    render(<TokenSelector {...mockProps} />);
+    render(<TokenSelector {...widgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
@@ -136,7 +82,7 @@ describe("TokenSelector Component", () => {
   });
 
   it("should show message when no matches to the filter are found", () => {
-    render(<TokenSelector {...mockProps} />);
+    render(<TokenSelector {...widgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
