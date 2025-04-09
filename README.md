@@ -102,21 +102,34 @@ curl --location localhost:8080/plugins --request POST \
 ```
 
 
-### 4. Test the DCA Plugin execution (with Vault from production imported into Vulticonnect)
+### 4. Test the DCA Plugin execution 
 
-1. Create a 2-of-3 vault, allowing you to sign plugin policies using only two user devices
-2. Back up both device shares by exporting them from the Vultisig apps on each device
-3. Import the vault via QR code into VaultConnect, allowing you to sign plugin policies
+#### 4.1 Create vault in production
 
-4. There is an easier way to test with vaults created via script, however, it is not easy to import these vaults into Vulticonnect and thus are not suitable for full end-to-end testing. And since we are instead testing with vaults from production, there are additional steps required to bring in the missing production data locally.
-  - Rename each backup as `<PUBLIC_KEY>.bak` and import each into the corresponding local S3 folder (`vultisig-plugin`, `vultisig-verifier`)
+Create a 2-of-3 vault, allowing you to sign plugin policies using only two user devices and back up both device shares by exporting them from the Vultisig apps on each device. 
+Alternatively, for ease of testing, you can use the vault provided in the `test/test-2of2-vault-backups` folder and import the backups into the devices intended for use.
 
-5. The new MPC resharing is not yet merged, and as of now, there is no way to install a plugin that would bring the Verifier and Plugin as part of a user vault. This would allow the Plugin and Verifier to meet the vault threshold and sign transactions. For local testing, we are using two shares from the user vault: first one for the Verifier and the second one for the Plugin. As a result, there are some hardcoded values that should match the vault being used in Vulticonnect.
-  - Change the `PluginPartyID` and `VerifierPartyID` (in common/util.go) to match those from the Vultisig app -> Vault settings -> Details.
-  - Change the hardcoded `vaultPassword` to match the vault password and the `hexEncryptionKey` to match the `hexChainCode` that we can get if we execute `await window.vultisig.getVaults()`
+#### 4.2 Import the vault into Vulticonnect
 
-6. Create a DCA policy through the UI
-7. The policy execution will start, so it is essential to ensure that the vault address has sufficient balance for the token and amount specified in the policy.
+Once imported into the devices, import the vault into Vulticonnect via the QR code displayed in the Vultisig app on one of the devices. This will enable you to sign plugin policies.
+
+#### 4.3 Bring the vault state into the local environment
+
+Since you are using a vault from production, there are additional steps required to bring in the missing production data locally.
+- Rename each backup as `<PUBLIC_KEY>.bak` and import each into the corresponding local S3 folder (`vultisig-plugin`, `vultisig-verifier`)
+
+#### 4.4 Plugin installation (hack)
+
+As of now, there is no way to install a plugin that enables the "verifier" and "plugin" to be part of a user vault (DKLS resharing), which would allow them to meet the vault threshold and sign transactions without the need for the user to participate.
+For local testing, we are using two shares from the user vault: first one for the "verifier" and the second one for the "plugin". As a result, there are some hardcoded values that should match the vault being used in Vulticonnect. 
+If you are using the vault provided in the `test/test-2of2-vault-backups` folder, the corresponding hardcoded values are already set. Otherwise, make sure that:
+  - `PluginPartyID` and `VerifierPartyID` (in common/util.go) match the vault participants (Vultisig app -> Vault settings -> Details).
+  - `vaultPassword` matches the vault password
+  - `hexEncryptionKey` matches the `hexChainCode` (execute `await window.vultisig.getVaults()` to get it)
+
+#### 4.5 Create a DCA policy through the UI
+
+The policy execution will start, so it is essential to ensure that the vault address has sufficient balance for the token and amount specified in the policy.
 
 ```sh
 export RPC_URL=http://127.0.0.1:8545 # from the local ethereum fork
@@ -124,13 +137,13 @@ export PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2f
 export VAULT_ADDRESS=0x5582df2D22194AF8201997D750e80fd8140387c2 # from the vultisig app
 ```
 
-Send some amount of ETH to the vault address
+Send some amount of native `ETH` to the vault address
 
 ```sh
   cast send $VAULT_ADDRESS --value 10ether --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 ```
 
-Mint some amount of the ERC20 token used as a source in the policy. If "-token" is not present, the script will default to minting WETH.
+Mint some amount of the `ERC20` token used as a source in the policy. If `-token` is not present, the script will default to minting `WETH`.
 
 ```sh
   export TOKEN_ADDRESS=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 # USDC in this case
