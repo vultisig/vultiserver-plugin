@@ -3,9 +3,6 @@ package syncer
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
-	"github.com/vultisig/vultisigner/internal/types"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +10,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+	"github.com/vultisig/vultisigner/internal/types"
 )
 
 func TestCreatePolicySync(t *testing.T) {
@@ -31,7 +32,6 @@ func TestCreatePolicySync(t *testing.T) {
 				IsEcdsa:       true,
 				ChainCodeHex:  "test-chain-code-hex",
 				DerivePath:    "test-derive-path",
-				PluginID:      "test-plugin-id",
 				PluginVersion: "test-plugin-version",
 				PolicyVersion: "test-policy-version",
 				PluginType:    "test-plugin",
@@ -119,7 +119,6 @@ func TestUpdatePolicySync(t *testing.T) {
 				IsEcdsa:       true,
 				ChainCodeHex:  "test-chain-code-hex",
 				DerivePath:    "test-derive-path",
-				PluginID:      "test-plugin-id",
 				PluginVersion: "test-plugin-version",
 				PolicyVersion: "test-policy-version",
 				PluginType:    "test-plugin",

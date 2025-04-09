@@ -106,7 +106,6 @@ func main() {
 	policy := types.PluginPolicy{
 		ID:            policyId,
 		PublicKey:     key,
-		PluginID:      "payroll",
 		PluginVersion: "1.0.0",
 		PolicyVersion: "1.0.0",
 		PluginType:    "payroll",

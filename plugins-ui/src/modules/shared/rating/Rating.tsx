@@ -9,7 +9,7 @@ const Rating = () => {
       <div className="rating-chart">
         {ratings &&
           ratings.map((r) => (
-            <div className="rating-bar">
+            <div className="rating-bar" key={r}>
               <div className="count">{r}</div>
               <div className="bar" style={{ width: `${r * 63}px` }}></div>
             </div>

@@ -31,7 +31,6 @@ describe("generatePolicy", () => {
       derive_path: "",
       id: "",
       is_ecdsa: true,
-      plugin_id: "TODO",
       plugin_type: "pluginType",
       plugin_version: "0.0.1",
       policy: {

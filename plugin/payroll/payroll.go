@@ -2,10 +2,17 @@ package payroll
 
 import (
 	"embed"
+
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/vultisigner/plugin"
 	"github.com/vultisig/vultisigner/storage"
+)
+
+const (
+	pluginType    = "payroll"
+	pluginVersion = "0.0.1"
+	policyVersion = "0.0.1"
 )
 
 //go:embed frontend

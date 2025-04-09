@@ -13,7 +13,6 @@ export const generatePolicy = (
     is_ecdsa: true,
     chain_code_hex: "",
     derive_path: "",
-    plugin_id: "TODO",
     plugin_version,
     policy_version,
     plugin_type,

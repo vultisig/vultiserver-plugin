@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gcommon "github.com/ethereum/go-ethereum/common"
 	gtypes "github.com/ethereum/go-ethereum/core/types"
@@ -152,7 +153,6 @@ func createKeysignRequest(txHash []byte, rlpTxBytes []byte, policyID string) typ
 			Parties:          []string{"party1", "party2"},
 		},
 		Transaction:     hex.EncodeToString(rlpTxBytes),
-		PluginID:        "pluginID",
 		PolicyID:        policyID,
 		TransactionType: "SWAP",
 	}

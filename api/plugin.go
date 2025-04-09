@@ -66,9 +66,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, message)
 	}
 
-	// Validate policy matches plugin
-	if policy.PluginID != req.PluginID {
-		mismatchErr := errors.New("policy plugin ID mismatch")
+	if policy.PluginType != req.PluginType {
+		mismatchErr := errors.New("policy plugin type mismatch")
 		s.logger.Error(mismatchErr)
 		message := map[string]interface{}{
 			"error": mismatchErr.Error(),

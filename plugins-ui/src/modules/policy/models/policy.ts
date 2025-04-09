@@ -10,7 +10,6 @@ export type PluginPolicy = {
   is_ecdsa: boolean;
   chain_code_hex: string;
   derive_path: string;
-  plugin_id: string;
   plugin_version: string;
   policy_version: string;
   plugin_type: string;
