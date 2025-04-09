@@ -2,7 +2,6 @@ package payroll
 
 import (
 	"embed"
-
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"

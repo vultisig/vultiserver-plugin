@@ -33,74 +33,126 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	var req types.PluginKeysignRequest
 	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	// Plugin-specific validations
+	// Plugin-specific validations //TODO: maybe this is not okay since we do not want this kind of specific checks in verifier
 	if len(req.Messages) != 1 {
-		return fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
+		wrappedErr := fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusBadRequest, message)
 	}
 
 	// Get policy from database
 	policy, err := s.db.GetPluginPolicy(c.Request().Context(), req.PolicyID)
 	if err != nil {
-		return fmt.Errorf("failed to get policy from database: %w", err)
+		wrappedErr := fmt.Errorf("failed to get policy from database: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	// Validate policy matches plugin
 	if policy.PluginID != req.PluginID {
-		return fmt.Errorf("policy plugin ID mismatch")
+		mismatchErr := errors.New("policy plugin ID mismatch")
+		s.logger.Error(mismatchErr)
+		message := map[string]interface{}{
+			"error": mismatchErr.Error(),
+		}
+		return c.JSON(http.StatusBadRequest, message)
 	}
 
 	// We re-init plugin as verification server doesn't have plugin defined
 	var plg plugin.Plugin
 	plg, err = s.initializePlugin(policy.PluginType)
 	if err != nil {
-		return fmt.Errorf("failed to initialize plugin: %w", err)
+		wrappedErr := fmt.Errorf("fail to initialize plugin: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	if err := plg.ValidateProposedTransactions(policy, []types.PluginKeysignRequest{req}); err != nil {
-		return fmt.Errorf("failed to validate transaction proposal: %w", err)
+		wrappedErr := fmt.Errorf("fail to validate proposed transactions: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusBadRequest, message)
 	}
 
 	// Validate message hash matches transaction
 	txHash, err := calculateTransactionHash(req.Transaction)
 	if err != nil {
-		return fmt.Errorf("fail to calculate transaction hash: %w", err)
+		wrappedErr := fmt.Errorf("fail to calculate transaction hash: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 	if txHash != req.Messages[0] {
-		return fmt.Errorf("message hash does not match transaction hash. expected %s, got %s", txHash, req.Messages[0])
+		wrappedErr := fmt.Errorf("message hash does not match transaction hash. expected %s, got %s", txHash, req.Messages[0])
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
-	// Reuse existing signing logic
+	// Reuse existing signing logic //TODO: why we return here with status OK
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
 		return c.NoContent(http.StatusOK)
 	}
 
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 30*time.Minute); err != nil {
+		//TODO: should we return error here or just log it
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
 
 	filePathName := common.GetVaultBackupFilename(req.PublicKey)
 	content, err := s.blockStorage.GetFile(filePathName)
 	if err != nil {
-		wrappedErr := fmt.Errorf("fail to read file, err: %w", err)
-		s.logger.Infof("fail to read file in SignPluginMessages, err: %v", err)
-		s.logger.Error(wrappedErr)
-		return wrappedErr
+		wrappedErr := fmt.Errorf("fail to read file: %s", filePathName)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	_, err = common.DecryptVaultFromBackup(req.VaultPassword, content)
 	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to decrypt file from the backup: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	req.Parties = []string{common.PluginPartyID, common.VerifierPartyID}
 
 	buf, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to marshal request: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	// TODO: check if this is relevant
@@ -109,8 +161,12 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	txToSign, err := s.db.GetTransactionByHash(c.Request().Context(), txHash)
 	if err != nil {
-		s.logger.Errorf("Failed to get transaction by hash from database: %v", err)
-		return fmt.Errorf("fail to get transaction by hash: %w", err)
+		wrappedErr := fmt.Errorf("fail to get transaction by hash: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	s.logger.Debug("PLUGIN SERVER: KEYSIGN TASK")
@@ -127,7 +183,12 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		if updateErr := s.db.UpdateTransactionStatus(c.Request().Context(), txToSign.ID, types.StatusSigningFailed, txToSign.Metadata); updateErr != nil {
 			s.logger.Errorf("Failed to update transaction status: %v", updateErr)
 		}
-		return fmt.Errorf("fail to enqueue keysign task: %w", err)
+		wrappedErr := fmt.Errorf("fail to enqueue task: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	txToSign.Metadata["task_id"] = ti.ID
@@ -182,7 +243,6 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	}
 
 	// We re-init plugin as verification server doesn't have plugin defined
-
 	var plg plugin.Plugin
 	plg, err := s.initializePlugin(policy.PluginType)
 	if err != nil {
