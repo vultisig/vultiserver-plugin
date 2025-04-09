@@ -20,7 +20,7 @@ type Client interface {
 	GetAllowance(owner common.Address, token common.Address) (*big.Int, error)
 	GetTokenBalance(address *common.Address, token common.Address) (*big.Int, error)
 	GetExpectedAmountOut(amountIn *big.Int, path []common.Address) (*big.Int, error)
-	CalculateAmountOutMin(amountOut *big.Int, slippagePercentage float64) *big.Int
+	CalculateAmountOutMin(amountOut *big.Int) *big.Int
 	ApproveERC20Token(chainID *big.Int, from *common.Address, token common.Address, spender common.Address, amount *big.Int, nonce uint64) ([]byte, []byte, error)
 	SwapTokens(chainID *big.Int, from *common.Address, amountIn *big.Int, amountOutMin *big.Int, path []common.Address, nonce uint64) ([]byte, []byte, error)
 }
@@ -332,8 +332,8 @@ func (uc *client) rlpUnsignedTxAndHash(tx *types.Transaction, chainID *big.Int) 
 	return txHash, rawTx, nil
 }
 
-func (uc *client) CalculateAmountOutMin(expectedAmountOut *big.Int, slippagePercentage float64) *big.Int {
-	slippageFactor := big.NewFloat(1 - slippagePercentage/100)
+func (uc *client) CalculateAmountOutMin(expectedAmountOut *big.Int) *big.Int {
+	slippageFactor := big.NewFloat(1 - uc.cfg.slippagePercentage/100)
 	expectedAmountOutFloat := new(big.Float).SetInt(expectedAmountOut)
 	amountOutMinFloat := new(big.Float).Mul(expectedAmountOutFloat, slippageFactor)
 	amountOutMin, _ := amountOutMinFloat.Int(nil)
