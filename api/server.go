@@ -89,6 +89,7 @@ func NewServer(
 			if err != nil {
 				logger.Fatal("failed to initialize payroll plugin", err)
 			}
+
 		case dca.PluginType:
 			plugin, err = dca.NewDCAPlugin(db, logger, pluginConfigs[dca.PluginType])
 			if err != nil {

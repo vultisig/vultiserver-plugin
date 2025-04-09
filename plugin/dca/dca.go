@@ -677,8 +677,7 @@ func (p *DCAPlugin) generateSwapTransactions(chainID *big.Int, signerAddress *gc
 	}
 	p.logger.Info("DCA: EXPECTED AMOUNT OUT: ", expectedAmountOut.String())
 
-	slippagePercentage := 1.0
-	amountOutMin := p.uniswapClient.CalculateAmountOutMin(expectedAmountOut, slippagePercentage)
+	amountOutMin := p.uniswapClient.CalculateAmountOutMin(expectedAmountOut)
 
 	txHash, rawTx, err := p.uniswapClient.SwapTokens(chainID, signerAddress, swapAmount, amountOutMin, tokensPair, swapNonce)
 	if err != nil {
