@@ -36,7 +36,7 @@
     color: var(--text-extra-light-color);
     border-radius: 12px;
     padding: 14px 16px;
-    font-size: 16px;
+    font-size: 1rem;
 }
 
 .filters .search-input input::placeholder {
