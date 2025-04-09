@@ -2,12 +2,16 @@ import { WETH_TOKEN } from "@/modules/shared/data/tokens";
 import TokenSelector from "@/modules/shared/token-selector/TokenSelector";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { WidgetProps } from "@rjsf/utils";
 
 describe("TokenSelector Component", () => {
   const mockOnChange = vi.fn();
-
   it("should open modal when button is clicked", () => {
-    render(<TokenSelector value={WETH_TOKEN} onChange={mockOnChange} />);
+    const props: Partial<WidgetProps> = {
+      value: WETH_TOKEN,
+      onChange: mockOnChange
+    }
+    render(<TokenSelector {...props as WidgetProps}/>);
 
     const button = screen.getByRole("button", { name: "Open modal" });
     expect(button).toBeInTheDocument();
@@ -20,7 +24,11 @@ describe("TokenSelector Component", () => {
   });
 
   it("should dismiss modal when close button is clicked", () => {
-    render(<TokenSelector value={WETH_TOKEN} onChange={mockOnChange} />);
+    const props: Partial<WidgetProps> = {
+      value: WETH_TOKEN,
+      onChange: mockOnChange
+    }
+    render(<TokenSelector {...props as WidgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
@@ -35,7 +43,11 @@ describe("TokenSelector Component", () => {
   });
 
   it("should set selected token & dismiss modal when token is selected", () => {
-    render(<TokenSelector value={WETH_TOKEN} onChange={mockOnChange} />);
+    const props: Partial<WidgetProps> = {
+      value: WETH_TOKEN,
+      onChange: mockOnChange
+    }
+    render(<TokenSelector {...props as WidgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
@@ -48,7 +60,11 @@ describe("TokenSelector Component", () => {
   });
 
   it("should filter out tokens that match search & shows all items when input is cleared", () => {
-    render(<TokenSelector value={WETH_TOKEN} onChange={mockOnChange} />);
+    const props: Partial<WidgetProps> = {
+      value: WETH_TOKEN,
+      onChange: mockOnChange
+    }
+    render(<TokenSelector {...props as WidgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
@@ -70,7 +86,11 @@ describe("TokenSelector Component", () => {
   });
 
   it("should show message when no matches to the filter are found", () => {
-    render(<TokenSelector value={WETH_TOKEN} onChange={mockOnChange} />);
+    const props: Partial<WidgetProps> = {
+      value: WETH_TOKEN,
+      onChange: mockOnChange
+    }
+    render(<TokenSelector {...props as WidgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
@@ -82,7 +102,11 @@ describe("TokenSelector Component", () => {
   });
 
   it("should show message when no matches to the filter are found", () => {
-    render(<TokenSelector value={"missing token"} onChange={mockOnChange} />);
+    const props: Partial<WidgetProps> = {
+      value: "missing token",
+      onChange: mockOnChange
+    }
+    render(<TokenSelector {...props as WidgetProps} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
