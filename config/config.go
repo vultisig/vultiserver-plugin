@@ -8,33 +8,23 @@ import (
 )
 
 type Config struct {
-	Server struct {
-		Host     string `mapstructure:"host" json:"host,omitempty"`
-		Port     int64  `mapstructure:"port" json:"port,omitempty"`
-		Database struct {
-			DSN string `mapstructure:"dsn" json:"dsn,omitempty"`
-		} `mapstructure:"database" json:"database,omitempty"`
-		VaultsFilePath string `mapstructure:"vaults_file_path" json:"vaults_file_path,omitempty"`
-		Mode           string `mapstructure:"mode" json:"mode,omitempty"`
-		JWTSecret      string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
-		Plugin         struct {
-			Type string `mapstructure:"type" json:"type,omitempty"`
-			Eth  struct {
-				Rpc     string `mapstructure:"rpc" json:"rpc,omitempty"`
-				Uniswap struct {
-					V2Router string `mapstructure:"v2_router" json:"v2_router,omitempty"`
-					Deadline int64  `mapstructure:"deadline" json:"deadline,omitempty"`
-				} `mapstructure:"uniswap" json:"uniswap,omitempty"`
-			} `mapstructure:"eth" json:"eth,omitempty"`
-		} `mapstructure:"plugin" json:"plugin,omitempty"`
-		UserAuth struct {
-			JwtSecret string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
-		} `mapstructure:"user_auth" json:"auth,omitempty"`
-	} `mapstructure:"server" json:"server"`
+	Mode          string                            `mapstructure:"mode" json:"mode,omitempty"`
+	PluginType    string                            `mapstructure:"plugin_type" json:"plugin_type,omitempty"`
+	PluginPackage map[string]map[string]interface{} `mapstructure:"plugin_package" json:"package,omitempty"`
 
 	Plugin struct {
-		PluginConfigs map[string]map[string]interface{} `mapstructure:"plugin_configs" json:"plugin_configs,omitempty"`
-	} `mapstructure:"plugin" json:"plugin,omitempty"`
+		Host string `mapstructure:"host" json:"host,omitempty"`
+		Port int64  `mapstructure:"port" json:"port,omitempty"`
+	} `mapstructure:"plugin" json:"server"`
+
+	Verifier struct {
+		Host string `mapstructure:"host" json:"host,omitempty"`
+		Port int64  `mapstructure:"port" json:"port,omitempty"`
+	} `mapstructure:"verifier" json:"verifier,omitempty"`
+
+	Database struct {
+		DSN string `mapstructure:"dsn" json:"dsn,omitempty"`
+	} `mapstructure:"database" json:"database,omitempty"`
 
 	Redis struct {
 		Host     string `mapstructure:"host" json:"host,omitempty"`
@@ -64,6 +54,12 @@ type Config struct {
 		Host string `mapstructure:"host" json:"host,omitempty"`
 		Port string `mapstructure:"port" json:"port,omitempty"`
 	} `mapstructure:"datadog" json:"datadog"`
+
+	VaultsFilePath string `mapstructure:"vaults_file_path" json:"vaults_file_path,omitempty"`
+	JWTSecret      string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
+	UserAuth       struct {
+		JwtSecret string `mapstructure:"jwt_secret" json:"jwt_secret,omitempty"`
+	} `mapstructure:"user_auth" json:"auth,omitempty"`
 }
 
 func GetConfigure() (*Config, error) {

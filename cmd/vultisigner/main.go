@@ -46,7 +46,7 @@ func main() {
 	}()
 
 	inspector := asynq.NewInspector(redisOptions)
-	if cfg.Server.VaultsFilePath == "" {
+	if cfg.VaultsFilePath == "" {
 		panic("vaults file path is empty")
 
 	}
@@ -55,7 +55,7 @@ func main() {
 		panic(err)
 	}
 
-	db, err := postgres.NewPostgresBackend(false, cfg.Server.Database.DSN)
+	db, err := postgres.NewPostgresBackend(false, cfg.Database.DSN)
 	if err != nil {
 		logger.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -69,12 +69,11 @@ func main() {
 		client,
 		inspector,
 		sdClient,
-		cfg.Server.VaultsFilePath,
-		cfg.Server.Mode,
-		cfg.Server.JWTSecret,
-		cfg.Server.Plugin.Type,
-		cfg.Server.Plugin.Eth.Rpc,
-		cfg.Plugin.PluginConfigs,
+		cfg.Mode,
+		cfg.PluginType,
+		cfg.PluginPackage,
+		cfg.VaultsFilePath,
+		cfg.JWTSecret,
 		logger,
 	)
 	if err := server.StartServer(); err != nil {

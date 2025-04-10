@@ -30,7 +30,7 @@ type VaultOperation interface {
 }
 
 func (s *WorkerService) JoinKeyGeneration(req types.VaultCreateRequest) (string, string, error) {
-	keyFolder := s.cfg.Server.VaultsFilePath
+	keyFolder := s.cfg.VaultsFilePath
 	serverURL := s.cfg.Relay.Server
 	relayClient := relay.NewRelayClient(serverURL)
 
@@ -353,7 +353,7 @@ func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.Ke
 	}).Debug("JoinKeySign params received")
 
 	result := map[string]tss.KeysignResponse{}
-	keyFolder := s.cfg.Server.VaultsFilePath
+	keyFolder := s.cfg.VaultsFilePath
 	serverURL := s.cfg.Relay.Server
 	localStateAccessor, err := relay.NewLocalStateAccessorImp(keyFolder, req.PublicKey, req.VaultPassword, s.blockStorage)
 	if err != nil {

@@ -6,8 +6,6 @@
 .trunk/
 .devenv/
 .env
-config.json
-config.yaml
 plugins-ui/node_modules/
 _tmp_
 localconfig*

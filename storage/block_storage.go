@@ -48,7 +48,7 @@ func (bs *BlockStorage) FileExist(fileName string) (bool, error) {
 	})
 	if err != nil {
 		bs.logger.Error(err)
-		filePathName := filepath.Join(bs.cfg.Server.VaultsFilePath, fileName)
+		filePathName := filepath.Join(bs.cfg.VaultsFilePath, fileName)
 		_, err := os.Stat(filePathName)
 		return false, err
 	}
