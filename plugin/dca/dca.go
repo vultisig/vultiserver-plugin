@@ -32,9 +32,9 @@ import (
 )
 
 const (
-	pluginType    = "dca"
-	pluginVersion = "0.0.1"
-	policyVersion = "0.0.1"
+	PluginType    = "dca"
+	PluginVersion = "0.0.1"
+	PolicyVersion = "0.0.1"
 )
 
 // TODO: remove once the plugin installation is implemented (resharding)
@@ -164,16 +164,16 @@ func (p *DCAPlugin) SigningComplete(
 }
 
 func (p *DCAPlugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
-	if policyDoc.PluginType != pluginType {
-		return fmt.Errorf("policy does not match plugin type, expected: %s, got: %s", pluginType, policyDoc.PluginType)
+	if policyDoc.PluginType != PluginType {
+		return fmt.Errorf("policy does not match plugin type, expected: %s, got: %s", PluginType, policyDoc.PluginType)
 	}
 
-	if policyDoc.PluginVersion != pluginVersion {
-		return fmt.Errorf("policy does not match plugin version, expected: %s, got: %s", pluginVersion, policyDoc.PluginVersion)
+	if policyDoc.PluginVersion != PluginVersion {
+		return fmt.Errorf("policy does not match plugin version, expected: %s, got: %s", PluginVersion, policyDoc.PluginVersion)
 	}
 
-	if policyDoc.PolicyVersion != policyVersion {
-		return fmt.Errorf("policy does not match policy version, expected: %s, got: %s", policyVersion, policyDoc.PolicyVersion)
+	if policyDoc.PolicyVersion != PolicyVersion {
+		return fmt.Errorf("policy does not match policy version, expected: %s, got: %s", PolicyVersion, policyDoc.PolicyVersion)
 	}
 
 	if policyDoc.ChainCodeHex == "" {

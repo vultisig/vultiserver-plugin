@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/vultiserver-plugin/config"
 	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/plugin/dca"
+	"github.com/vultisig/vultiserver/config"
 )
 
 var vaultName string
@@ -77,10 +78,10 @@ func main() {
 	policy := types.PluginPolicy{
 		ID:            policyId,
 		PublicKey:     key,
-		PluginID:      "dca",
-		PluginVersion: "1.0.0",
-		PolicyVersion: "1.0.0",
-		PluginType:    "dca",
+		PluginID:      dca.PluginType,
+		PluginVersion: dca.PluginVersion,
+		PolicyVersion: dca.PolicyVersion,
+		PluginType:    dca.PluginType,
 		Active:        true,
 		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}

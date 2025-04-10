@@ -25,7 +25,7 @@ import (
 
 func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[string]tss.KeysignResponse, error) {
 	result := map[string]tss.KeysignResponse{}
-	keyFolder := t.cfg.Server.VaultsFilePath
+	keyFolder := t.cfg.VaultsFilePath
 	localStateAccessor, err := relay.NewLocalStateAccessorImp(keyFolder, req.PublicKey, req.VaultPassword, t.blockStorage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create localStateAccessor: %w", err)

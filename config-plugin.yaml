@@ -1,26 +1,34 @@
-# plugin
+# select the mode to run in, either as "plugin" or "verifier"
+mode: plugin
 
-server:
+# when "plugin" mode is selected, choose which package to run: "dca", "payroll", etc.
+plugin_type: dca
+
+# plugin package specific configuration
+plugin_package:
+  payroll:
+    rpc_url: https://eth.llamarpc.com
+  dca:
+    rpc_url: http://127.0.0.1:8545
+    uniswap:
+      v2_router: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
+      deadline: 5 # minutes
+
+# "plugin" or "verifier" server configuration
+plugin:
   host: localhost
   port: 8081
-  jwt_secret: myjwtsecretphrase
-  database:
-    dsn: postgres://myuser:mypassword@localhost:5432/vultisig-plugin?sslmode=disable
-  vaults_file_path: /tmp/plugin/vaults
-  mode: plugin
-  plugin:
-    type: dca
 
-plugin:
-  plugin_configs:
-    dca:
-      rpc_url: https://eth.llamarpc.com
-      uniswap:
-        v2_router: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
-        deadline: 5 # minutes
+# relevant when mode is "plugin", each plugin has to communicate with its verifier
+verifier:
+  host: localhost
+  port: 8080
 
-relay:
-  server: https://api.vultisig.com/router
+vaults_file_path: /tmp/plugin/vaults
+jwt_secret: myjwtsecretphrase
+
+database:
+  dsn: postgres://myuser:mypassword@localhost:5432/vultisig-plugin?sslmode=disable
 
 redis:
   host: localhost
@@ -38,6 +46,9 @@ block_storage:
   host: http://localhost:9000
   force_path_style: true
   disable_ssl: true
+
+relay:
+  server: https://api.vultisig.com/router
 
 email_server:
   api_key: key-1234567890
