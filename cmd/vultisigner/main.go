@@ -61,7 +61,7 @@ func main() {
 	}
 
 	server := api.NewServer(
-		cfg.Server.Port,
+		cfg,
 		db,
 		redisStorage,
 		blockStorage,
