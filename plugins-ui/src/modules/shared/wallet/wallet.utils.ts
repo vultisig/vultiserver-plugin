@@ -23,3 +23,10 @@ export const derivePathMap = {
   ethereum: "m/44'/60'/0'/0/0",
   thor: "thor derivation path",
 };
+
+export const setLocalStorageAuthToken = (value: string) => {
+  localStorage.setItem("authToken", value);
+
+  // Dispatch custom event to notify other components
+  window.dispatchEvent(new Event("storage"));
+};

@@ -1,0 +1,47 @@
+.plugin-detail {
+    .plugin-header {
+        display: flex;
+        gap: 2rem;
+    }
+
+    .plugin-details {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 277px; 
+    }
+
+    /* .plugin-statistics {
+        font-size: 0.875rem; 
+    } */
+
+    .plugin-title {
+        font-size: 1.75rem;
+    }
+
+    .plugin-description {
+        font-size: 1rem;
+    }
+
+    .plugin-installaion {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    img {
+        width: 370px;
+        height: 277px;
+        border-radius: 3.69px;
+      }
+
+      .review-rating-header {
+        font-size: 1.75rem;
+      }
+
+      .review-rating {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+}

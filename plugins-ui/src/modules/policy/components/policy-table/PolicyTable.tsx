@@ -97,7 +97,7 @@ const PolicyTable = () => {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  if (columns.length === 0) return <p>Loading...</p>;
+  if (columns.length === 0) return;
 
   return (
     <div>
@@ -133,7 +133,10 @@ const PolicyTable = () => {
             ))}
             {table.getRowModel().rows.length === 0 && (
               <tr>
-                <td colSpan={table.getAllColumns().length}>
+                <td
+                  colSpan={table.getAllColumns().length}
+                  className="empty-message-row"
+                >
                   Nothing to see here yet.
                 </td>
               </tr>
