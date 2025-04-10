@@ -40,8 +40,7 @@
                     "properties": {
                         "interval": {
                             "title": "Every",
-                            "type": "string",
-                            "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
+                            "type": "string"
                         },
                         "frequency": {
                             "type": "string",
@@ -54,6 +53,41 @@
                                 "monthly"
                             ],
                             "default": "minutely"
+                        }
+                    },
+                    "dependencies": {
+                        "frequency": {
+                            "oneOf": [
+                                {
+                                    "properties": {
+                                        "frequency": {
+                                            "enum": [
+                                                "minutely"
+                                            ]
+                                        },
+                                        "interval": {
+                                            "type": "string",
+                                            "pattern": "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$"
+                                        }
+                                    }
+                                },
+                                {
+                                    "properties": {
+                                        "frequency": {
+                                            "enum": [
+                                                "hourly",
+                                                "daily",
+                                                "weekly",
+                                                "monthly"
+                                            ]
+                                        },
+                                        "interval": {
+                                            "type": "string",
+                                            "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 },
@@ -132,6 +166,7 @@
                 }
             },
             "schedule": {
+                "ui:hideError": true,
                 "ui:order": [
                     "interval",
                     "frequency"
@@ -141,6 +176,8 @@
                 },
                 "ui:classNames": "form-row",
                 "frequency": {
+                    "ui:readonly": false,
+                    "ui:hideError": true,
                     "ui:classNames": "input-background stacked-input",
                     "ui:style": {
                         "display": "flex",
@@ -148,6 +185,8 @@
                     }
                 },
                 "interval": {
+                    "ui:readonly": false,
+                    "ui:hideError": false,
                     "ui:classNames": "input-background stacked-input",
                     "ui:style": {
                         "display": "flex",
@@ -168,6 +207,7 @@
                     "classNames": "form-row"
                 },
                 "min": {
+                    "ui:readonly": false,
                     "ui:options": {
                         "classNames": "input-background stacked-input",
                         "placeholder": "Min Price"
@@ -179,6 +219,7 @@
                     }
                 },
                 "max": {
+                    "ui:readonly": false,
                     "ui:options": {
                         "classNames": "input-background stacked-input",
                         "label": false,

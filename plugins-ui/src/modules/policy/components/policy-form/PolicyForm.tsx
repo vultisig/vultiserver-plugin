@@ -81,7 +81,12 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
   const transformErrors = (errors: RJSFValidationError[]) => {
     return errors.map((error) => {
       if (error.name === "pattern") {
-        error.message = "should be a positive number";
+        if (error.params.pattern === "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$") {
+          error.message = "should be a positive number above 15";
+        }
+        if (error.params.pattern === "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$") {
+          error.message = "should be a positive number";
+        }
       }
       if (error.name === "required") {
         error.message = "required";
@@ -107,7 +112,12 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
           widgets={{ TokenSelector, WeiConverter }}
           transformErrors={transformErrors}
           liveValidate={!!policyId}
-          formContext={{ sourceTokenId: formData.source_token_id as string }} // sourceTokenId is needed in WeiConverter to get the rigth decimal places based on token address
+          readonly={!!policyId}
+          formContext={{
+            editing: !!policyId,
+            sourceTokenId: formData.source_token_id as string, // sourceTokenId is needed in WeiConverter/TitleFieldTemplate and probably on most of the existing plugins to get the rigth decimal places based on token address
+            destinationTokenId: formData.destination_token_id as string, // destinationTokenId is needed in TitleFieldTemplate
+          }}
         />
       )}
     </div>

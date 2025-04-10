@@ -5,4 +5,9 @@
 
     border-radius: 12px;
     padding: 16px;
+
+    &:read-only {
+        color: var(--text-disabled-color); 
+        cursor: not-allowed;
+    }
 }

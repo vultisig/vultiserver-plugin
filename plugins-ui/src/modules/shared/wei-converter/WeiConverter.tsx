@@ -8,6 +8,7 @@ const DEBOUNCE_DELAY = 500;
 
 const WeiConverter: React.FC<WidgetProps> = ({
   value,
+  readonly,
   onChange,
   formContext,
   schema,
@@ -61,6 +62,7 @@ const WeiConverter: React.FC<WidgetProps> = ({
         id="wei"
         type="number"
         value={inputValue}
+        readOnly={readonly}
         onChange={handleChange}
         data-testid="wei-converter"
       />
