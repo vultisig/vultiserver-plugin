@@ -61,7 +61,7 @@ type WorkerService struct {
 	blockStorage *storage.BlockStorage
 	inspector    Inspector
 	plugin       plugin.Plugin
-	db           storage.DatabaseStorage
+	db           WorkerStorage
 	// TODO
 	// rpcClient    *ethclient.Client
 	syncer      syncer.PolicySyncer
@@ -69,7 +69,7 @@ type WorkerService struct {
 }
 
 // NewWorker creates a new worker service
-func NewWorker(cfg config.Config, verifierPort int64, queueClient *asynq.Client, sdClient *statsd.Client, syncer syncer.PolicySyncer, authService *AuthService, blockStorage *storage.BlockStorage, inspector *asynq.Inspector) (*WorkerService, error) {
+func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Client, syncer syncer.PolicySyncer, authService *AuthService, blockStorage *storage.BlockStorage, inspector *asynq.Inspector) (*WorkerService, error) {
 	logger := logrus.WithField("service", "worker").Logger
 
 	redis, err := storage.NewRedisStorage(cfg)
@@ -77,26 +77,26 @@ func NewWorker(cfg config.Config, verifierPort int64, queueClient *asynq.Client,
 		return nil, fmt.Errorf("storage.NewRedisStorage failed: %w", err)
 	}
 
-	db, err := postgres.NewPostgresBackend(false, cfg.Server.Database.DSN)
+	db, err := postgres.NewPostgresBackend(false, cfg.Database.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("fail to connect to database: %w", err)
 	}
 
 	var plugin plugin.Plugin
-	if cfg.Server.Mode == "plugin" {
-		switch cfg.Server.Plugin.Type {
-		case "payroll":
-			plugin, err = payroll.NewPayrollPlugin(db, logrus.WithField("service", "plugin").Logger, cfg.Plugin.PluginConfigs["payroll"])
+	if cfg.Mode == "plugin" {
+		switch cfg.PluginType {
+		case payroll.PluginType:
+			plugin, err = payroll.NewPayrollPlugin(db, logrus.WithField("service", "plugin").Logger, cfg.PluginPackage[payroll.PluginType])
 			if err != nil {
 				return nil, fmt.Errorf("fail to initialize payroll plugin: %w", err)
 			}
-		case "dca":
-			plugin, err = dca.NewDCAPlugin(db, logger, cfg.Plugin.PluginConfigs["dca"])
+		case dca.PluginType:
+			plugin, err = dca.NewDCAPlugin(db, logger, cfg.PluginPackage[dca.PluginType])
 			if err != nil {
 				return nil, fmt.Errorf("fail to initialize DCA plugin: %w", err)
 			}
 		default:
-			logger.Fatalf("Invalid plugin type: %s", cfg.Server.Plugin.Type)
+			logger.Fatalf("Invalid plugin type: %s", cfg.PluginType)
 		}
 	}
 
@@ -112,7 +112,7 @@ func NewWorker(cfg config.Config, verifierPort int64, queueClient *asynq.Client,
 		logger:       logger,
 		syncer:       syncer,
 		authService:  authService,
-		verifierPort: verifierPort,
+		verifierPort: cfg.Verifier.Port,
 	}, nil
 }
 
@@ -340,7 +340,7 @@ func (s *WorkerService) HandleReshare(ctx context.Context, t *asynq.Task) error 
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid reshare request: %s: %w", err, asynq.SkipRetry)
 	}
-	localState, err := relay.NewLocalStateAccessorImp(s.cfg.Server.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
+	localState, err := relay.NewLocalStateAccessorImp(s.cfg.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
 	if err != nil {
 		s.logger.Errorf("relay.NewLocalStateAccessorImp failed: %v", err)
 		return fmt.Errorf("relay.NewLocalStateAccessorImp failed: %v: %w", err, asynq.SkipRetry)
@@ -692,7 +692,7 @@ func (s *WorkerService) HandleReshareDKLS(ctx context.Context, t *asynq.Task) er
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid reshare request: %s: %w", err, asynq.SkipRetry)
 	}
-	localState, err := relay.NewLocalStateAccessorImp(s.cfg.Server.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
+	localState, err := relay.NewLocalStateAccessorImp(s.cfg.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
 	if err != nil {
 		s.logger.Errorf("relay.NewLocalStateAccessorImp failed: %v", err)
 		return fmt.Errorf("relay.NewLocalStateAccessorImp failed: %v: %w", err, asynq.SkipRetry)
@@ -746,7 +746,7 @@ func (s *WorkerService) HandleMigrateDKLS(ctx context.Context, t *asynq.Task) er
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid migrate request: %s: %w", err, asynq.SkipRetry)
 	}
-	localState, err := relay.NewLocalStateAccessorImp(s.cfg.Server.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
+	localState, err := relay.NewLocalStateAccessorImp(s.cfg.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
 	if err != nil {
 		s.logger.Errorf("relay.NewLocalStateAccessorImp failed: %v", err)
 		return fmt.Errorf("relay.NewLocalStateAccessorImp failed: %v: %w", err, asynq.SkipRetry)

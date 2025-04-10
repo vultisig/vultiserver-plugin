@@ -34,7 +34,7 @@ func (s *Server) userAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		tokenStr := authHeader[len("Bearer "):]
 
 		// parse and validate JWT
-		userID, err := jwt.ValidateJWT(tokenStr, s.cfg.Server.UserAuth.JwtSecret)
+		userID, err := jwt.ValidateJWT(tokenStr, s.cfg.UserAuth.JwtSecret)
 		if err != nil {
 			s.logger.Error("Failed to parse jwt: ", err)
 			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid token"})
