@@ -495,10 +495,10 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 
 func (s *Server) initializePlugin(pluginType string) (plugin.Plugin, error) {
 	switch pluginType {
-	case "payroll":
-		return payroll.NewPayrollPlugin(s.db, s.logger, s.pluginConfigs["payroll"])
-	case "dca":
-		return dca.NewDCAPlugin(s.db, s.logger, s.pluginConfigs["dca"])
+	case payroll.PluginType:
+		return payroll.NewPayrollPlugin(s.db, s.logger, s.pluginConfigs[payroll.PluginType])
+	case dca.PluginType:
+		return dca.NewDCAPlugin(s.db, s.logger, s.pluginConfigs[dca.PluginType])
 	default:
 		return nil, fmt.Errorf("unknown plugin type: %s", pluginType)
 	}
@@ -524,7 +524,7 @@ func (s *Server) UserLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"message": "Invalid credentials"})
 	}
 
-	token, err := jwt.GenerateJWT(user.ID, s.cfg.Server.UserAuth.JwtSecret)
+	token, err := jwt.GenerateJWT(user.ID, s.cfg.UserAuth.JwtSecret)
 	if err != nil {
 		s.logger.Error("Failed to generate jwt", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"message": "Failed to generate token"})

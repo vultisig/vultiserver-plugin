@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gcommon "github.com/ethereum/go-ethereum/common"
 	gtypes "github.com/ethereum/go-ethereum/core/types"
@@ -42,9 +43,9 @@ func createValidPolicy() types.PluginPolicy {
 
 	return types.PluginPolicy{
 		ID:            "test-policy-id",
-		PluginType:    "dca",
-		PluginVersion: "0.0.1",
-		PolicyVersion: "0.0.1",
+		PluginType:    PluginType,
+		PluginVersion: PluginVersion,
+		PolicyVersion: PolicyVersion,
 		ChainCodeHex:  "8769353fa9b5baaf9ceef4c0c747c57d67933ed9865612ce5d8b771708bfaa1d",
 		PublicKey:     "02e23a52d46f02064f60305a5397ed808f4e2dcc4210a3ddc1c4ca9a6ac6d02fb3",
 		DerivePath:    common.DerivePathMap["1"],

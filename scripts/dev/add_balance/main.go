@@ -67,7 +67,7 @@ func main() {
 		panic(err)
 	}
 
-	rpcClient, err := ethclient.Dial(pluginConfig.Server.Plugin.Eth.Rpc)
+	rpcClient, err := ethclient.Dial(pluginConfig.PluginPackage["eth"]["rpc"].(string))
 	if err != nil {
 		panic(err)
 	}

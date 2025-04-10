@@ -36,7 +36,7 @@ func (s *WorkerService) HandleKeyGenerationDKLS(ctx context.Context, t *asynq.Ta
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid vault create request: %s: %w", err, asynq.SkipRetry)
 	}
-	localStateAccessor, err := relay.NewLocalStateAccessorImp(s.cfg.Server.VaultsFilePath, "", "", s.blockStorage)
+	localStateAccessor, err := relay.NewLocalStateAccessorImp(s.cfg.VaultsFilePath, "", "", s.blockStorage)
 	if err != nil {
 		return fmt.Errorf("relay.NewLocalStateAccessorImp failed: %s: %w", err, asynq.SkipRetry)
 	}
@@ -94,7 +94,7 @@ func (s *WorkerService) HandleKeySignDKLS(ctx context.Context, t *asynq.Task) er
 		"IsECDSA":    p.IsECDSA,
 	}).Info("joining keysign")
 
-	localStateAccessor, err := relay.NewLocalStateAccessorImp(s.cfg.Server.VaultsFilePath, "", "", s.blockStorage)
+	localStateAccessor, err := relay.NewLocalStateAccessorImp(s.cfg.VaultsFilePath, "", "", s.blockStorage)
 	if err != nil {
 		return fmt.Errorf("relay.NewLocalStateAccessorImp failed: %s: %w", err, asynq.SkipRetry)
 	}
