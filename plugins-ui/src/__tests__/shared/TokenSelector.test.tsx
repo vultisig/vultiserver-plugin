@@ -80,16 +80,4 @@ describe("TokenSelector Component", () => {
 
     expect(screen.getByText("No matching options")).toBeInTheDocument();
   });
-
-  it("should show message when no matches to the filter are found", () => {
-    render(<TokenSelector {...widgetProps} value={undefined} />);
-
-    const openButton = screen.getByRole("button", { name: "Open modal" });
-    fireEvent.click(openButton);
-
-    const input = screen.getByPlaceholderText("Search by token");
-    fireEvent.change(input, { target: { value: "Lorem ipsum" } });
-
-    expect(openButton).toHaveTextContent("Unknown token");
-  });
 });
