@@ -45,6 +45,7 @@ const Toast = () => {
             <div
               key={`${toast.message}-${index}`}
               className={`toast toast-${toast.type}`}
+              data-testid="toast-item"
             >
               <div className="toast-content">
                 {toast.title ? (
@@ -59,6 +60,7 @@ const Toast = () => {
                 type="button"
                 styleType="tertiary"
                 onClick={() => handleCloseToast(toast)}
+                data-testid="toast-item-close-btn"
               >
                 <CloseIcon />
               </Button>
