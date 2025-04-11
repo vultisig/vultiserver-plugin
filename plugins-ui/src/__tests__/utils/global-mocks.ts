@@ -50,3 +50,15 @@ export const getWidgetPropsMock = (value: unknown) => {
     onChange: vi.fn(),
   } as WidgetProps;
 };
+
+export const mockEventBus = {
+  publish: vi.fn(),
+  subscribe: vi.fn(),
+  unsubscribe: vi.fn(),
+};
+
+vi.mock("@/utils/eventBus", () => ({
+  publish: mockEventBus.publish,
+  subscribe: mockEventBus.subscribe,
+  unsubscribe: mockEventBus.unsubscribe,
+}));
