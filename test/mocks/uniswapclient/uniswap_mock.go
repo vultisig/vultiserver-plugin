@@ -40,8 +40,8 @@ func (m *MockUniswapClient) GetExpectedAmountOut(amountIn *big.Int, path []gcomm
 	return args.Get(0).(*big.Int), args.Error(1)
 }
 
-func (m *MockUniswapClient) CalculateAmountOutMin(amountOut *big.Int, slippagePercentage float64) *big.Int {
-	args := m.Called(amountOut, slippagePercentage)
+func (m *MockUniswapClient) CalculateAmountOutMin(amountOut *big.Int) *big.Int {
+	args := m.Called(amountOut)
 	return args.Get(0).(*big.Int)
 }
 

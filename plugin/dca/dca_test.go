@@ -560,7 +560,7 @@ func TestProposeTransactions(t *testing.T) {
 				uniswap.On("GetExpectedAmountOut", mock.Anything, mock.Anything).
 					Return(big.NewInt(90), nil)
 
-				uniswap.On("CalculateAmountOutMin", big.NewInt(90), 1.0).
+				uniswap.On("CalculateAmountOutMin", big.NewInt(90)).
 					Return(big.NewInt(89))
 
 				uniswap.On("SwapTokens",
@@ -585,7 +585,7 @@ func TestProposeTransactions(t *testing.T) {
 				uniswap.On("GetExpectedAmountOut", mock.Anything, mock.Anything).
 					Return(big.NewInt(90), nil)
 
-				uniswap.On("CalculateAmountOutMin", big.NewInt(90), 1.0).
+				uniswap.On("CalculateAmountOutMin", big.NewInt(90)).
 					Return(big.NewInt(89))
 
 				uniswap.On("SwapTokens",
