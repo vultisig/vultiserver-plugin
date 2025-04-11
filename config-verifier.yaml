@@ -9,7 +9,8 @@ plugin_package:
   payroll:
     rpc_url: https://eth.llamarpc.com
   dca:
-    rpc_url: http://127.0.0.1:8545
+    # use private mempool https://rpc.mevblocker.io
+    rpc_url: https://eth.llamarpc.com
     uniswap:
       v2_router: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
       deadline: 5 # minutes

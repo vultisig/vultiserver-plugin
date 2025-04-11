@@ -64,10 +64,10 @@ func main() {
 		LibType:            types.DKLS,
 	}
 
-	serverHost := fmt.Sprintf("http://%s:%d", serverConfig.Server.Host, serverConfig.Server.Port)
-	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Server.Host, pluginConfig.Server.Port)
+	serverHost := fmt.Sprintf("http://%s:%d", serverConfig.Verifier.Host, serverConfig.Verifier.Port)
+	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Plugin.Host, pluginConfig.Plugin.Port)
 
-	fmt.Printf("Creating vault on verifier server - http://%s:%d/vault/create", serverHost, serverConfig.Server.Port)
+	fmt.Printf("Creating vault on verifier server - http://%s:%d/vault/create", serverHost, serverConfig.Verifier.Port)
 	reqBytes, err := json.Marshal(createVaultRequest)
 	if err != nil {
 		panic(err)
@@ -79,7 +79,7 @@ func main() {
 	}
 	fmt.Printf(" - %d\n", resp.StatusCode)
 
-	fmt.Printf("Creating vault on plugin server - http://%s:%d/vault/create", pluginHost, pluginConfig.Server.Port)
+	fmt.Printf("Creating vault on plugin server - http://%s:%d/vault/create", pluginHost, pluginConfig.Plugin.Port)
 	createVaultRequest.LocalPartyId = common.VerifierPartyID
 	createVaultRequest.StartSession = true
 	createVaultRequest.Parties = []string{common.PluginPartyID, common.VerifierPartyID}

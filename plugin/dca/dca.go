@@ -74,8 +74,9 @@ type RawTxData struct {
 type DCAPluginConfig struct {
 	RpcURL  string `mapstructure:"rpc_url" json:"rpc_url"`
 	Uniswap struct {
-		V2Router string `mapstructure:"v2_router" json:"v2_router"`
-		Deadline int64  `mapstructure:"deadline" json:"deadline"`
+		V2Router string  `mapstructure:"v2_router" json:"v2_router"`
+		Slippage float64 `mapstructure:"slippage" json:"slippage"`
+		Deadline int64   `mapstructure:"deadline" json:"deadline"`
 	} `mapstructure:"uniswap" json:"uniswap"`
 }
 
@@ -96,6 +97,7 @@ func NewDCAPlugin(db DCAStorage, logger *logrus.Logger, rawConfig map[string]int
 		&routerAddress,
 		2000000, // TODO: config
 		50000,   // TODO: config
+		cfg.Uniswap.Slippage,
 		time.Duration(cfg.Uniswap.Deadline)*time.Minute,
 	)
 
