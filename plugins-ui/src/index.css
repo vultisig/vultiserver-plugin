@@ -5,3 +5,8 @@
 body {
   margin: 0;
 }
+
+input {
+  outline: none;
+  box-sizing: border-box;
+}

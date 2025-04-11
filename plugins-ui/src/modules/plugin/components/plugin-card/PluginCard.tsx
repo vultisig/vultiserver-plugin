@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../../../../assets/DCA-image.png"; // Adjust path based on file location
 import "./PluginCard.css";
 import { ViewFilter } from "@/modules/marketplace/models/marketplace";
+import PluginCategoryTag from "@/modules/plugin/components/category-tag/PluginCategoryTag";
 
 const truncateText = (text: string, maxLength: number = 500): string => {
   return text.length > maxLength ? text.slice(0, maxLength) + "..." : text;
@@ -13,9 +14,10 @@ type PluginCardProps = {
   title: string;
   description: string;
   uiStyle: ViewFilter;
+  categoryName: string;
 };
 
-const PluginCard = ({ id, uiStyle, title, description }: PluginCardProps) => {
+const PluginCard = ({ id, uiStyle, title, description, categoryName }: PluginCardProps) => {
   const navigate = useNavigate();
 
   return (
@@ -24,6 +26,7 @@ const PluginCard = ({ id, uiStyle, title, description }: PluginCardProps) => {
         <img src={logo} alt={title} />
 
         <div className="plugin-info">
+          <PluginCategoryTag label={categoryName} />
           <h3>{title}</h3>
           <p>{truncateText(description)}</p>
         </div>

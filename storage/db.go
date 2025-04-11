@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 
 	"github.com/jackc/pgx/v5"
@@ -26,6 +27,8 @@ type DatabaseStorage interface {
 	UserRepository
 	PricingRepository
 	PluginRepository
+	CategoryRepository
+	TagRepository
 	Close() error
 }
 
@@ -70,9 +73,24 @@ type PricingRepository interface {
 }
 
 type PluginRepository interface {
-	FindPlugins(ctx context.Context, take int, skip int, sort string) (types.PlugisDto, error)
+	FindPlugins(ctx context.Context, filters types.PluginFilters, skip int, take int, sort string) (types.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, id string) (*types.Plugin, error)
 	CreatePlugin(ctx context.Context, pluginDto types.PluginCreateDto) (*types.Plugin, error)
 	UpdatePlugin(ctx context.Context, id string, updates types.PluginUpdateDto) (*types.Plugin, error)
 	DeletePluginById(ctx context.Context, id string) error
+	AttachTagToPlugin(ctx context.Context, pluginId string, tagId string) (*types.Plugin, error)
+	DetachTagFromPlugin(ctx context.Context, pluginId string, tagId string) (*types.Plugin, error)
+
+	Pool() *pgxpool.Pool
+}
+
+type CategoryRepository interface {
+	FindCategories(ctx context.Context) ([]types.Category, error)
+}
+
+type TagRepository interface {
+	FindTags(ctx context.Context) ([]types.Tag, error)
+	FindTagById(ctx context.Context, id string) (*types.Tag, error)
+	FindTagByName(ctx context.Context, name string) (*types.Tag, error)
+	CreateTag(ctx context.Context, tagDto types.CreateTagDto) (*types.Tag, error)
 }
