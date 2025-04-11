@@ -202,6 +202,12 @@ func (s *Server) StartServer() error {
 		e.POST("/login", s.UserLogin)
 		e.GET("/users/me", s.GetLoggedUser, s.userAuthMiddleware)
 
+		categoriesGroup := e.Group("/categories")
+		categoriesGroup.GET("", s.GetCategories)
+
+		tagsGroup := e.Group("/tags")
+		tagsGroup.GET("", s.GetTags)
+
 		pluginsGroup := e.Group("/plugins")
 		pluginsGroup.GET("", s.GetPlugins)
 		pluginsGroup.GET("/my", s.GetPlugins, s.AuthMiddleware) // TODO get only my installed policies
@@ -212,6 +218,8 @@ func (s *Server) StartServer() error {
 		pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
 		pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
 		pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
+		pluginsGroup.POST("/:pluginId/tags", s.AttachPluginTag, s.userAuthMiddleware)
+		pluginsGroup.DELETE("/:pluginId/tags/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
 
 		pricingsGroup := e.Group("/pricings")
 		pricingsGroup.GET("/:pricingId", s.GetPricing)

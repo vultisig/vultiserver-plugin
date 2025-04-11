@@ -17,6 +17,7 @@ import (
 	"github.com/eager7/dogd/btcec"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/labstack/echo/v4"
 	"github.com/ulikunitz/xz"
 	v1 "github.com/vultisig/commondata/go/vultisig/keygen/v1"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
@@ -330,4 +331,12 @@ func GetSortingCondition(sort string) (string, string) {
 	}
 
 	return orderBy, orderDirection
+}
+
+func GetQueryParam(c echo.Context, key string) *string {
+	val := c.QueryParam(key)
+	if val == "" {
+		return nil
+	}
+	return &val
 }
