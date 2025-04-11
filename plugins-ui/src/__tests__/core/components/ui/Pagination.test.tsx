@@ -22,6 +22,67 @@ describe("Pagination", () => {
       expect(pages.length).toEqual(7);
     });
   });
+  it("should call onPageChange when clicking prev", async () => {
+    const mockOnPageChange = vi.fn();
+    const { findByTestId } = render(
+      <Pagination
+        currentPage={3}
+        totalPages={10}
+        onPageChange={mockOnPageChange}
+      />
+    );
+    const prevButton = await findByTestId("pagination-prev");
+    userEvent.click(prevButton);
+    await waitFor(() => {
+      expect(mockOnPageChange).toBeCalledWith(2);
+    });
+  });
+  it("should show only first page and the last 5 pages visualization", async () => {
+    const mockOnPageChange = vi.fn();
+    const { findAllByTestId } = render(
+      <Pagination
+        currentPage={8}
+        totalPages={10}
+        onPageChange={mockOnPageChange}
+      />
+    );
+    const pages = await findAllByTestId("pagination-page");
+    const visiblePages = pages.map((p) => p.innerHTML);
+    await waitFor(() => {
+      expect(visiblePages).toStrictEqual([
+        "1",
+        "...",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+      ]);
+    });
+  });
+  it("should show current page and adjancent in the center", async () => {
+    const mockOnPageChange = vi.fn();
+    const { findAllByTestId } = render(
+      <Pagination
+        currentPage={5}
+        totalPages={10}
+        onPageChange={mockOnPageChange}
+      />
+    );
+    const pages = await findAllByTestId("pagination-page");
+    const visiblePages = pages.map((p) => p.innerHTML);
+    await waitFor(() => {
+      expect(visiblePages).toStrictEqual([
+        "1",
+        "...",
+        "4",
+        "5",
+        "6",
+        "...",
+        "10",
+      ]);
+    });
+  });
   it("should disable prev/next button based on current page", async () => {
     const mockOnPageChange = vi.fn();
     const { findByTestId, findAllByTestId, rerender } = render(
