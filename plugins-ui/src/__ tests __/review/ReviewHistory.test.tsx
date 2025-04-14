@@ -45,7 +45,7 @@ describe("ReviewHistory", () => {
     render(<ReviewHistory />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("pagination")).toBeInTheDocument();
+      expect(screen.getByTestId("pagination-wrapper")).toBeInTheDocument();
     });
   });
 
@@ -60,7 +60,9 @@ describe("ReviewHistory", () => {
     render(<ReviewHistory />);
 
     await waitFor(() => {
-      expect(screen.queryByTestId("pagination")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("pagination-wrapper")
+      ).not.toBeInTheDocument();
     });
   });
 });
