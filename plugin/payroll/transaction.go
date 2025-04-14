@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/vultisig/vultisigner/common"
 	"math/big"
 	"strconv"
 	"strings"
+
+	"github.com/vultisig/vultisigner/common"
 
 	"github.com/google/uuid"
 
@@ -42,7 +43,7 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 			recipient.Address,
 			payrollPolicy.ChainID[i],
 			payrollPolicy.TokenID[i],
-			policy.PublicKey,
+			policy.GetPublicKey(),
 		)
 		fmt.Printf("Chain ID TEST 1: %s\n", payrollPolicy.ChainID[i])
 		if err != nil {
@@ -54,7 +55,7 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 		// Create signing request
 		signRequest := types.PluginKeysignRequest{
 			KeysignRequest: types.KeysignRequest{
-				PublicKey:        policy.PublicKey,
+				PublicKey:        policy.GetPublicKey(),
 				Messages:         []string{txHash},
 				SessionID:        uuid.New().String(),
 				HexEncryptionKey: "0123456789abcdef0123456789abcdef",
@@ -63,7 +64,7 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 				VaultPassword:    "your-secure-password",
 			},
 			Transaction: hex.EncodeToString(rawTx),
-			PluginID:    policy.PluginID,
+			PluginType:  policy.PluginType,
 			PolicyID:    policy.ID,
 		}
 		txs = append(txs, signRequest)
@@ -128,6 +129,7 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 	chainIDInt.SetString(chainID, 10)
 	fmt.Printf("Chain ID TEST 3: %s\n", chainIDInt.String())
 
+	// TODO: hardcoded path, should be based on network
 	derivedAddress, err := common.DeriveAddress(publicKey, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", "m/44/60/0/0/0")
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to derive address: %v", err)

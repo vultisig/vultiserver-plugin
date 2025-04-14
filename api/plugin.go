@@ -49,8 +49,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	// Validate policy matches plugin
-	if policy.PluginID != req.PluginID {
-		return fmt.Errorf("policy plugin ID mismatch")
+	if policy.PluginType != req.PluginType {
+		return fmt.Errorf("policy plugin mismatch")
 	}
 
 	// We re-init plugin as verification server doesn't have plugin defined
@@ -208,6 +208,12 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	var policy types.PluginPolicy
 	if err := c.Bind(&policy); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
+	}
+
+	if err := c.Validate(&policy); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": err.Error(),
+		})
 	}
 
 	// We re-init plugin as verification server doesn't have plugin defined
@@ -735,7 +741,7 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 		return false
 	}
 
-	isVerified, err := sigutil.VerifySignature(policy.PublicKey, policy.ChainCodeHex, policy.DerivePath, msgBytes, signatureBytes)
+	isVerified, err := sigutil.VerifySignature(policy.PublicKeyEcdsa, policy.ChainCodeHex, policy.DerivePath, msgBytes, signatureBytes)
 	if err != nil {
 		s.logger.Error(fmt.Errorf("failed to verify signature: %w", err))
 		return false

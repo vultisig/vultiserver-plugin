@@ -157,19 +157,28 @@ func (p *DCAPlugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
 		return fmt.Errorf("policy does not contain chain_code_hex")
 	}
 
-	if policyDoc.PublicKey == "" {
-		return fmt.Errorf("policy does not contain public_key")
+	if policyDoc.PublicKeyEcdsa == "" {
+		return fmt.Errorf("policy does not contain public_key_ecdsa")
 	}
-
-	pubKeyBytes, err := hex.DecodeString(policyDoc.PublicKey)
+	pubKeyBytes, err := hex.DecodeString(policyDoc.PublicKeyEcdsa)
 	if err != nil {
 		return fmt.Errorf("invalid hex encoding: %w", err)
 	}
-
-	isValidPublicKey := common.CheckIfPublicKeyIsValid(pubKeyBytes, policyDoc.IsEcdsa)
-
+	isValidPublicKey := common.CheckIfPublicKeyIsValid(pubKeyBytes, true)
 	if !isValidPublicKey {
-		return fmt.Errorf("invalid public_key")
+		return fmt.Errorf("invalid public_key_ecdsa")
+	}
+
+	if policyDoc.PublicKeyEddsa == "" {
+		return fmt.Errorf("policy does not contain public_key_eddsa")
+	}
+	pubKeyBytes, err = hex.DecodeString(policyDoc.PublicKeyEddsa)
+	if err != nil {
+		return fmt.Errorf("invalid hex encoding: %w", err)
+	}
+	isValidPublicKey = common.CheckIfPublicKeyIsValid(pubKeyBytes, false)
+	if !isValidPublicKey {
+		return fmt.Errorf("invalid public_key_eddsa")
 	}
 
 	var dcaPolicy types.DCAPolicy
@@ -341,7 +350,7 @@ func (p *DCAPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.Plug
 	p.logger.Info("DCA: SWAP AMOUNT: ", swapAmount.String())
 
 	// build transactions
-	signerAddress, err := common.DeriveAddress(policy.PublicKey, policy.ChainCodeHex, policy.DerivePath)
+	signerAddress, err := common.DeriveAddress(policy.GetPublicKey(), policy.ChainCodeHex, policy.DerivePath)
 	if err != nil {
 		return txs, fmt.Errorf("fail to derive address: %w", err)
 	}
@@ -359,7 +368,7 @@ func (p *DCAPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.Plug
 	for _, data := range rawTxsData {
 		signRequest := types.PluginKeysignRequest{
 			KeysignRequest: types.KeysignRequest{
-				PublicKey:        policy.PublicKey,
+				PublicKey:        policy.GetPublicKey(),
 				Messages:         []string{hex.EncodeToString(data.TxHash)},
 				SessionID:        uuid.New().String(),
 				HexEncryptionKey: hexEncryptionKey,
@@ -370,7 +379,7 @@ func (p *DCAPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.Plug
 				Parties:          []string{common.PluginPartyID, common.VerifierPartyID},
 			},
 			Transaction:     hex.EncodeToString(data.RlpTxBytes),
-			PluginID:        policy.PluginID,
+			PluginType:      policy.PluginType,
 			PolicyID:        policy.ID,
 			TransactionType: data.Type,
 		}
@@ -415,7 +424,7 @@ func (p *DCAPlugin) ValidateProposedTransactions(policy types.PluginPolicy, txs 
 		return fmt.Errorf("invalid total orders")
 	}
 
-	signerAddress, err := common.DeriveAddress(policy.PublicKey, policy.ChainCodeHex, policy.DerivePath)
+	signerAddress, err := common.DeriveAddress(policy.GetPublicKey(), policy.ChainCodeHex, policy.DerivePath)
 	if err != nil {
 		return fmt.Errorf("failed to derive address: %w", err)
 	}

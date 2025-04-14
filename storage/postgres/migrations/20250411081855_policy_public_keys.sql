@@ -24,6 +24,9 @@ CREATE TABLE plugin_policies (
     policy JSONB NOT NULL
 );
 
+-- faster lookups on type as it is the primary relation we use
+CREATE INDEX idx_plugin_policies_plugin_type ON plugin_policies(plugin_type);
+
 -- reapply constraints (fk_policy is redundant, skip it)
 ALTER TABLE time_triggers
 ADD CONSTRAINT time_triggers_policy_id_fkey
