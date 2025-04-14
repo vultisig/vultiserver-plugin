@@ -9,17 +9,18 @@ export const generatePolicy = (
 ): PluginPolicy => {
   return {
     id: policyId,
-    public_key: "",
-    is_ecdsa: true,
-    chain_code_hex: "",
-    derive_path: "",
-    plugin_id: "TODO",
+    public_key_ecdsa: "",
+    public_key_eddsa: "",
+    chain_id: "",
     plugin_version,
     policy_version,
     plugin_type,
+    is_ecdsa: true,
+    chain_code_hex: "",
+    derive_path: "",
+    active: true,
     signature: "",
     policy: convertToStrings(policy),
-    active: true,
   };
 };
 
