@@ -45,6 +45,7 @@ const PluginDetail = () => {
           style={{ paddingLeft: "0px", paddingTop: "2rem" }}
           styleType="tertiary"
           onClick={() => navigate(`/plugins`)}
+          data-testid="plugin-detail-back-btn"
         >
           <ChevronLeft width="20px" height="20px" color="#F0F4FC" />
           Back to All Plugins
@@ -63,6 +64,7 @@ const PluginDetail = () => {
                     type="button"
                     styleType="primary"
                     onClick={() => navigate(`/plugins/${plugin.id}/policies`)}
+                    data-testid="plugin-detail-install-btn"
                   >
                     Install
                   </Button>

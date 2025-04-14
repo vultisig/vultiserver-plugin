@@ -29,7 +29,7 @@ const LeaveReview = () => {
   };
 
   return (
-    <section className="leave-review">
+    <section className="leave-review" data-testid="leave-review-wrapper">
       <section className="review-score">
         <label className="label">Leave a review</label>
 
