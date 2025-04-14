@@ -389,7 +389,7 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 
 	s.logger.WithFields(logrus.Fields{
 		"policy_id":   policy.ID,
-		"public_key":  policy.PublicKey,
+		"public_key":  policy.GetPublicKey(),
 		"plugin_type": policy.PluginType,
 	}).Info("Retrieved policy for signing")
 
@@ -415,7 +415,7 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 		// create transaction with PENDING status
 		metadata := map[string]interface{}{
 			"timestamp":        time.Now(),
-			"plugin_id":        signRequest.PluginID,
+			"plugin_type":      signRequest.PluginType,
 			"public_key":       signRequest.KeysignRequest.PublicKey,
 			"transaction_type": signRequest.TransactionType,
 		}
