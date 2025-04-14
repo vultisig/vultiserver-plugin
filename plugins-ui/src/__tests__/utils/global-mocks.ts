@@ -1,5 +1,5 @@
 import { SchemaUtilsType, WidgetProps } from "@rjsf/utils";
-import { afterEach, vi } from "vitest";
+import { vi } from "vitest";
 
 export const mockRegistry = {
   fields: {},
@@ -62,7 +62,3 @@ vi.mock("@/utils/eventBus", () => ({
   subscribe: mockEventBus.subscribe,
   unsubscribe: mockEventBus.unsubscribe,
 }));
-
-afterEach(() => {
-  vi.clearAllMocks(); // Reset all mocked calls between tests
-});
