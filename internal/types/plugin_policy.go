@@ -10,8 +10,6 @@ type PluginTriggerEvent struct {
 	PolicyID string `json:"policy_id"`
 }
 
-// TODO: add validation of the public key, type, chain code, derive path, etc.
-
 type PluginPolicy struct {
 	ID             string          `json:"id" validate:"required"`
 	PublicKeyEcdsa string          `json:"public_key_ecdsa" validate:"required"`

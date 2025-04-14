@@ -210,6 +210,10 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
+	if policy.ID == "" {
+		policy.ID = uuid.NewString()
+	}
+
 	if err := c.Validate(&policy); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"message": err.Error(),
@@ -249,10 +253,6 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	if policy.ID == "" {
-		policy.ID = uuid.NewString()
-	}
-
 	if !s.verifyPolicySignature(policy, false) {
 		s.logger.Error("invalid policy signature")
 		message := map[string]interface{}{
@@ -279,6 +279,12 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 	var policy types.PluginPolicy
 	if err := c.Bind(&policy); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
+	}
+
+	if err := c.Validate(&policy); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": err.Error(),
+		})
 	}
 
 	// We re-init plugin as verification server doesn't have plugin defined

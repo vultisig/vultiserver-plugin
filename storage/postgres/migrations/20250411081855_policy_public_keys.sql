@@ -9,7 +9,7 @@ DROP TABLE IF EXISTS plugin_policies;
 
 -- recreate table with proper field order and new fields (public keys, chain_id)
 CREATE TABLE plugin_policies (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     public_key_ecdsa TEXT NOT NULL,
     public_key_eddsa TEXT NOT NULL,
     chain_id VARCHAR(255) NOT NULL,
