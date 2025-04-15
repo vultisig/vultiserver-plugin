@@ -45,7 +45,7 @@ func main() {
 	client := asynq.NewClient(redisOptions)
 	inspector := asynq.NewInspector(redisOptions)
 
-	workerService, err := service.NewWorker(*cfg, verifierConfig.Server.Port, client, sdClient, syncerService, authService, blockStorage, inspector)
+	workerService, err := service.NewWorker(*cfg, verifierConfig.Server.Host, verifierConfig.Server.Port, client, sdClient, syncerService, authService, blockStorage, inspector)
 	if err != nil {
 		panic(err)
 	}
