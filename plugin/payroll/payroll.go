@@ -49,8 +49,8 @@ func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, raw
 	}, nil
 }
 
-func (p *PayrollPlugin) FrontendSchema() embed.FS {
-	return frontend
+func (p *PayrollPlugin) FrontendSchema() ([]byte, error) {
+	return frontend.ReadFile("./fronted/index.html") //TODO: jsonSchema not implemented yet
 }
 
 func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {

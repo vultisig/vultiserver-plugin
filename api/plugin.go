@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -441,26 +439,32 @@ func (s *Server) GetPolicySchema(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	keyPath := filepath.Join("plugin", pluginType, "dcaPluginUiSchema.json")
+	plg, err := s.initializePlugin(pluginType)
+	if err != nil {
+		message := map[string]interface{}{
+			"message": fmt.Sprintf("failed to initialize plugin with this type: %s", pluginType),
+		}
+		s.logger.Error(fmt.Sprintf("GetPolicySchema: %v", err))
+		return c.JSON(http.StatusInternalServerError, message)
+	}
 
-	jsonData, err := os.ReadFile(keyPath)
+	jsonSchema, err := plg.FrontendSchema()
 	if err != nil {
 		message := map[string]interface{}{
 			"message": fmt.Sprintf("missing schema for plugin: %s", pluginType),
 		}
-		s.logger.Error(err)
+		s.logger.Error(fmt.Sprintf("GetPolicySchema: %v", err))
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
 	var data map[string]interface{}
-	jsonErr := json.Unmarshal([]byte(jsonData), &data)
-	if jsonErr != nil {
-
+	err = json.Unmarshal(jsonSchema, &data)
+	if err != nil {
 		message := map[string]interface{}{
-			"message": fmt.Sprintf("could not unmarshal json: %s", jsonErr),
-			"error":   jsonErr.Error(),
+			"message": fmt.Sprintf("could not unmarshal json: %s", err),
+			"error":   err.Error(),
 		}
-		s.logger.Error(jsonErr)
+		s.logger.Error(fmt.Sprintf("GetPolicySchema: %v", err))
 		return c.JSON(http.StatusInternalServerError, message)
 	}
 

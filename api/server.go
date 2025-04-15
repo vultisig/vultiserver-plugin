@@ -178,20 +178,6 @@ func (s *Server) StartServer() error {
 	grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
 	pluginGroup := e.Group("/plugin")
-
-	// Only enable plugin signing routes if the server is running in plugin mode
-	if s.mode == "plugin" {
-		configGroup := pluginGroup.Group("/configure")
-
-		configGroup.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-			Root:       "frontend",
-			Index:      "index.html",
-			Browse:     false,
-			HTML5:      true,
-			Filesystem: http.FS(s.plugin.FrontendSchema()),
-		}))
-	}
-
 	// policy mode is always available since it is used by both verifier server and plugin server
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
