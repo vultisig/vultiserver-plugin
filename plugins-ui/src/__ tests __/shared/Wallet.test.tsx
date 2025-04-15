@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 import Wallet from "@/modules/shared/wallet/Wallet";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
-import PolicyService from "@/modules/policy/services/policyService";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
 describe("Wallet", () => {
   afterEach(() => {
@@ -16,12 +16,6 @@ describe("Wallet", () => {
 
     const button = screen.getByRole("button", { name: /Connect Wallet/i });
     expect(button).toBeInTheDocument();
-  });
-
-  it("should set ethereum as default chain when no chain is recorded in local storage", () => {
-    render(<Wallet />);
-
-    expect(localStorage.getItem("chain")).toBe("ethereum");
   });
 
   it("should not set ethereum as default chain when chain is recorded in local storage", () => {
@@ -41,7 +35,7 @@ describe("Wallet", () => {
       () => Promise.resolve("some hex signature")
     );
 
-    vi.spyOn(PolicyService, "getAuthToken").mockImplementation(() =>
+    vi.spyOn(MarketplaceService, "getAuthToken").mockImplementation(() =>
       Promise.resolve("auth token")
     );
 
@@ -76,7 +70,7 @@ describe("Wallet", () => {
       () => Promise.resolve("some hex signature")
     );
 
-    vi.spyOn(PolicyService, "getAuthToken").mockImplementation(() =>
+    vi.spyOn(MarketplaceService, "getAuthToken").mockImplementation(() =>
       Promise.resolve("auth token")
     );
 

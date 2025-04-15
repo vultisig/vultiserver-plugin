@@ -1,14 +1,6 @@
-export type ViewFilter = "grid" | "list";
+import { Plugin } from "@/modules/plugin/models/plugin";
 
-type Plugin = {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  metadata: {};
-  server_endpoint: string;
-  pricing_id: string;
-};
+export type ViewFilter = "grid" | "list";
 
 export type PluginMap = {
   plugins: Plugin[];

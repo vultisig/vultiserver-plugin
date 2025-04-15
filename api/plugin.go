@@ -141,33 +141,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	return c.JSON(http.StatusOK, ti.ID)
 }
 
-func (s *Server) GetPluginPolicyById(c echo.Context) error {
-	policyID := c.Param("policyId")
-	if policyID == "" {
-		err := fmt.Errorf("policy ID is required")
-		message := map[string]interface{}{
-			"message": "failed to get policy",
-			"error":   err.Error(),
-		}
-		s.logger.Error(err)
-
-		return c.JSON(http.StatusBadRequest, message)
-	}
-
-	policy, err := s.policyService.GetPluginPolicy(c.Request().Context(), policyID)
-	if err != nil {
-		err = fmt.Errorf("failed to get policy: %w", err)
-		message := map[string]interface{}{
-			"message": fmt.Sprintf("failed to get policy: %s", policyID),
-			"error":   err.Error(),
-		}
-		s.logger.Error(err)
-		return c.JSON(http.StatusInternalServerError, message)
-	}
-
-	return c.JSON(http.StatusOK, policy)
-}
-
 func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 	publicKey := c.Request().Header.Get("public_key")
 	if publicKey == "" {
