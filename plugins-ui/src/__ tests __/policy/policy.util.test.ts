@@ -26,14 +26,18 @@ describe("generatePolicy", () => {
     );
 
     expect(result).toStrictEqual({
-      active: true,
+      id: "",
+      public_key_ecdsa: "",
+      public_key_eddsa: "",
+      chain_id: "",
+      plugin_version: "0.0.1",
+      policy_version: "0.0.1",
+      plugin_type: "pluginType",
+      is_ecdsa: true,
       chain_code_hex: "",
       derive_path: "",
-      id: "",
-      is_ecdsa: true,
-      plugin_id: "TODO",
-      plugin_type: "pluginType",
-      plugin_version: "0.0.1",
+      active: true,
+      signature: "",
       policy: {
         someNumberInput: "5",
         someBooleanInput: "false",
@@ -46,9 +50,6 @@ describe("generatePolicy", () => {
         someNullInput: "null",
         someUndefinedInput: "undefined",
       },
-      policy_version: "0.0.1",
-      public_key: "",
-      signature: "",
     });
   });
 });
