@@ -1,3 +1,4 @@
+import { networks } from "@/modules/core/constants/networks"
 import { PluginPolicy, Policy } from "../models/policy";
 
 export const generatePolicy = (
@@ -35,7 +36,7 @@ function convertToStrings<T extends Record<string, any>>(
         : String(value),
     ])
   ) as Record<string, string>;
-}
+};
 
 const getValueByPath = (obj: Record<string, any>, path: string) =>
   path.split(".").reduce((acc, part) => acc?.[part], obj);
@@ -66,4 +67,13 @@ export const mapTableColumnData = (
   }
 
   return obj;
+};
+
+export const isEcdsaChain = (chainId: string) => {
+  switch (chainId) {
+    case networks.Solana:
+      return false;
+    default:
+      return true;
+  }
 };

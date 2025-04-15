@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   PluginPolicy,
   PolicySchema,
@@ -12,7 +13,7 @@ import {
 } from "@/modules/shared/wallet/wallet.utils";
 import Toast from "@/modules/core/components/ui/toast/Toast";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
-import { useParams } from "react-router-dom";
+import { isEcdsaChain } from "@/modules/policy/utils/policy.util";
 
 export interface PolicyContextType {
   pluginType: string;
@@ -195,11 +196,14 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
       const vaults = await VulticonnectWalletService.getVaults();
       const [vault] = vaults
 
+      // TODO: Only Ethereum currently supported
+      const chainId = "0x1";
+
       policy.public_key_ecdsa = vault.publicKeyEcdsa;
       policy.public_key_eddsa = vault.publicKeyEddsa;
-      policy.chain_id = "0x1" // TODO: Only Ethereum currently supported
+      policy.chain_id = chainId;
       policy.signature = "";
-      policy.is_ecdsa = true;
+      policy.is_ecdsa = isEcdsaChain(chainId);
       policy.chain_code_hex = vault.hexChainCode;
       policy.derive_path = derivePathMap[chain];
       const serializedPolicy = JSON.stringify(policy);

@@ -1,7 +1,4 @@
-const networks = [
-  { id: "ethereum", name: "Ethereum" },
-  { id: "thorchain", name: "Thorchain" },
-];
+import { networkList } from "@/modules/core/constants/networks"
 
 type ChainSelectorProps = {
   chain: string;
@@ -20,7 +17,7 @@ const ChainSelector = ({ chain, setChain }: ChainSelectorProps) => {
       value={chain}
       onChange={(e) => setChain(e.target.value)}
     >
-      {networks.map((network) => (
+      {networkList.map((network) => (
         <option key={network.id} value={network.id}>
           {network.name}
         </option>
