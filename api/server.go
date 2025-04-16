@@ -91,7 +91,7 @@ func NewServer(
 			}
 
 		case dca.PluginType:
-			plugin, err = dca.NewDCAPlugin(db, logger, pluginConfigs[dca.PluginType])
+			plugin, err = dca.NewDCAPlugin(db, syncerService, logger, pluginConfigs[dca.PluginType])
 			if err != nil {
 				logger.Fatal("fail to initialize DCA plugin: ", err)
 			}

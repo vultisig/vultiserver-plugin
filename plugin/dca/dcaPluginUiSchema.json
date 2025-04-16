@@ -240,6 +240,10 @@
     "table": {
         "columns": [
             {
+                "accessorKey": "progress",
+                "header": "Progress"
+            },
+            {
                 "accessorKey": "pair",
                 "header": "Pair",
                 "cellComponent": "TokenPair"
@@ -264,7 +268,7 @@
             },
             {
                 "accessorKey": "status",
-                "header": "Active",
+                "header": "Status",
                 "cellComponent": "ActiveStatus"
             }
         ],
@@ -281,7 +285,8 @@
             "orders": "policy.total_orders",
             "toBuy": "policy.destination_token_id",
             "orderInterval": "policy.schedule.interval, policy.schedule.frequency",
-            "status": "active"
+            "status": "active",
+            "progress": "progress"
         }
     }
 }

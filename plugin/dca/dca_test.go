@@ -26,6 +26,12 @@ import (
 	"testing"
 )
 
+func createSamplePolicy(progress string) types.PluginPolicy {
+	return types.PluginPolicy{
+		Progress: progress,
+	}
+}
+
 func createValidPolicy() types.PluginPolicy {
 	dcaPolicy := types.DCAPolicy{
 		ChainID:            "1",
@@ -52,6 +58,7 @@ func createValidPolicy() types.PluginPolicy {
 		IsEcdsa:       true,
 		Policy:        policyBytes,
 		Active:        true,
+		Progress:      "IN PROGRESS",
 	}
 }
 
@@ -534,6 +541,10 @@ func TestProposeTransactions(t *testing.T) {
 				totalOrders, _ := new(big.Int).SetString(dcaPolicy.TotalOrders, 10)
 
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").Return(totalOrders.Int64(), nil)
+				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
+					Return(true, nil)
+				updatedPolicy := createSamplePolicy("DONE")
+				db.On("UpdatePluginPolicyTx", ctx, nil, mock.AnythingOfType("types.PluginPolicy")).Return(&updatedPolicy, nil)
 			},
 			expected:     0,
 			wantErr:      true,
@@ -754,7 +765,7 @@ func TestValidateInterval(t *testing.T) {
 }
 
 func TestValidateProposedTransactions(t *testing.T) {
-	//ctx := context.Background()
+	ctx := context.Background()
 	validPolicyID := "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
 	policyUUID, _ := uuid.Parse(validPolicyID)
 
@@ -816,6 +827,11 @@ func TestValidateProposedTransactions(t *testing.T) {
 
 				db.On("CountTransactions", mock.Anything, policyUUID, types.StatusMined, "SWAP").
 					Return(totalOrders.Int64(), nil)
+
+				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
+					Return(true, nil)
+				updatedPolicy := createSamplePolicy("DONE")
+				db.On("UpdatePluginPolicyTx", ctx, nil, mock.AnythingOfType("types.PluginPolicy")).Return(&updatedPolicy, nil)
 			},
 			wantErr:      true,
 			errorMessage: "policy completed all swaps",

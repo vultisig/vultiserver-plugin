@@ -21,6 +21,7 @@ type PluginPolicy struct {
 	Signature     string          `json:"signature" validate:"required"`
 	Policy        json.RawMessage `json:"policy" validate:"required"`
 	Active        bool            `json:"active" validate:"required"`
+	Progress      string          `json:"progress" validate:"required"`
 }
 
 type PublicKey struct {

@@ -9,6 +9,7 @@ import { TitleFieldTemplate } from "../policy-title/PolicyTitle";
 import TokenSelector from "@/modules/shared/token-selector/TokenSelector";
 import WeiConverter from "@/modules/shared/wei-converter/WeiConverter";
 import { RJSFValidationError } from "@rjsf/utils";
+import { v4 as uuidv4 } from "uuid";
 
 type PolicyFormProps = {
   data?: PluginPolicy;
@@ -63,6 +64,7 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
       }
 
       try {
+        policy.id = uuidv4();
         addPolicy(policy).then((addedSuccessfully) => {
           if (!addedSuccessfully) return;
 

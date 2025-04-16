@@ -91,7 +91,7 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 				return nil, fmt.Errorf("fail to initialize payroll plugin: %w", err)
 			}
 		case dca.PluginType:
-			plugin, err = dca.NewDCAPlugin(db, logger, cfg.PluginPackage[dca.PluginType])
+			plugin, err = dca.NewDCAPlugin(db, syncer, logger, cfg.PluginPackage[dca.PluginType])
 			if err != nil {
 				return nil, fmt.Errorf("fail to initialize DCA plugin: %w", err)
 			}

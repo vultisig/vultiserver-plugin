@@ -3,12 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/vultisigner/internal/syncer"
 	"github.com/vultisig/vultisigner/internal/types"
-	"reflect"
 )
 
 type Policy interface {
