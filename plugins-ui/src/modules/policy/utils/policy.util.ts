@@ -12,7 +12,6 @@ export const generatePolicy = (
     id: policyId,
     public_key_ecdsa: "",
     public_key_eddsa: "",
-    chain_id: "",
     plugin_version,
     policy_version,
     plugin_type,
@@ -69,6 +68,10 @@ export const mapTableColumnData = (
   return obj;
 };
 
+/**
+ * Returns if algorithm to sign tx with is ECDSA, based on the chain for which a given policy is signed
+ * Network list: https://github.com/vultisig/vultisig-android/blob/main/data/src/main/kotlin/com/vultisig/wallet/data/models/Chain.kt#L109
+ */
 export const isEcdsaChain = (chainId: string) => {
   switch (chainId) {
     case networks.Solana:

@@ -197,11 +197,10 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
       const [vault] = vaults
 
       // TODO: Only Ethereum currently supported
-      const chainId = "0x1";
+      const chainId = policy.policy.chain_id as string
 
       policy.public_key_ecdsa = vault.publicKeyEcdsa;
       policy.public_key_eddsa = vault.publicKeyEddsa;
-      policy.chain_id = chainId;
       policy.signature = "";
       policy.is_ecdsa = isEcdsaChain(chainId);
       policy.chain_code_hex = vault.hexChainCode;

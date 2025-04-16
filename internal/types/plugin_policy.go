@@ -2,8 +2,6 @@ package types
 
 import (
 	"encoding/json"
-
-	"github.com/vultisig/vultisigner/internal/chains"
 )
 
 type PluginTriggerEvent struct {
@@ -14,7 +12,6 @@ type PluginPolicy struct {
 	ID             string          `json:"id" validate:"required"`
 	PublicKeyEcdsa string          `json:"public_key_ecdsa" validate:"required"`
 	PublicKeyEddsa string          `json:"public_key_eddsa" validate:"required"`
-	ChainID        string          `json:"chain_id" validate:"required"`
 	PluginVersion  string          `json:"plugin_version" validate:"required"`
 	PolicyVersion  string          `json:"policy_version" validate:"required"`
 	PluginType     string          `json:"plugin_type" validate:"required"`
@@ -62,13 +59,10 @@ type PriceRange struct {
 
 /**
  * Returns public key to sign transactions with, based on the chain for which the policy is signed
- * Network list: https://github.com/vultisig/vultisig-android/blob/main/data/src/main/kotlin/com/vultisig/wallet/data/models/Chain.kt#L109
  */
 func (p *PluginPolicy) GetPublicKey() string {
-	switch p.ChainID {
-	case chains.Solana:
-		return p.PublicKeyEddsa
-	default:
+	if p.IsEcdsa {
 		return p.PublicKeyEcdsa
 	}
+	return p.PublicKeyEddsa
 }

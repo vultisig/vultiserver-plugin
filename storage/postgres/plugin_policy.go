@@ -20,7 +20,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types
 	var policyJSON []byte
 
 	query := `
-        SELECT id, public_key_ecdsa, public_key_eddsa, chain_id, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
+        SELECT id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
         FROM plugin_policies
         WHERE id = $1`
 
@@ -28,7 +28,6 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types
 		&policy.ID,
 		&policy.PublicKeyEcdsa,
 		&policy.PublicKeyEddsa,
-		&policy.ChainID,
 		&policy.PluginVersion,
 		&policy.PolicyVersion,
 		&policy.PluginType,
@@ -54,7 +53,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKeyEcd
 	}
 
 	query := `
-  	SELECT id, public_key_ecdsa, public_key_eddsa, chain_id, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
+  	SELECT id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
 		FROM plugin_policies
 		WHERE public_key_ecdsa = $1
 		AND plugin_type = $2`
@@ -71,7 +70,6 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKeyEcd
 			&policy.ID,
 			&policy.PublicKeyEcdsa,
 			&policy.PublicKeyEddsa,
-			&policy.ChainID,
 			&policy.PluginVersion,
 			&policy.PolicyVersion,
 			&policy.PluginType,
@@ -99,9 +97,9 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 
 	query := `
   	INSERT INTO plugin_policies (
-      id, public_key_ecdsa, public_key_eddsa, chain_id, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-    RETURNING id, public_key_ecdsa, public_key_eddsa, chain_id, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
+      id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    RETURNING id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
 	`
 
 	var insertedPolicy types.PluginPolicy
@@ -109,7 +107,6 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&policy.ID,
 		&policy.PublicKeyEcdsa,
 		&policy.PublicKeyEddsa,
-		&policy.ChainID,
 		&policy.PluginVersion,
 		&policy.PolicyVersion,
 		&policy.PluginType,
@@ -123,7 +120,6 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&insertedPolicy.ID,
 		&insertedPolicy.PublicKeyEcdsa,
 		&insertedPolicy.PublicKeyEddsa,
-		&insertedPolicy.ChainID,
 		&insertedPolicy.PluginVersion,
 		&insertedPolicy.PolicyVersion,
 		&insertedPolicy.PluginType,
@@ -157,7 +153,7 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 				active = $6,
 				policy = $7
 		WHERE id = $1
-		RETURNING id, public_key_ecdsa, public_key_eddsa, chain_id, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
+		RETURNING id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
 	`
 
 	var updatedPolicy types.PluginPolicy
@@ -173,7 +169,6 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&updatedPolicy.ID,
 		&updatedPolicy.PublicKeyEcdsa,
 		&updatedPolicy.PublicKeyEddsa,
-		&updatedPolicy.ChainID,
 		&updatedPolicy.PluginVersion,
 		&updatedPolicy.PolicyVersion,
 		&updatedPolicy.PluginType,

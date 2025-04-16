@@ -29,7 +29,6 @@ describe("generatePolicy", () => {
       id: "",
       public_key_ecdsa: "",
       public_key_eddsa: "",
-      chain_id: "",
       plugin_version: "0.0.1",
       policy_version: "0.0.1",
       plugin_type: "pluginType",

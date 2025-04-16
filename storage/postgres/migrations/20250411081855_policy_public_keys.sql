@@ -7,12 +7,11 @@ ALTER TABLE transaction_history DROP CONSTRAINT transaction_history_policy_id_fk
 ALTER TABLE transaction_history DROP CONSTRAINT fk_policy;
 DROP TABLE IF EXISTS plugin_policies;
 
--- recreate table with proper field order and new fields (public keys, chain_id)
+-- recreate table with proper field order and new fields (public keys)
 CREATE TABLE plugin_policies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     public_key_ecdsa TEXT NOT NULL,
     public_key_eddsa TEXT NOT NULL,
-    chain_id VARCHAR(255) NOT NULL,
     plugin_version TEXT NOT NULL,
     policy_version TEXT NOT NULL,
     plugin_type plugin_type NOT NULL,

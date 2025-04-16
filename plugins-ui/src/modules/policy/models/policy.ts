@@ -8,7 +8,6 @@ export type PluginPolicy = {
   id: string;
   public_key_ecdsa: string;
   public_key_eddsa: string;
-  chain_id: string;
   plugin_version: string;
   policy_version: string;
   plugin_type: string;
