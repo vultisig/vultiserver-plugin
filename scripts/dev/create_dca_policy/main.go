@@ -75,18 +75,17 @@ func main() {
 
 	policyId := uuid.New().String()
 	policy := types.PluginPolicy{
-		ID:            policyId,
-		PublicKey:     key,
-		PluginID:      "dca",
-		PluginVersion: "1.0.0",
-		PolicyVersion: "1.0.0",
-		PluginType:    "dca",
-		Active:        true,
-		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
+		ID:             policyId,
+		PublicKeyEcdsa: key,
+		PluginVersion:  "1.0.0",
+		PolicyVersion:  "1.0.0",
+		PluginType:     "dca",
+		Active:         true,
+		Signature:      "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
 	payrollPolicy := types.DCAPolicy{
-		ChainID:            "1",
+		ChainID:            "0x1",
 		SourceTokenID:      sourceTokenContract,
 		DestinationTokenID: destinationTokenContract,
 		TotalAmount:        swapAmountIn,

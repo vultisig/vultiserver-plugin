@@ -34,7 +34,8 @@ const (
 
 var (
 	DerivePathMap = map[string]string{
-		"1": "m/44'/60'/0'/0/0", // ethereum
+		"0x1":                 "m/44'/60'/0'/0/0", // ethereum
+		"Solana_mainnet-beta": "m/44'/501'/0'/0'", // solana
 	}
 )
 
