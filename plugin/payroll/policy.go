@@ -26,7 +26,7 @@ func (p *PayrollPlugin) ValidateProposedTransactions(policy types.PluginPolicy, 
 		return fmt.Errorf("failed to parse ABI: %v", err)
 	}
 
-	var payrollPolicy types.PayrollPolicy
+	var payrollPolicy PayrollPolicy
 	if err := json.Unmarshal(policy.Policy, &payrollPolicy); err != nil {
 		return fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
@@ -91,7 +91,7 @@ func (p *PayrollPlugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error
 		return fmt.Errorf("policy does not match plugin type, expected: %s, got: %s", PLUGIN_TYPE, policyDoc.PluginType)
 	}
 
-	var payrollPolicy types.PayrollPolicy
+	var payrollPolicy PayrollPolicy
 	if err := json.Unmarshal(policyDoc.Policy, &payrollPolicy); err != nil {
 		return fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}

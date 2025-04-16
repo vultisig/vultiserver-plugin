@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/vultisig/vultisigner/config"
 	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultisigner/plugin"
 	"github.com/vultisig/vultisigner/plugin/dca"
 )
 
@@ -86,13 +87,13 @@ func main() {
 		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
-	payrollPolicy := types.DCAPolicy{
+	payrollPolicy := dca.DCAPolicy{
 		ChainID:            "1",
 		SourceTokenID:      sourceTokenContract,
 		DestinationTokenID: destinationTokenContract,
 		TotalAmount:        swapAmountIn,
 		TotalOrders:        "2",
-		Schedule: types.Schedule{
+		Schedule: plugin.Schedule{
 			Frequency: frequency,
 			Interval:  "",
 			StartTime: time.Now().UTC().Add(20 * time.Second).Format(time.RFC3339),
