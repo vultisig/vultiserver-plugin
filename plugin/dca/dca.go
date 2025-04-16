@@ -422,10 +422,15 @@ func (p *DCAPlugin) ValidateProposedTransactions(policy types.PluginPolicy, txs 
 	}
 
 	// Validate policy params.
-	policyChainID, ok := new(big.Int).SetString(dcaPolicy.ChainID, 10)
-	if !ok {
-		return fmt.Errorf("failed to parse chain ID: %s", dcaPolicy.ChainID)
+	if !isValidHex(dcaPolicy.ChainID) {
+		// Note: non-evm chain ids would not be hex
+		return errors.New("invalid ChainID hex")
 	}
+	chainIDInt, err := strconv.ParseInt(dcaPolicy.ChainID[2:], 16, 64)
+	if err != nil {
+		return fmt.Errorf("fail to parse chain ID: %w", dcaPolicy.ChainID)
+	}
+	policyChainID := big.NewInt(chainIDInt)
 
 	sourceAddrPolicy := gcommon.HexToAddress(dcaPolicy.SourceTokenID)
 	destAddrPolicy := gcommon.HexToAddress(dcaPolicy.DestinationTokenID)
