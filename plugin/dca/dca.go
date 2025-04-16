@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/vultisig/vultiserver-plugin/common"
 	"github.com/vultisig/vultiserver-plugin/internal/sigutil"
+	"github.com/vultisig/vultiserver-plugin/internal/syncer"
 	"github.com/vultisig/vultiserver-plugin/internal/types"
 	"github.com/vultisig/vultiserver-plugin/pkg/uniswap"
 )
@@ -66,6 +68,7 @@ type Plugin struct {
 	uniswapClient uniswap.Client
 	rpcClient     EthClient
 	db            Storage
+	syncer        syncer.PolicySyncer
 	logger        *logrus.Logger
 	waitMined     func(ctx context.Context, backend bind.DeployBackend, tx *gtypes.Transaction) (*gtypes.Receipt, error)
 	signLegacyTx  func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error)
@@ -438,7 +441,7 @@ func (p *Plugin) ValidateProposedTransactions(policy types.PluginPolicy, txs []t
 	if err != nil {
 		return fmt.Errorf("fail to get completed swaps: %w", err)
 	}
-	// TODO: Change this to make the policy to status COMPLETED if: completed swaps == total orders.
+
 	if completedSwaps >= totalOrders.Int64() {
 		if err := p.completePolicy(context.Background(), policy); err != nil {
 			return fmt.Errorf("fail to complete policy: %w", err)
@@ -711,18 +714,25 @@ func (p *Plugin) completePolicy(ctx context.Context, policy types.PluginPolicy) 
 		"policy_id": policy.ID,
 	}).Info("DCA: All orders completed, no transactions to propose")
 
-	// TODO: Sync a COMPLETED state for the policy with the verifier database.
-	//err := p.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-	//	policy.Active = false
-	//	_, err := p.db.UpdatePluginPolicyTx(ctx, tx, policy)
-	//	if err != nil {
-	//		return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
-	//	}
-	//	return nil
-	//})
-	//if err != nil {
-	//	return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
-	//}
+	err := p.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		policy.Progress = "DONE"
+
+		_, err := p.db.UpdatePluginPolicyTx(ctx, tx, policy)
+		if err != nil {
+			return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
+		}
+
+		if p.syncer != nil && !reflect.ValueOf(p.syncer).IsNil() {
+			if err := p.syncer.UpdatePolicySync(policy); err != nil {
+				return fmt.Errorf("failed to sync update policy: %w", err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
+	}
 
 	return nil
 }

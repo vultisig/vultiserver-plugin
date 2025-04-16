@@ -277,7 +277,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		policy.ID = uuid.NewString()
 	}
 
-	if !s.verifyPolicySignature(policy, false) {
+	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		message := map[string]interface{}{
 			"message": "Authorization failed",
@@ -350,7 +350,7 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	if !s.verifyPolicySignature(policy, true) {
+	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		message := map[string]interface{}{
 			"message": "Authorization failed",
@@ -407,7 +407,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	// This is because we have different signature stored in the database.
 	policy.Signature = reqBody.Signature
 
-	if !s.verifyPolicySignature(policy, true) {
+	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		message := map[string]interface{}{
 			"message": "Authorization failed",
@@ -960,8 +960,8 @@ func (s *Server) GetReviews(c echo.Context) error {
 	return c.JSON(http.StatusOK, reviews)
 }
 
-func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) bool {
-	msgHex, err := policyToMessageHex(policy, update)
+func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
+	msgHex, err := policyToMessageHex(policy)
 	if err != nil {
 		s.logger.Error(fmt.Errorf("failed to convert policy to message hex: %w", err))
 		return false
@@ -987,14 +987,12 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 	return isVerified
 }
 
-func policyToMessageHex(policy types.PluginPolicy, isUpdate bool) (string, error) {
-	if !isUpdate {
-		policy.ID = ""
-	}
-	// signature is not part of the message that is signed
+func policyToMessageHex(policy types.PluginPolicy) (string, error) {
+	// signature & progress are not part of the message that is signed
 	policy.Signature = ""
+	policy.Progress = ""
 
-	serializedPolicy, err := json.Marshal(policy)
+	serializedPolicy, err := common.ToSortedJSON(policy)
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize policy")
 	}

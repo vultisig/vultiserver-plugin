@@ -63,6 +63,7 @@ func (p *PostgresBackend) GetPendingTimeTriggers(ctx context.Context) ([]types.T
 				WHERE t.start_time <= $1
 				AND (t.end_time IS NULL OR t.end_time > $1)
 				AND p.active = true
+				AND p.progress = 'IN PROGRESS'
 				AND t.status = 'PENDING'
 				AND (t.last_execution IS NULL OR t.last_execution < $1)
     )
