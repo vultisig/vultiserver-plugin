@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -23,7 +24,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types
 	var policyJSON []byte
 
 	query := `
-        SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy 
+        SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy, progress
         FROM plugin_policies 
         WHERE id = $1`
 
@@ -40,6 +41,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types
 		&policy.Signature,
 		&policy.Active,
 		&policyJSON,
+		&policy.Progress,
 	)
 
 	if err != nil {
@@ -56,7 +58,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 	}
 
 	query := `
-  	SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy 
+  	SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy, progress
 		FROM plugin_policies
 		WHERE public_key = $1
 		AND plugin_type = $2`
@@ -82,6 +84,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 			&policy.Signature,
 			&policy.Active,
 			&policy.Policy,
+			&policy.Progress,
 		)
 		if err != nil {
 			return nil, err
@@ -102,7 +105,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
   	INSERT INTO plugin_policies (
       id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-    RETURNING id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
+    RETURNING id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy, progress
 	`
 
 	var insertedPolicy types.PluginPolicy
@@ -132,6 +135,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&insertedPolicy.Signature,
 		&insertedPolicy.Active,
 		&insertedPolicy.Policy,
+		&insertedPolicy.Progress,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
@@ -147,26 +151,39 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 	}
 
 	// TODO: update other fields
-	query := `
-		UPDATE plugin_policies 
-		SET public_key = $2, 
-				plugin_type = $3, 
-				signature = $4,
-				active = $5,
-				policy = $6
-		WHERE id = $1
-		RETURNING id, public_key, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
-	`
 
-	var updatedPolicy types.PluginPolicy
-	err = dbTx.QueryRow(ctx, query,
+	setClauses := []string{
+		"public_key = $2",
+		"plugin_type = $3",
+		"signature = $4",
+		"active = $5",
+		"policy = $6",
+	}
+	args := []interface{}{
 		policy.ID,
 		policy.PublicKey,
 		policy.PluginType,
 		policy.Signature,
 		policy.Active,
 		policyJSON,
-	).Scan(
+	}
+	returningFields := "id, public_key, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy, progress"
+
+	if policy.Progress != "" {
+		setClauses = append(setClauses, fmt.Sprintf("progress = $%d", len(args)+1))
+		args = append(args, policy.Progress)
+	}
+
+	query := fmt.Sprintf(`
+	UPDATE plugin_policies
+	SET %s
+	WHERE id = $1
+	RETURNING %s
+`, strings.Join(setClauses, ", "), returningFields)
+
+	var updatedPolicy types.PluginPolicy
+
+	dest := []interface{}{
 		&updatedPolicy.ID,
 		&updatedPolicy.PublicKey,
 		&updatedPolicy.PluginID,
@@ -176,7 +193,10 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&updatedPolicy.Signature,
 		&updatedPolicy.Active,
 		&updatedPolicy.Policy,
-	)
+		&updatedPolicy.Progress,
+	}
+
+	err = dbTx.QueryRow(ctx, query, args...).Scan(dest...)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("policy not found with ID: %s", policy.ID)
