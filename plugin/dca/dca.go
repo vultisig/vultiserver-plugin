@@ -68,21 +68,6 @@ type DCAPlugin struct {
 	signLegacyTx  func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error)
 }
 
-type RawTxData struct {
-	TxHash     []byte
-	RlpTxBytes []byte
-	Type       string
-}
-
-// TODO: refactor
-type DCAPluginConfig struct {
-	RpcURL  string `mapstructure:"rpc_url" json:"rpc_url"`
-	Uniswap struct {
-		V2Router string `mapstructure:"v2_router" json:"v2_router"`
-		Deadline int64  `mapstructure:"deadline" json:"deadline"`
-	} `mapstructure:"uniswap" json:"uniswap"`
-}
-
 func NewDCAPlugin(db DCAStorage, syncer syncer.PolicySyncer, logger *logrus.Logger, rawConfig map[string]interface{}) (*DCAPlugin, error) {
 	var cfg DCAPluginConfig
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
@@ -125,7 +110,7 @@ func (p *DCAPlugin) SigningComplete(
 	signRequest types.PluginKeysignRequest,
 	policy types.PluginPolicy,
 ) error {
-	var dcaPolicy types.DCAPolicy
+	var dcaPolicy DCAPolicy
 	if err := json.Unmarshal(policy.Policy, &dcaPolicy); err != nil {
 		return fmt.Errorf("fail to unmarshal DCA policy: %w", err)
 	}
@@ -198,7 +183,7 @@ func (p *DCAPlugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
 		return fmt.Errorf("invalid public_key")
 	}
 
-	var dcaPolicy types.DCAPolicy
+	var dcaPolicy DCAPolicy
 	if err := json.Unmarshal(policyDoc.Policy, &dcaPolicy); err != nil {
 		return fmt.Errorf("fail to unmarshal DCA policy: %w", err)
 	}
@@ -333,7 +318,7 @@ func (p *DCAPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.Plug
 		return txs, fmt.Errorf("fail to validate plugin policy: %w", err)
 	}
 
-	var dcaPolicy types.DCAPolicy
+	var dcaPolicy DCAPolicy
 	if err := json.Unmarshal(policy.Policy, &dcaPolicy); err != nil {
 		return txs, fmt.Errorf("fail to unmarshal dca policy, err: %w", err)
 	}
@@ -416,7 +401,7 @@ func (p *DCAPlugin) ValidateProposedTransactions(policy types.PluginPolicy, txs 
 		return fmt.Errorf("failed to validate plugin policy: %w", err)
 	}
 
-	var dcaPolicy types.DCAPolicy
+	var dcaPolicy DCAPolicy
 	if err := json.Unmarshal(policy.Policy, &dcaPolicy); err != nil {
 		return fmt.Errorf("failed to unmarshal DCA policy: %w", err)
 	}
