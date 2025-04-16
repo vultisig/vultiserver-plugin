@@ -12,7 +12,7 @@
             "properties": {
                 "chain_id": {
                     "type": "string",
-                    "default": "1"
+                    "default": "0x1"
                 },
                 "total_amount": {
                     "title": "I want to allocate",
