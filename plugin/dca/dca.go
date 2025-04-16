@@ -296,8 +296,8 @@ func validateInterval(intervalStr string, frequency string) error {
 
 	switch frequency {
 	case "minutely":
-		if interval < 15 {
-			return fmt.Errorf("minutely interval must be at least 15 minutes")
+		if interval < 15 || interval > 60 {
+			return fmt.Errorf("minutely interval must be at least 15 minutes or at most 60")
 		}
 	case "hourly":
 		if interval > 23 {
