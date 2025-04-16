@@ -20,6 +20,7 @@ export const generatePolicy = (
     signature: "",
     policy: convertToStrings(policy),
     active: true,
+    progress: "",
   };
 };
 
@@ -64,5 +65,18 @@ export const mapTableColumnData = (
     }
   }
 
+  return obj;
+};
+
+export const sortObjectAlphabetically = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectAlphabetically);
+  } else if (obj && typeof obj === "object" && obj.constructor === Object) {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, value]) => [key, sortObjectAlphabetically(value)])
+    );
+  }
   return obj;
 };
