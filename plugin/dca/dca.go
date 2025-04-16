@@ -42,6 +42,11 @@ const (
 )
 
 var (
+	//go:embed dcaPluginUiSchema.json
+	embeddedFileDCASchema embed.FS
+)
+
+var (
 	ErrCompletedPolicy = errors.New("policy completed all swaps")
 )
 
@@ -796,6 +801,6 @@ func (p *DCAPlugin) getApproveABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(approveABI))
 }
 
-func (p *DCAPlugin) FrontendSchema() embed.FS {
-	return embed.FS{}
+func (p *DCAPlugin) FrontendSchema() ([]byte, error) {
+	return embeddedFileDCASchema.ReadFile("dcaPluginUiSchema.json")
 }
