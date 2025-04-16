@@ -36,7 +36,7 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 		return txs, fmt.Errorf("failed to validate plugin policy: %v", err)
 	}
 
-	var payrollPolicy types.PayrollPolicy
+	var payrollPolicy PayrollPolicy
 	if err := json.Unmarshal(policy.Policy, &payrollPolicy); err != nil {
 		return txs, fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
@@ -277,7 +277,7 @@ func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest t
 	}
 
 	policybytes := policy.Policy
-	payrollPolicy := types.PayrollPolicy{}
+	payrollPolicy := PayrollPolicy{}
 	err = json.Unmarshal(policybytes, &payrollPolicy)
 	if err != nil {
 		p.logger.Errorf("Failed to unmarshal policy: %v", err)

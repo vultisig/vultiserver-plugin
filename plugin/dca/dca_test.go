@@ -22,18 +22,21 @@ import (
 	"github.com/vultisig/vultiserver-plugin/test/mocks/ethclient"
 	"github.com/vultisig/vultiserver-plugin/test/mocks/uniswapclient"
 
+	pg "github.com/vultisig/vultiserver-plugin/plugin"
+
+
 	"math/big"
 	"testing"
 )
 
 func createValidPolicy() types.PluginPolicy {
-	dcaPolicy := types.DCAPolicy{
+	dcaPolicy := DCAPolicy{
 		ChainID:            "1",
 		SourceTokenID:      "0x1111111111111111111111111111111111111111",
 		DestinationTokenID: "0x2222222222222222222222222222222222222222",
 		TotalAmount:        "1000",
 		TotalOrders:        "10",
-		Schedule: types.Schedule{
+		Schedule: pg.Schedule{
 			Frequency: "daily",
 			Interval:  "1",
 		},
@@ -239,13 +242,13 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid source and destination tokens",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := types.DCAPolicy{
+				dcaPolicy := DCAPolicy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x1111111111111111111111111111111111111111", // Same as source
 					TotalAmount:        "1000",
 					TotalOrders:        "10",
-					Schedule: types.Schedule{
+					Schedule: pg.Schedule{
 						Frequency: "daily",
 						Interval:  "1",
 					},
@@ -260,13 +263,13 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid total amount",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := types.DCAPolicy{
+				dcaPolicy := DCAPolicy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
 					TotalAmount:        "-1",
 					TotalOrders:        "10",
-					Schedule: types.Schedule{
+					Schedule: pg.Schedule{
 						Frequency: "daily",
 						Interval:  "1",
 					},
@@ -281,13 +284,13 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid total orders",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := types.DCAPolicy{
+				dcaPolicy := DCAPolicy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
 					TotalAmount:        "1000",
 					TotalOrders:        "0",
-					Schedule: types.Schedule{
+					Schedule: pg.Schedule{
 						Frequency: "daily",
 						Interval:  "1",
 					},
@@ -302,17 +305,17 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid price range",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := types.DCAPolicy{
+				dcaPolicy := DCAPolicy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
 					TotalAmount:        "1000",
 					TotalOrders:        "10",
-					PriceRange: types.PriceRange{
+					PriceRange: PriceRange{
 						Min: "200",
 						Max: "100", // Min > Max
 					},
-					Schedule: types.Schedule{
+					Schedule: pg.Schedule{
 						Frequency: "daily",
 						Interval:  "1",
 					},
@@ -337,13 +340,13 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid frequency",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := types.DCAPolicy{
+				dcaPolicy := DCAPolicy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
 					TotalAmount:        "1000",
 					TotalOrders:        "10",
-					Schedule: types.Schedule{
+					Schedule: pg.Schedule{
 						Frequency: "invalid",
 						Interval:  "1",
 					},
@@ -527,7 +530,7 @@ func TestProposeTransactions(t *testing.T) {
 			name:   "All swaps completed",
 			policy: policy,
 			mockSetup: func(db *database.MockDB, mockUniswap *uniswapclient.MockUniswapClient) {
-				dcaPolicy := types.DCAPolicy{}
+				dcaPolicy := DCAPolicy{}
 				err := json.Unmarshal(policy.Policy, &dcaPolicy)
 				require.NoError(t, err)
 
@@ -809,7 +812,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 			policy:     policy,
 			txRequests: []types.PluginKeysignRequest{validSwapRequest},
 			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
-				dcaPolicy := types.DCAPolicy{}
+				dcaPolicy := DCAPolicy{}
 				err := json.Unmarshal(policy.Policy, &dcaPolicy)
 				require.NoError(t, err)
 				totalOrders, _ := new(big.Int).SetString(dcaPolicy.TotalOrders, 10)
