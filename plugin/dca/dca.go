@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -93,6 +94,11 @@ func NewDCAPlugin(db storage.DatabaseStorage, logger *logrus.Logger, rawConfig m
 	}, nil
 }
 
+func isValidHex(s string) bool {
+	match, _ := regexp.MatchString(`^(0x)?[0-9a-fA-F]+$`, s)
+	return match
+}
+
 func (p *DCAPlugin) SigningComplete(
 	ctx context.Context,
 	signature tss.KeysignResponse,
@@ -104,10 +110,15 @@ func (p *DCAPlugin) SigningComplete(
 		return fmt.Errorf("fail to unmarshal DCA policy: %w", err)
 	}
 
-	chainID, ok := new(big.Int).SetString(dcaPolicy.ChainID, 10)
-	if !ok {
+	if !isValidHex(dcaPolicy.ChainID) {
+		// Note: non-evm chain ids would not be hex
+		return errors.New("invalid ChainID hex")
+	}
+	chainIDInt, err := strconv.ParseInt(dcaPolicy.ChainID[2:], 16, 64)
+	if err != nil {
 		return errors.New("fail to parse chain ID")
 	}
+	chainID := big.NewInt(chainIDInt)
 
 	// currently we are only signing one transaction
 	txHash := signRequest.Messages[0]
@@ -355,10 +366,15 @@ func (p *DCAPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.Plug
 		return txs, fmt.Errorf("fail to derive address: %w", err)
 	}
 
-	chainID, ok := new(big.Int).SetString(dcaPolicy.ChainID, 10)
-	if !ok {
+	if !isValidHex(dcaPolicy.ChainID) {
+		// Note: non-evm chain ids would not be hex
+		return txs, fmt.Errorf("invalid ChainID hex: %s", dcaPolicy.ChainID)
+	}
+	chainIDInt, err := strconv.ParseInt(dcaPolicy.ChainID[2:], 16, 64)
+	if err != nil {
 		return txs, fmt.Errorf("fail to parse chain ID: %s", dcaPolicy.ChainID)
 	}
+	chainID := big.NewInt(chainIDInt)
 
 	rawTxsData, err := p.generateSwapTransactions(chainID, signerAddress, dcaPolicy.SourceTokenID, dcaPolicy.DestinationTokenID, swapAmount)
 	if err != nil {
