@@ -35,7 +35,6 @@ func NewPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rawConfig 
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
 		return nil, err
 	}
-
 	rpcClient, err := ethclient.Dial(cfg.RpcURL)
 	if err != nil {
 		return nil, err
