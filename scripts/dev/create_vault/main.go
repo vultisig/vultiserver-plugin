@@ -61,7 +61,7 @@ func main() {
 		EncryptionPassword: "your-secure-password",
 		Email:              "example@example.com",
 		StartSession:       false,
-		LibType:            types.DKLS,
+		// LibType:            types.DKLS, // keygen does not finish
 	}
 
 	serverHost := fmt.Sprintf("http://%s:%d", serverConfig.Verifier.Host, serverConfig.Verifier.Port)

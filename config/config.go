@@ -38,6 +38,10 @@ type Config struct {
 		Server string `mapstructure:"server" json:"server"`
 	} `mapstructure:"relay" json:"relay,omitempty"`
 
+	TxQueue struct {
+		Server string `mapstructure:"server" json:"server"`
+	} `mapstructure:"tx_queue" json:"tx_queue,omitempty"`
+
 	EmailServer struct {
 		ApiKey string `mapstructure:"api_key" json:"api_key"`
 	} `mapstructure:"email_server" json:"email_server"`
