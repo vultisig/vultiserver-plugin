@@ -27,7 +27,7 @@ type PayrollPlugin struct {
 }
 
 type PayrollPluginConfig struct {
-	rpcURL string `mapstructure:"rpc_url" json:"rpc_url"`
+	RpcURL string `mapstructure:"rpc_url" json:"rpc_url"`
 }
 
 func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rawConfig map[string]interface{}) (*PayrollPlugin, error) {
@@ -35,8 +35,7 @@ func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, raw
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
 		return nil, err
 	}
-
-	rpcClient, err := ethclient.Dial(cfg.rpcURL)
+	rpcClient, err := ethclient.Dial(cfg.RpcURL)
 	if err != nil {
 		return nil, err
 	}

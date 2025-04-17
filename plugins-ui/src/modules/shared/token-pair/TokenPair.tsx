@@ -1,6 +1,6 @@
 import { supportedTokens } from "@/modules/shared/data/tokens";
-import { cloneElement } from "react";
 import "./TokenPair.css";
+import TokenImage from "../token-image/TokenImage";
 
 type TokenPairProps = {
   data: [string, string];
@@ -12,19 +12,10 @@ const TokenPair = ({ data }: TokenPairProps) => {
   return (
     <div className="pair">
       <div className="token-icon">
-        {supportedTokens[source_token_id] &&
-          cloneElement(supportedTokens[source_token_id].image, {
-            width: 24,
-            height: 24,
-          })}
+        <TokenImage data={source_token_id} />
       </div>
       <div className="token-icon-right">
-        {supportedTokens[destination_token_id] &&
-          cloneElement(supportedTokens[destination_token_id].image, {
-            width: 24,
-            height: 24,
-          })}
-        &nbsp;
+        <TokenImage data={source_token_id} />
       </div>
       {supportedTokens[source_token_id]?.name ||
         `Unknown token address: ${source_token_id}`}
