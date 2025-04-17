@@ -1,5 +1,5 @@
 import Form, { IChangeEvent } from "@rjsf/core";
-import validator from "@rjsf/validator-ajv8";
+import { customizeValidator } from "@rjsf/validator-ajv8";
 import "./PolicyForm.css";
 import { generatePolicy } from "../../utils/policy.util";
 import { PluginPolicy, PolicySchema } from "../../models/policy";
@@ -36,6 +36,14 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
   const onChange = (e: IChangeEvent) => {
     setFormData(e.formData);
   };
+
+  const customFormats = {
+    "evm-address": /^0x[a-fA-F0-9]{40}$/g,
+  };
+
+  const customValidator = customizeValidator({
+    customFormats,
+  });
 
   const onSubmit = async (submitData: IChangeEvent) => {
     if (schema?.form) {
@@ -91,6 +99,11 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
       if (error.name === "required") {
         error.message = "required";
       }
+      if (error.name === "format") {
+        if (error.params.format === "evm-address") {
+          error.message = "should be valid EVM address";
+        }
+      }
       return error;
     });
   };
@@ -103,7 +116,7 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
           idPrefix={pluginType}
           schema={schema.form.schema}
           uiSchema={schema.form.uiSchema}
-          validator={validator}
+          validator={customValidator}
           formData={formData}
           onSubmit={onSubmit}
           onChange={onChange}
