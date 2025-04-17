@@ -78,6 +78,7 @@ func (c *Client) RegisterSessionWithRetry(sessionID string, key string) error {
 	}
 	return fmt.Errorf("fail to register session after 3 retries")
 }
+
 func (c *Client) RegisterSession(sessionID string, key string) error {
 	sessionURL := c.relayServer + "/" + sessionID
 	body := []byte("[\"" + key + "\"]")
@@ -257,6 +258,7 @@ func (c *Client) MarkKeysignComplete(sessionID string, messageID string, sig tss
 	}
 	return nil
 }
+
 func (c *Client) CheckKeysignComplete(sessionID string, messageID string) (*tss.KeysignResponse, error) {
 	sessionURL := c.relayServer + "/complete/" + sessionID + "/keysign"
 	req, err := http.NewRequest(http.MethodGet, sessionURL, nil)
@@ -279,6 +281,7 @@ func (c *Client) CheckKeysignComplete(sessionID string, messageID string) (*tss.
 	}
 	return &sig, nil
 }
+
 func (c *Client) EndSession(sessionID string) error {
 	sessionURL := c.relayServer + "/" + sessionID
 	req, err := http.NewRequest(http.MethodDelete, sessionURL, nil)
@@ -295,6 +298,7 @@ func (c *Client) EndSession(sessionID string) error {
 	}
 	return nil
 }
+
 func (c *Client) UploadSetupMessage(sessionID string, payload string) error {
 	sessionUrl := c.relayServer + "/setup-message/" + sessionID
 	body := []byte(payload)

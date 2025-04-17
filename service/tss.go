@@ -432,11 +432,123 @@ func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.Ke
 	return result, nil
 }
 
-func (s *WorkerService) keysignWithRetry(serverURL, localPartyId string,
+// TODO: define types.TxQueueKeysignRequest
+func (s *WorkerService) JoinKeySignInTxQueue(req types.KeysignRequest) (map[string]tss.KeysignResponse, error) {
+	s.logger.WithFields(logrus.Fields{
+		"session id":  req.SessionID,
+		"public key":  req.PublicKey,
+		"is ECDSA":    req.IsECDSA,
+		"derive path": req.DerivePath,
+	}).Debug("Join keysign in tx queue")
+
+	localStateAccessor, err := relay.NewLocalStateAccessorImp(s.cfg.VaultsFilePath, req.PublicKey, req.VaultPassword, s.blockStorage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init localStateAccessor: %w", err)
+	}
+	localPartyId := localStateAccessor.Vault.LocalPartyId
+
+	s.logger.WithFields(logrus.Fields{
+		"vault public key ECDSA": localStateAccessor.Vault.PublicKeyEcdsa,
+		"vault public key EDDSA": localStateAccessor.Vault.PublicKeyEddsa,
+		"vault local party ID":   localPartyId,
+	}).Info("Loaded vault for signing")
+
+	keyShare, err := localStateAccessor.GetLocalState(req.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get key share: %w", err)
+	}
+	s.logger.WithField("key share length", len(keyShare)).Info("Loaded key share")
+
+	txQueueClient := relay.NewTxQueueClient(s.cfg.TxQueue.Server)
+
+	if req.StartSession {
+		// accept tx proposal (session start)
+		acceptTxRequest := relay.AcceptTxRequest{
+			SessionID: req.SessionID,
+			SignerID:  req.Parties[1], // TODO: get the new party id
+		}
+		if err := txQueueClient.AcceptTxProposalWithSessionStart(acceptTxRequest); err != nil {
+			return nil, fmt.Errorf("failed to accept tx proposal: %w", err)
+		}
+	} else {
+		// propose tx (register session)
+		proposeTxRequest := relay.ProposeTxRequest{
+			SessionID:      req.SessionID,
+			PublicKey:      req.PublicKey,
+			IsECDSA:        req.IsECDSA,
+			LeaderSignerID: localPartyId,
+			Threshold:      2,
+			Chain:          "Ethereum",
+			// TODO: just for testing
+			TxPayload: relay.TxPayload{
+				From:  "0xe5F238C95142be312852e864B830daADB9B7D290",
+				To:    "0xfA0635a1d083D0bF377EFbD48DA46BB17e0106cA",
+				Data:  "0x00",
+				Value: "10000000",
+			},
+		}
+		if err := txQueueClient.ProposeTxWithSessionRegistration(proposeTxRequest); err != nil {
+			return nil, fmt.Errorf("failed to propose tx: %w", err)
+		}
+	}
+
+	// wait for tx proposal acceptance and tx hash (keysign to start)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute+3*time.Second)
+	defer cancel()
+	txProposal, err := txQueueClient.WaitForAcceptedTxProposalWithHash(ctx, req.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for tx proposal start: %w", err)
+	}
+
+	s.logger.WithFields(logrus.Fields{
+		"session ID": req.SessionID,
+		"signers":    txProposal.Signers,
+		"tx hash":    txProposal.TxHash,
+		"nonce":      txProposal.TxPayload.Nonce,
+		"gas price":  txProposal.TxPayload.GasPrice,
+		"gas limit":  txProposal.TxPayload.Gas,
+	}).Info("Tx proposal accepted")
+
+	result := map[string]tss.KeysignResponse{}
+
+	req.Messages = []string{txProposal.TxHash}
+
+	for _, message := range req.Messages {
+		var signature *tss.KeysignResponse
+		for attempt := 0; attempt < 3; attempt++ {
+			signature, err = s.keysignWithRetry(s.cfg.TxQueue.Server, localPartyId, req, txProposal.Signers, message, localStateAccessor.Vault.PublicKeyEddsa, localStateAccessor)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return result, err
+		}
+		if signature == nil {
+			return result, fmt.Errorf("signature is nil")
+		}
+		result[message] = *signature
+	}
+
+	if err := txQueueClient.CompleteSession(req.SessionID, localPartyId); err != nil {
+		s.logger.WithFields(logrus.Fields{
+			"session": req.SessionID,
+			"error":   err,
+		}).Error("Failed to complete session")
+	}
+
+	return result, nil
+}
+
+func (s *WorkerService) keysignWithRetry(
+	serverURL,
+	localPartyId string,
 	req types.KeysignRequest,
 	partiesJoined []string,
 	msg string,
-	publicKeyEdDSA string, localStateAccessor *relay.LocalStateAccessorImp) (*tss.KeysignResponse, error) {
+	publicKeyEdDSA string,
+	localStateAccessor *relay.LocalStateAccessorImp,
+) (*tss.KeysignResponse, error) {
 	md5Hash := md5.Sum([]byte(msg))
 	messageID := hex.EncodeToString(md5Hash[:])
 	s.logger.Infoln("Start keysign for message: ", messageID)
@@ -470,14 +582,14 @@ func (s *WorkerService) keysignWithRetry(serverURL, localPartyId string,
 		})
 	}
 
-	client := relay.NewRelayClient(serverURL)
+	txQueueClient := relay.NewTxQueueClient(serverURL)
 	if err == nil {
-		if err := client.MarkKeysignComplete(req.SessionID, messageID, *signature); err != nil {
+		if err := txQueueClient.MarkKeysignComplete(req.SessionID, messageID, *signature); err != nil {
 			s.logger.Errorf("fail to mark keysign complete: %v", err)
 		}
 	} else {
 		s.logger.Errorf("fail to key sign: %v", err)
-		sigResp, err := client.CheckKeysignComplete(req.SessionID, messageID)
+		sigResp, err := txQueueClient.CheckKeysignComplete(req.SessionID, messageID)
 		if err == nil && sigResp != nil {
 			signature = sigResp
 		}

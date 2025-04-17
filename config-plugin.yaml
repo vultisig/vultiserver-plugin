@@ -52,6 +52,9 @@ block_storage:
 relay:
   server: https://api.vultisig.com/router
 
+tx_queue:
+  server: http://localhost:3000
+
 email_server:
   api_key: key-1234567890
 

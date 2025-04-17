@@ -196,6 +196,7 @@ func (s *WorkerService) HandleKeySign(ctx context.Context, t *asynq.Task) error 
 	}
 	defer s.measureTime("worker.vault.sign.latency", time.Now(), []string{})
 	s.incCounter("worker.vault.sign", []string{})
+
 	s.logger.WithFields(logrus.Fields{
 		"PublicKey":  p.PublicKey,
 		"session":    p.SessionID,
@@ -204,6 +205,7 @@ func (s *WorkerService) HandleKeySign(ctx context.Context, t *asynq.Task) error 
 		"IsECDSA":    p.IsECDSA,
 	}).Info("joining keysign")
 
+	// to sign throug the tx queue use s.JoinKeySignInTxQueue(p)
 	signatures, err := s.JoinKeySign(p)
 	if err != nil {
 		s.logger.Errorf("join keysign failed: %v", err)
