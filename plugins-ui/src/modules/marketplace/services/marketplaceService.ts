@@ -3,7 +3,7 @@ import { PluginMap } from "../models/marketplace";
 import { Plugin } from "@/modules/plugin/models/plugin";
 import {
   PluginPolicy,
-  PolicyTransactionHistory,
+  TransactionHistory,
 } from "@/modules/policy/models/policy";
 
 const getPublicKey = () => localStorage.getItem("publicKey");
@@ -98,10 +98,12 @@ const MarketplaceService = {
    * @returns {Promise<Object>} A promise that resolves to the fetched policies.
    */
   getPolicyTransactionHistory: async (
-    policyId: string
-  ): Promise<PolicyTransactionHistory[]> => {
+    policyId: string,
+    skip: number,
+    take: number
+  ): Promise<TransactionHistory> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/policies/${policyId}/history`;
+      const endpoint = `${getMarketplaceUrl()}/plugins/policies/${policyId}/history?skip=${skip}&take=${take}`;
       const history = await get(endpoint, {
         headers: {
           public_key: getPublicKey(),

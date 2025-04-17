@@ -139,8 +139,8 @@ func main() {
 	fmt.Println("Payroll policy", string(policyBytes))
 	policy.Policy = policyBytes
 
-	serverHost := fmt.Sprintf("http://%s:%d", serverConfig.Server.Host, serverConfig.Server.Port)
-	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Server.Host, pluginConfig.Server.Port)
+	serverHost := fmt.Sprintf("http://%s:%d", serverConfig.Verifier.Host, serverConfig.Verifier.Port)
+	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Plugin.Host, pluginConfig.Plugin.Port)
 
 	fmt.Printf("Creating policy on verifier server: %s\n", serverHost)
 	reqBytes, err := json.Marshal(policy)

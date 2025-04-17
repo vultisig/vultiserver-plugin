@@ -3,6 +3,7 @@ import {
   PluginPolicy,
   PolicySchema,
   PolicyTransactionHistory,
+  TransactionHistory,
 } from "../models/policy";
 import PolicyService from "../services/policyService";
 import {
@@ -23,7 +24,11 @@ export interface PolicyContextType {
   addPolicy: (policy: PluginPolicy) => Promise<boolean>;
   updatePolicy: (policy: PluginPolicy) => Promise<boolean>;
   removePolicy: (policyId: string) => Promise<void>;
-  getPolicyHistory: (policyId: string) => Promise<PolicyTransactionHistory[]>;
+  getPolicyHistory: (
+    policyId: string,
+    skip: number,
+    take: number
+  ) => Promise<TransactionHistory | null>;
 }
 
 export const PolicyContext = createContext<PolicyContextType | undefined>(
@@ -276,11 +281,16 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const getPolicyHistory = async (
-    policyId: string
-  ): Promise<PolicyTransactionHistory[]> => {
+    policyId: string,
+    skip: number,
+    take: number
+  ): Promise<TransactionHistory | null> => {
     try {
-      const history =
-        await MarketplaceService.getPolicyTransactionHistory(policyId);
+      const history = await MarketplaceService.getPolicyTransactionHistory(
+        policyId,
+        skip,
+        take
+      );
       return history;
     } catch (error: any) {
       console.error("Failed to get policy history:", error);
@@ -290,7 +300,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
         type: "error",
       });
 
-      return [];
+      return null;
     }
   };
 

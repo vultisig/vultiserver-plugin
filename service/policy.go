@@ -16,9 +16,9 @@ type Policy interface {
 	CreatePolicyWithSync(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdatePolicyWithSync(ctx context.Context, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	DeletePolicyWithSync(ctx context.Context, policyID, signature string) error
-	GetPluginPolicies(ctx context.Context, pluginType, publicKey string) ([]types.PluginPolicy, error)
+	GetPluginPolicies(ctx context.Context, pluginType, publicKey string, take int, skip int) (types.PluginPolicyDto, error)
 	GetPluginPolicy(ctx context.Context, policyID string) (types.PluginPolicy, error)
-	GetPluginPolicyTransactionHistory(ctx context.Context, policyID string) ([]types.TransactionHistory, error)
+	GetPluginPolicyTransactionHistory(ctx context.Context, policyID string, take int, skip int) (types.TransactionHistoryDto, error)
 }
 
 type PolicyServiceStorage interface {
@@ -27,9 +27,9 @@ type PolicyServiceStorage interface {
 	UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
 	UpdateTimeTriggerTx(ctx context.Context, policyID string, trigger types.TimeTrigger, dbTx pgx.Tx) error
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id string) error
-	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string) ([]types.PluginPolicy, error)
+	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string, take int, skip int) (types.PluginPolicyDto, error)
 	GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error)
-	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]types.TransactionHistory, error)
+	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) (types.TransactionHistoryDto, error)
 }
 
 type SchedulerService interface {
@@ -143,10 +143,10 @@ func (s *PolicyService) DeletePolicyWithSync(ctx context.Context, policyID, sign
 	})
 }
 
-func (s *PolicyService) GetPluginPolicies(ctx context.Context, pluginType, publicKey string) ([]types.PluginPolicy, error) {
-	policies, err := s.db.GetAllPluginPolicies(ctx, pluginType, publicKey)
+func (s *PolicyService) GetPluginPolicies(ctx context.Context, pluginType, publicKey string, take int, skip int) (types.PluginPolicyDto, error) {
+	policies, err := s.db.GetAllPluginPolicies(ctx, pluginType, publicKey, take, skip)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get policies: %w", err)
+		return types.PluginPolicyDto{}, fmt.Errorf("failed to get policies: %w", err)
 	}
 	return policies, nil
 }
@@ -159,16 +159,16 @@ func (s *PolicyService) GetPluginPolicy(ctx context.Context, policyID string) (t
 	return policy, nil
 }
 
-func (s *PolicyService) GetPluginPolicyTransactionHistory(ctx context.Context, policyID string) ([]types.TransactionHistory, error) {
+func (s *PolicyService) GetPluginPolicyTransactionHistory(ctx context.Context, policyID string, take int, skip int) (types.TransactionHistoryDto, error) {
 	// Convert string to UUID
 	policyUUID, err := uuid.Parse(policyID)
 	if err != nil {
-		return []types.TransactionHistory{}, fmt.Errorf("invalid policy_id: %s", policyID)
+		return types.TransactionHistoryDto{}, fmt.Errorf("invalid policy_id: %s", policyID)
 	}
 
-	history, err := s.db.GetTransactionHistory(ctx, policyUUID, "SWAP", 30, 0) // take the last 30 records and skip the first 0
+	history, err := s.db.GetTransactionHistory(ctx, policyUUID, "SWAP", take, skip)
 	if err != nil {
-		return []types.TransactionHistory{}, fmt.Errorf("failed to get policy history: %w", err)
+		return types.TransactionHistoryDto{}, fmt.Errorf("failed to get policy history: %w", err)
 	}
 
 	return history, nil

@@ -24,6 +24,11 @@ type PluginPolicy struct {
 	Progress      string          `json:"progress" validate:"required"`
 }
 
+type PluginPolicyDto struct {
+	Policies   []PluginPolicy `json:"policies" validate:"required"`
+	TotalCount int            `json:"total_count" validate:"required"`
+}
+
 type PublicKey struct {
 	// TODO
 }

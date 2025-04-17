@@ -3,6 +3,9 @@ import { usePolicies } from "../../context/PolicyProvider";
 import { PolicyTransactionHistory } from "../../models/policy";
 import "./TransactionHistory.css";
 import Toast from "@/modules/core/components/ui/toast/Toast";
+import Pagination from "@/modules/core/components/ui/pagination/Pagination";
+
+const ITEMS_PER_PAGE = 25;
 
 type TransactionHistoryProps = {
   policyId: string;
@@ -36,11 +39,29 @@ const TransactionHistory = ({ policyId }: TransactionHistoryProps) => {
     type: "success" | "warning" | "error";
   } | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
   useEffect(() => {
     const fetchPolicyHistory = async (): Promise<void> => {
       try {
-        const fetchedHistory = await getPolicyHistory(policyId);
-        setHistoryData(fetchedHistory);
+        const fetchedHistory = await getPolicyHistory(
+          policyId,
+          currentPage > 1 ? (currentPage - 1) * ITEMS_PER_PAGE : 0,
+          ITEMS_PER_PAGE
+        );
+
+        if (!fetchedHistory) return;
+
+        setHistoryData(fetchedHistory.history);
+        setTotalPages(Math.ceil(fetchedHistory.total_count / ITEMS_PER_PAGE));
+
+        if (
+          fetchedHistory.total_count / ITEMS_PER_PAGE > 1 &&
+          currentPage === 0
+        ) {
+          setCurrentPage(1);
+        }
       } catch (error: any) {
         console.error("Failed to get policy history:", error.message);
         setToast({
@@ -52,7 +73,11 @@ const TransactionHistory = ({ policyId }: TransactionHistoryProps) => {
     };
 
     fetchPolicyHistory();
-  }, []);
+  }, [currentPage]);
+
+  const onCurrentPageChange = (page: number): void => {
+    setCurrentPage(page);
+  };
 
   return (
     <div className="history-panel">
@@ -75,6 +100,14 @@ const TransactionHistory = ({ policyId }: TransactionHistoryProps) => {
           </li>
         )}
       </ul>
+
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onCurrentPageChange}
+        />
+      )}
       {toast && (
         <Toast
           title={toast.message}

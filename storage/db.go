@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 
 	"github.com/jackc/pgx/v5"
@@ -31,7 +32,7 @@ type DatabaseStorage interface {
 
 type PolicyRepository interface {
 	GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error)
-	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string) ([]types.PluginPolicy, error)
+	GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string, take int, skip int) (types.PluginPolicyDto, error)
 
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id string) error
 	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
@@ -54,7 +55,7 @@ type TransactionRepository interface {
 	UpdateTransactionStatusTx(ctx context.Context, dbTx pgx.Tx, txID uuid.UUID, status types.TransactionStatus, metadata map[string]interface{}) error
 	CreateTransactionHistory(ctx context.Context, tx types.TransactionHistory) (uuid.UUID, error)
 	UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status types.TransactionStatus, metadata map[string]interface{}) error
-	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]types.TransactionHistory, error)
+	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) (types.TransactionHistoryDto, error)
 	GetTransactionByHash(ctx context.Context, txHash string) (*types.TransactionHistory, error)
 }
 
