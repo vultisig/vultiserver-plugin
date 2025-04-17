@@ -36,9 +36,10 @@ const (
 	policyVersion = "0.0.1"
 )
 
+// TODO: remove once the plugin installation is implemented (resharding)
 const (
-	vaultPassword    = "Nontestato75"                                                     // TODO:
-	hexEncryptionKey = "539440138236b389cb0355aa1e81d11e51e9ad7c94b09bb45704635913604a73" // TODO:
+	vaultPassword    = "888717"
+	hexEncryptionKey = "539440138236b389cb0355aa1e81d11e51e9ad7c94b09bb45704635913604a73"
 )
 
 var (
