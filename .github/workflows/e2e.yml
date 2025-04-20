@@ -1,0 +1,12 @@
+name: "E2E Test"
+
+on:
+  push:
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Set up Docker Compose
+        uses: docker/setup-compose-action@v1
