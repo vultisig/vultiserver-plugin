@@ -17,10 +17,10 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/vultisig/mobile-tss-lib/tss"
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/config"
-	"github.com/vultisig/vultisigner/internal/tasks"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/common"
+	"github.com/vultisig/vultiserver-plugin/config"
+	"github.com/vultisig/vultiserver-plugin/internal/tasks"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 var isEcdsa bool
@@ -37,8 +37,8 @@ func main() {
 	publicKeyEddsa := "cbe9f33d38054defe561b9189f0f78721bb4ba836678030ca9db319a11a590ac"
 	derivePath := "m/44'/60'/0'/0/0"
 	// vault
-	hexEncryptionKey := "" // see plugin/plugin/dca.go
-	vaultPassword := ""    // see plugin/plugin/dca.go
+	hexEncryptionKey := "539440138236b389cb0355aa1e81d11e51e9ad7c94b09bb45704635913604a73" // see plugin/plugin/dca.go
+	vaultPassword := "888717"                                                              // see plugin/plugin/dca.go
 
 	// tx hash
 	signMessage := []byte("The road to success is always under construction.")
@@ -56,7 +56,6 @@ func main() {
 		DerivePath:       derivePath,
 		IsECDSA:          isEcdsa,
 		VaultPassword:    vaultPassword,
-		StartSession:     false,
 		Parties:          []string{common.PluginPartyID, common.VerifierPartyID},
 	}
 
@@ -95,8 +94,6 @@ func initiateTxSignWithPlugin(keysignRequest types.KeysignRequest) ([]byte, erro
 		fmt.Println(err)
 		return nil, errors.New("failed to read plugin config")
 	}
-
-	keysignRequest.StartSession = true
 
 	redisPluginOptions := asynq.RedisClientOpt{
 		Addr:     "localhost" + ":" + cfgPlugin.Redis.Port,
@@ -142,8 +139,6 @@ func initiateTxSignWithVerifier(keysignRequest types.KeysignRequest) error {
 		fmt.Println(err)
 		return errors.New("failed to read verifier config")
 	}
-
-	keysignRequest.StartSession = false
 
 	redisVerifierOptions := asynq.RedisClientOpt{
 		Addr:     "localhost" + ":" + cfgVerifier.Redis.Port,
