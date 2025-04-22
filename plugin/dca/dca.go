@@ -14,11 +14,11 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/internal/sigutil"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/pkg/uniswap"
-	"github.com/vultisig/vultisigner/storage"
+	"github.com/vultisig/vultiserver-plugin/common"
+	"github.com/vultisig/vultiserver-plugin/internal/sigutil"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/pkg/uniswap"
+	"github.com/vultisig/vultiserver-plugin/storage"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -37,9 +37,10 @@ const (
 	policyVersion = "0.0.1"
 )
 
+// TODO: remove once the plugin installation is implemented (resharding)
 const (
-	vaultPassword    = "Nontestato75"                                                     // TODO:
-	hexEncryptionKey = "539440138236b389cb0355aa1e81d11e51e9ad7c94b09bb45704635913604a73" // TODO:
+	vaultPassword    = "888717"
+	hexEncryptionKey = "539440138236b389cb0355aa1e81d11e51e9ad7c94b09bb45704635913604a73"
 )
 
 var (
@@ -391,7 +392,6 @@ func (p *DCAPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.Plug
 				DerivePath:       policy.DerivePath,
 				IsECDSA:          policy.IsEcdsa,
 				VaultPassword:    vaultPassword,
-				StartSession:     false,
 				Parties:          []string{common.PluginPartyID, common.VerifierPartyID},
 			},
 			Transaction:     hex.EncodeToString(data.RlpTxBytes),

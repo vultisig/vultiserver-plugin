@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 const USERS_TABLE = "users"

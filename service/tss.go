@@ -18,8 +18,8 @@ import (
 	"github.com/vultisig/mobile-tss-lib/tss"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/relay"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/relay"
 
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 )
@@ -34,15 +34,9 @@ func (s *WorkerService) JoinKeyGeneration(req types.VaultCreateRequest) (string,
 	serverURL := s.cfg.Relay.Server
 	relayClient := relay.NewRelayClient(serverURL)
 
-	if req.StartSession {
-		if err := relayClient.StartSession(req.SessionID, req.Parties); err != nil {
-			return "", "", fmt.Errorf("failed to start session: %w", err)
-		}
-	} else {
-		// Let's register session here
-		if err := relayClient.RegisterSession(req.SessionID, req.LocalPartyId); err != nil {
-			return "", "", fmt.Errorf("failed to register session: %w", err)
-		}
+	// Let's register session here
+	if err := relayClient.RegisterSession(req.SessionID, req.LocalPartyId); err != nil {
+		return "", "", fmt.Errorf("failed to register session: %w", err)
 	}
 	// wait longer for keygen start
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -376,14 +370,8 @@ func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.Ke
 	server := relay.NewRelayClient(serverURL)
 
 	// Let's register session here
-	if req.StartSession {
-		if err := server.StartSession(req.SessionID, req.Parties); err != nil {
-			return nil, fmt.Errorf("failed to start session: %w", err)
-		}
-	} else {
-		if err := server.RegisterSessionWithRetry(req.SessionID, localPartyId); err != nil {
-			return nil, fmt.Errorf("failed to register session: %w", err)
-		}
+	if err := server.RegisterSessionWithRetry(req.SessionID, localPartyId); err != nil {
+		return nil, fmt.Errorf("failed to register session: %w", err)
 	}
 	// wait longer for keysign start
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute+3*time.Second)

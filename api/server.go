@@ -13,23 +13,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/config"
-	"github.com/vultisig/vultisigner/internal/scheduler"
-	"github.com/vultisig/vultisigner/internal/sigutil"
-	"github.com/vultisig/vultisigner/internal/syncer"
-	"github.com/vultisig/vultisigner/internal/tasks"
-	"github.com/vultisig/vultisigner/internal/types"
-	vv "github.com/vultisig/vultisigner/internal/vultisig_validator"
-	"github.com/vultisig/vultisigner/plugin"
-	"github.com/vultisig/vultisigner/plugin/dca"
-	"github.com/vultisig/vultisigner/plugin/payroll"
-	"github.com/vultisig/vultisigner/service"
-	"github.com/vultisig/vultisigner/storage"
-	"github.com/vultisig/vultisigner/storage/postgres"
+	"github.com/vultisig/vultiserver-plugin/common"
+	"github.com/vultisig/vultiserver-plugin/config"
+	"github.com/vultisig/vultiserver-plugin/internal/scheduler"
+	"github.com/vultisig/vultiserver-plugin/internal/sigutil"
+	"github.com/vultisig/vultiserver-plugin/internal/syncer"
+	"github.com/vultisig/vultiserver-plugin/internal/tasks"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	vv "github.com/vultisig/vultiserver-plugin/internal/vultisig_validator"
+	"github.com/vultisig/vultiserver-plugin/plugin"
+	"github.com/vultisig/vultiserver-plugin/plugin/dca"
+	"github.com/vultisig/vultiserver-plugin/plugin/payroll"
+	"github.com/vultisig/vultiserver-plugin/service"
+	"github.com/vultisig/vultiserver-plugin/storage"
+	"github.com/vultisig/vultiserver-plugin/storage/postgres"
 
 	"github.com/DataDog/datadog-go/statsd"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-playground/validator/v10"
 	"github.com/hibiken/asynq"
 	"github.com/labstack/echo/v4"
@@ -41,14 +40,13 @@ import (
 )
 
 type Server struct {
-	port          int64
+	cfg           *config.Config
 	db            storage.DatabaseStorage
 	redis         *storage.RedisStorage
 	blockStorage  *storage.BlockStorage
 	client        *asynq.Client
 	inspector     *asynq.Inspector
 	sdClient      *statsd.Client
-	rpcClient     *ethclient.Client
 	scheduler     *scheduler.SchedulerService
 	policyService service.Policy
 	authService   *service.AuthService
@@ -62,7 +60,7 @@ type Server struct {
 
 // NewServer returns a new server.
 func NewServer(
-	port int64,
+	cfg *config.Config,
 	db *postgres.PostgresBackend,
 	redis *storage.RedisStorage,
 	blockStorage *storage.BlockStorage,
@@ -109,10 +107,6 @@ func NewServer(
 		logger.Info("Scheduler service started")
 
 		logger.Info("Creating Syncer")
-		cfg, err := config.ReadConfig("config-verifier")
-		if err != nil {
-			logger.Fatal("Failed to initialize DCA plugin: ", err)
-		}
 
 		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Server.Host, cfg.Server.Port)
 	}
@@ -125,7 +119,7 @@ func NewServer(
 	authService := service.NewAuthService(jwtSecret)
 
 	return &Server{
-		port:          port,
+		cfg:           cfg,
 		redis:         redis,
 		client:        client,
 		inspector:     inspector,
@@ -227,7 +221,7 @@ func (s *Server) StartServer() error {
 	syncGroup.POST("/transaction", s.CreateTransaction)
 	syncGroup.PUT("/transaction", s.UpdateTransaction)
 
-	return e.Start(fmt.Sprintf(":%d", s.port))
+	return e.Start(fmt.Sprintf(":%d", s.cfg.Server.Port))
 }
 
 func (s *Server) Ping(c echo.Context) error {

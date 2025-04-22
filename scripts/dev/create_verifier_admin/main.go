@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vultisig/vultisigner/config"
-	pass "github.com/vultisig/vultisigner/internal/password"
+	"github.com/vultisig/vultiserver-plugin/config"
+	pass "github.com/vultisig/vultiserver-plugin/internal/password"
 )
 
 var username string

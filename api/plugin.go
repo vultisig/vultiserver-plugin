@@ -13,16 +13,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/config"
-	"github.com/vultisig/vultisigner/internal/jwt"
-	"github.com/vultisig/vultisigner/internal/password"
-	"github.com/vultisig/vultisigner/internal/sigutil"
-	"github.com/vultisig/vultisigner/internal/tasks"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/plugin"
-	"github.com/vultisig/vultisigner/plugin/dca"
-	"github.com/vultisig/vultisigner/plugin/payroll"
+	"github.com/vultisig/vultiserver-plugin/common"
+	"github.com/vultisig/vultiserver-plugin/internal/jwt"
+	"github.com/vultisig/vultiserver-plugin/internal/password"
+	"github.com/vultisig/vultiserver-plugin/internal/sigutil"
+	"github.com/vultisig/vultiserver-plugin/internal/tasks"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/plugin"
+	"github.com/vultisig/vultiserver-plugin/plugin/dca"
+	"github.com/vultisig/vultiserver-plugin/plugin/payroll"
 
 	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/hibiken/asynq"
@@ -97,7 +96,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
 	}
 
-	req.StartSession = false
 	req.Parties = []string{common.PluginPartyID, common.VerifierPartyID}
 
 	buf, err := json.Marshal(req)
@@ -485,11 +483,6 @@ func (s *Server) initializePlugin(pluginType string) (plugin.Plugin, error) {
 }
 
 func (s *Server) UserLogin(c echo.Context) error {
-	cfg, err := config.ReadConfig("config-verifier")
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"message": "Failed to read config"})
-	}
-
 	var auth types.UserAuthDto
 	if err := c.Bind(&auth); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"message": "Invalid request"})
@@ -509,7 +502,7 @@ func (s *Server) UserLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"message": "Invalid credentials"})
 	}
 
-	token, err := jwt.GenerateJWT(user.ID, cfg.Server.UserAuth.JwtSecret)
+	token, err := jwt.GenerateJWT(user.ID, s.cfg.Server.UserAuth.JwtSecret)
 	if err != nil {
 		s.logger.Error("Failed to generate jwt", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"message": "Failed to generate token"})

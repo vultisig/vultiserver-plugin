@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error) {

@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	gcommon "github.com/ethereum/go-ethereum/common"
 	gtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 func (p *PayrollPlugin) handleBroadcastError(err error, sender gcommon.Address) error {

@@ -7,11 +7,11 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vultisig/vultisigner/config"
-	"github.com/vultisig/vultisigner/internal/syncer"
-	"github.com/vultisig/vultisigner/internal/tasks"
-	"github.com/vultisig/vultisigner/service"
-	"github.com/vultisig/vultisigner/storage"
+	"github.com/vultisig/vultiserver-plugin/config"
+	"github.com/vultisig/vultiserver-plugin/internal/syncer"
+	"github.com/vultisig/vultiserver-plugin/internal/tasks"
+	"github.com/vultisig/vultiserver-plugin/service"
+	"github.com/vultisig/vultiserver-plugin/storage"
 )
 
 func main() {

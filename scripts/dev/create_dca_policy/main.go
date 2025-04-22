@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/vultisigner/config"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/config"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 var vaultName string

@@ -24,11 +24,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// TODO: remove once the plugin installation is implemented (resharding)
 const (
-	// TODO: once the new resharding is done
-	PluginPartyID   = "MihailGenchev’s MacBook Pro-F87" // change this to "plugin-service"
-	VerifierPartyID = "iPhone-E7E"                      // change this to "verifier-service"
+	PluginPartyID   = "Rado’s MacBook Pro-FD0"
+	VerifierPartyID = "Server-58253"
+)
 
+const (
 	vaultBackupSuffix = ".bak.vult"
 )
 
@@ -208,6 +210,38 @@ func GetThreshold(value int) (int, error) {
 	}
 	threshold := int(math.Ceil(float64(value)*2.0/3.0)) - 1
 	return threshold, nil
+}
+
+func EncryptGCM(plainText string, hexEncryptKey string) (string, error) {
+	passwd, err := hex.DecodeString(hexEncryptKey)
+	if err != nil {
+		return "", err
+	}
+
+	hash := sha256.Sum256(passwd)
+	key := hash[:]
+
+	// Create a new AES cipher using the key
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+
+	// Use GCM (Galois/Counter Mode)
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+
+	// Create a nonce. Nonce size is specified by GCM
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", err
+	}
+
+	// Seal encrypts and authenticates plaintext
+	ciphertext := gcm.Seal(nonce, nonce, []byte(plainText), nil)
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
 func DecryptGCM(rawData []byte, hexEncryptKey string) ([]byte, error) {

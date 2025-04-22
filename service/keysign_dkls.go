@@ -18,9 +18,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
 
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/relay"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/relay"
+	vcommon "github.com/vultisig/vultiserver/common"
 )
 
 func (t *DKLSTssService) ProcessDKLSKeysign(req types.KeysignRequest) (map[string]tss.KeysignResponse, error) {
@@ -210,7 +210,7 @@ func (t *DKLSTssService) keysign(sessionID string,
 	t.logger.Infoln("Keysign result is:", len(sig))
 	rBytes := sig[:32]
 	sBytes := sig[32:64]
-	derBytes, err := common.GetDerSignature(rBytes, sBytes)
+	derBytes, err := vcommon.GetDerSignature(rBytes, sBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get der signature: %w", err)
 	}

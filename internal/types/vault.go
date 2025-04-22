@@ -16,15 +16,14 @@ const (
 
 // VaultCreateRequest is a struct that represents a request to create a new vault from integration.
 type VaultCreateRequest struct {
-	Name               string  `json:"name" validate:"required"`
-	SessionID          string  `json:"session_id" validate:"required"`
-	HexEncryptionKey   string  `json:"hex_encryption_key" validate:"required"` // this is the key used to encrypt and decrypt the keygen communications
-	HexChainCode       string  `json:"hex_chain_code" validate:"required"`
-	LocalPartyId       string  `json:"local_party_id"`                          // when this field is empty , then server will generate a random local party id
-	EncryptionPassword string  `json:"encryption_password" validate:"required"` // password used to encrypt the vault file
-	Email              string  `json:"email" validate:"required"`               // this is the email of the user that the vault backup will be sent to
-	LibType            LibType `json:"lib_type"`                                // this is the type of the vault
-	StartSession       bool    `json:"start_session"`                           // this is the flag to start the session
+	Name               string   `json:"name" validate:"required"`
+	SessionID          string   `json:"session_id" validate:"required"`
+	HexEncryptionKey   string   `json:"hex_encryption_key" validate:"required"` // this is the key used to encrypt and decrypt the keygen communications
+	HexChainCode       string   `json:"hex_chain_code" validate:"required"`
+	LocalPartyId       string   `json:"local_party_id"`                          // when this field is empty , then server will generate a random local party id
+	EncryptionPassword string   `json:"encryption_password" validate:"required"` // password used to encrypt the vault file
+	Email              string   `json:"email" validate:"required"`               // this is the email of the user that the vault backup will be sent to
+	LibType            LibType  `json:"lib_type"`                                // this is the type of the vault
 	Parties            []string `json:"parties"`                                 // this is the list of parties that will participate in the vault creation process
 }
 
@@ -61,9 +60,6 @@ func (req *VaultCreateRequest) IsValid() error {
 	}
 	if req.Email == "" {
 		return fmt.Errorf("email is required")
-	}
-	if req.StartSession && len(req.Parties) == 0 {
-		return fmt.Errorf("parties is required when start_session is true")
 	}
 	return nil
 }

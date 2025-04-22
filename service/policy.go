@@ -6,10 +6,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/vultisig/vultisigner/internal/scheduler"
-	"github.com/vultisig/vultisigner/internal/syncer"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/storage"
+	"github.com/vultisig/vultiserver-plugin/internal/scheduler"
+	"github.com/vultisig/vultiserver-plugin/internal/syncer"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/storage"
 )
 
 type Policy interface {
