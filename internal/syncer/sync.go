@@ -23,6 +23,7 @@ const (
 )
 
 type Action int
+
 const (
 	CreateAction Action = iota
 	UpdateAction

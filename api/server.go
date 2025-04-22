@@ -107,8 +107,11 @@ func NewServer(
 		logger.Info("Scheduler service started")
 
 		logger.Info("Creating Syncer")
-
-		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Server.Host, cfg.Server.Port)
+		verifierConfig, err := config.ReadConfig("config-verifier")
+		if err != nil {
+			logger.Fatal("failed to init verifier config", err)
+		}
+		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, verifierConfig.Server.Host, verifierConfig.Server.Port)
 	}
 
 	policyService, err := service.NewPolicyService(db, syncerService, schedulerService, logger.WithField("service", "policy").Logger)
