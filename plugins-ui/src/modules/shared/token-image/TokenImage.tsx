@@ -1,11 +1,11 @@
 import { cloneElement } from "react";
 import { supportedTokens } from "../data/tokens";
 
-interface ITokenImageProps {
+export type TokenImageProps = {
   data: string;
-}
+};
 
-const TokenImage = ({ data }: ITokenImageProps) => {
+const TokenImage = ({ data }: TokenImageProps) => {
   return (
     <>
       {supportedTokens[data] &&

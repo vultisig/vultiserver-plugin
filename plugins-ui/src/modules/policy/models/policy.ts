@@ -1,4 +1,5 @@
-import { RJSFSchema } from "@rjsf/utils";
+import { RJSFSchema, UiSchema } from "@rjsf/utils";
+import { ColumnDef } from "@tanstack/react-table";
 
 export type Policy<
   T = string | number | boolean | string[] | null | undefined,
@@ -32,6 +33,13 @@ export type TransactionHistory = {
   total_count: number;
 };
 
+export type PolicyTableColumn = ColumnDef<unknown> & {
+  accessorKey: string;
+  header: string;
+  cellComponent?: string;
+  expandable?: boolean;
+};
+
 export type PolicyTransactionHistory = {
   id: string;
   updated_at: string;
@@ -41,13 +49,13 @@ export type PolicyTransactionHistory = {
 export type PolicySchema = {
   form: {
     schema: RJSFSchema;
-    uiSchema: {};
+    uiSchema: UiSchema;
     plugin_version: string;
     policy_version: string;
     plugin_type: string;
   };
   table: {
-    columns: [];
-    mapping: {};
+    columns: PolicyTableColumn[];
+    mapping: Record<string, string | string[]>;
   };
 };

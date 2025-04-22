@@ -2,7 +2,7 @@ import { supportedTokens } from "@/modules/shared/data/tokens";
 import "./TokenPair.css";
 import TokenImage from "../token-image/TokenImage";
 
-type TokenPairProps = {
+export type TokenPairProps = {
   data: [string, string];
 };
 

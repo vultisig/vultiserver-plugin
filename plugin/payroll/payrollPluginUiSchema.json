@@ -211,6 +211,21 @@
         "accessorKey": "paymentToken",
         "header": "Payment Token",
         "cellComponent": "TokenImage"
+      },
+      {
+        "accessorKey": "payrollInterval",
+        "header": "Payroll interval"
+      },
+      {
+        "accessorKey": "subRows",
+        "header": "Recipients",
+        "cellComponent": "ExpandableRows",
+        "expandable": true
+      },
+      {
+        "accessorKey": "status",
+        "header": "Active",
+        "cellComponent": "ActiveStatus"
       }
     ],
     "mapping": {
@@ -218,7 +233,10 @@
       "chainId": "policy.chain_id.0",
       "startDate": "policy.schedule.start_time",
       "endDate": "policy.schedule.end_time",
-      "paymentToken": "policy.token_id.0"
+      "paymentToken": "policy.token_id.0",
+      "payrollInterval": "policy.schedule.interval, policy.schedule.frequency",
+      "subRows": "policy.recipients",
+      "status": "active"
     }
   }
 }
