@@ -428,7 +428,7 @@ func (p *DCAPlugin) ValidateProposedTransactions(policy types.PluginPolicy, txs 
 	}
 	chainIDInt, err := strconv.ParseInt(dcaPolicy.ChainID[2:], 16, 64)
 	if err != nil {
-		return fmt.Errorf("fail to parse chain ID: %w", dcaPolicy.ChainID)
+		return fmt.Errorf("fail to parse chain ID: %s", dcaPolicy.ChainID)
 	}
 	policyChainID := big.NewInt(chainIDInt)
 
