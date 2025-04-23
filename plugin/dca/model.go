@@ -1,6 +1,6 @@
 package dca
 
-import "github.com/vultisig/vultisigner/plugin"
+import "github.com/vultisig/vultiserver-plugin/plugin"
 
 type DCAPolicy struct {
 	ChainID            string          `json:"chain_id"`

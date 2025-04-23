@@ -482,7 +482,7 @@ func (s *WorkerService) executeSigningProcess(
 	jwtToken string,
 	policy types.PluginPolicy) error {
 
-	signRequest.KeysignRequest.StartSession = true
+	// signRequest.KeysignRequest.StartSession = true
 	signRequest.KeysignRequest.Parties = []string{common.PluginPartyID, common.VerifierPartyID}
 	buf, err := json.Marshal(signRequest)
 	if err != nil {

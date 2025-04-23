@@ -16,13 +16,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/vultisig/mobile-tss-lib/tss"
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/internal/types"
-	pg "github.com/vultisig/vultisigner/plugin"
+	"github.com/vultisig/vultiserver-plugin/common"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	pg "github.com/vultisig/vultiserver-plugin/plugin"
 
-	"github.com/vultisig/vultisigner/test/mocks/database"
-	"github.com/vultisig/vultisigner/test/mocks/ethclient"
-	"github.com/vultisig/vultisigner/test/mocks/uniswapclient"
+	"github.com/vultisig/vultiserver-plugin/test/mocks/database"
+	"github.com/vultisig/vultiserver-plugin/test/mocks/ethclient"
+	"github.com/vultisig/vultiserver-plugin/test/mocks/uniswapclient"
 
 	"math/big"
 	"testing"
@@ -158,8 +158,8 @@ func createKeysignRequest(txHash []byte, rlpTxBytes []byte, policyID string) typ
 			DerivePath:       "m/44'/60'/0'/0/0",
 			IsECDSA:          true,
 			VaultPassword:    "password",
-			StartSession:     false,
-			Parties:          []string{"party1", "party2"},
+			// StartSession:     false,
+			Parties: []string{"party1", "party2"},
 		},
 		Transaction:     hex.EncodeToString(rlpTxBytes),
 		PluginID:        "pluginID",

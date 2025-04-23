@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/test/mocks/database"
-	"github.com/vultisig/vultisigner/test/mocks/queueclient"
-	"testing"
-	"time"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/test/mocks/database"
+	"github.com/vultisig/vultiserver-plugin/test/mocks/queueclient"
 )
 
 // MockClock is a mock implementation of the Clock interface

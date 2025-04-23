@@ -108,7 +108,7 @@ func main() {
 	fmt.Println("DCA policy", string(policyBytes))
 	policy.Policy = policyBytes
 
-	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Server.Host, pluginConfig.Server.Port)
+	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Plugin.Host, pluginConfig.Plugin.Port)
 
 	reqBytes, err := json.Marshal(policy)
 	if err != nil {

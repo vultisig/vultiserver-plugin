@@ -3,9 +3,10 @@ package plugin
 import (
 	"context"
 	"embed"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/vultisig/mobile-tss-lib/tss"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 type MockPlugin struct {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vultisig/vultisigner/storage"
+	"github.com/vultisig/vultiserver-plugin/storage"
 
 	"github.com/jackc/pgx/v5"
 
