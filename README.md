@@ -444,6 +444,21 @@ curl --location localhost:8080/plugins --request POST \
 }'
 ```
 
+```sh
+curl --location localhost:8080/plugins --request POST \
+--header 'Authorization: Bearer myauthtoken' \
+--header 'Content-Type: application/json' \
+--data '{
+    "title": "Payroll Plugin",
+    "type": "payroll",
+    "description": "Payroll plugin automation",
+    "metadata": "{\"foo\": \"bar\"}",
+    "server_endpoint": "http://localhost:8081",
+    "pricing_id": "12345678-abcd-1234-5678-123456789abc",
+    "category_id": "1b70fb5d-2d70-4b08-99c1-caf18be45fc6"
+}'
+```
+
 
 ### 4. Test the DCA Plugin execution
 

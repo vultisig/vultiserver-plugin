@@ -27,8 +27,10 @@ import (
 
 // TODO: remove once the plugin installation is implemented (resharding)
 const (
-	PluginPartyID   = "Rado’s MacBook Pro-FD0"
-	VerifierPartyID = "Server-58253"
+	PluginPartyID    = "Rado’s MacBook Pro-FD0"
+	VerifierPartyID  = "Server-58253"
+	VaultPassword    = "888717"
+	HexEncryptionKey = "539440138236b389cb0355aa1e81d11e51e9ad7c94b09bb45704635913604a73"
 )
 
 const (

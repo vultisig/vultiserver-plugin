@@ -60,12 +60,9 @@ type WorkerService struct {
 	sdClient     *statsd.Client
 	blockStorage *storage.BlockStorage
 	inspector    Inspector
-	plugin       plugin.Plugin
-	db           WorkerStorage
-	// TODO
-	// rpcClient    *ethclient.Client
-	syncer      syncer.PolicySyncer
-	authService Auth
+	db           storage.DatabaseStorage
+	syncer       syncer.PolicySyncer
+	authService  Auth
 }
 
 // NewWorker creates a new worker service
@@ -82,24 +79,6 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 		return nil, fmt.Errorf("fail to connect to database: %w", err)
 	}
 
-	var plugin plugin.Plugin
-	if cfg.Mode == "plugin" {
-		switch cfg.PluginType {
-		case payroll.PluginType:
-			plugin, err = payroll.NewPlugin(db, logrus.WithField("service", "plugin").Logger, cfg.PluginPackage[payroll.PluginType])
-			if err != nil {
-				return nil, fmt.Errorf("fail to initialize payroll plugin: %w", err)
-			}
-		case dca.PluginType:
-			plugin, err = dca.NewPlugin(db, logger, cfg.PluginPackage[dca.PluginType])
-			if err != nil {
-				return nil, fmt.Errorf("fail to initialize DCA plugin: %w", err)
-			}
-		default:
-			logger.Fatalf("Invalid plugin type: %s", cfg.PluginType)
-		}
-	}
-
 	return &WorkerService{
 		cfg:          cfg,
 		db:           db,
@@ -108,7 +87,6 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 		queueClient:  queueClient,
 		sdClient:     sdClient,
 		inspector:    inspector,
-		plugin:       plugin,
 		logger:       logger,
 		syncer:       syncer,
 		authService:  authService,
@@ -418,7 +396,13 @@ func (s *WorkerService) processPluginTransaction(ctx context.Context, policyID s
 	}).Info("Retrieved policy for signing")
 
 	// Propose transactions to sign
-	signRequests, err := s.plugin.ProposeTransactions(policy)
+	plg, err := s.initializePlugin(policy.PluginType)
+	if err != nil {
+		s.logger.Errorf("initializePlugin failed: %v", err)
+		return fmt.Errorf("initializePlugin failed: %w", err)
+	}
+
+	signRequests, err := plg.ProposeTransactions(policy)
 	if err != nil {
 		s.logger.Errorf("ProposeTransactions failed: %v", err)
 		return fmt.Errorf("ProposeTransactions failed: %w", err)
@@ -541,7 +525,13 @@ func (s *WorkerService) completeSigningProcess(ctx context.Context, result []byt
 		break
 	}
 
-	err := s.plugin.SigningComplete(ctx, signature, signRequest, policy)
+	plg, err := s.initializePlugin(policy.PluginType)
+	if err != nil {
+		s.logger.Errorf("initializePlugin failed: %v", err)
+		return fmt.Errorf("initializePlugin failed: %w", err)
+	}
+
+	err = plg.SigningComplete(ctx, signature, signRequest, policy)
 	if err != nil {
 		s.logger.Errorf("Failed to complete signing: %v", err)
 
@@ -768,4 +758,26 @@ func (s *WorkerService) HandleMigrateDKLS(ctx context.Context, t *asynq.Task) er
 	}
 
 	return nil
+}
+
+func (s *WorkerService) initializePlugin(pluginType string) (plugin.Plugin, error) {
+	var plugin plugin.Plugin
+	var err error
+
+	switch pluginType {
+	case payroll.PluginType:
+		plugin, err = payroll.NewPlugin(s.db, logrus.WithField("service", "plugin").Logger, s.cfg.PluginPackage[payroll.PluginType])
+		if err != nil {
+			return nil, fmt.Errorf("fail to initialize Payroll plugin: %w", err)
+		}
+		return plugin, nil
+	case dca.PluginType:
+		plugin, err = dca.NewPlugin(s.db, s.logger, s.cfg.PluginPackage[dca.PluginType])
+		if err != nil {
+			return nil, fmt.Errorf("fail to initialize DCA plugin: %w", err)
+		}
+		return plugin, nil
+	default:
+		return nil, fmt.Errorf("unknown plugin type: %s", pluginType)
+	}
 }

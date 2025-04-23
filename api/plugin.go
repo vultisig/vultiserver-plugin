@@ -448,24 +448,6 @@ func (s *Server) GetPolicySchema(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, message)
 	}
 
-	// keyPath := ""
-
-	// switch pluginType {
-	// case "payroll":
-	// 	keyPath = filepath.Join("plugin", pluginType, "payrollPluginUiSchema.json")
-	// 	break
-	// case "dca":
-	// 	keyPath = filepath.Join("plugin", pluginType, "dcaPluginUiSchema.json")
-	// 	break
-	// default:
-	// 	err := fmt.Errorf("missing required header: plugin_type")
-	// 	message := map[string]interface{}{
-	// 		"message": fmt.Sprintf("failed to get policy schema for plugin: %s", pluginType),
-	// 		"error":   err.Error(),
-	// 	}
-	// s.logger.Error(err)
-	// return c.JSON(http.StatusBadRequest, message)
-
 	jsonSchema, err := plg.FrontendSchema()
 	if err != nil {
 		message := map[string]interface{}{

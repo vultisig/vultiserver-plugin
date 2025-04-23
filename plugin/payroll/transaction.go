@@ -24,12 +24,6 @@ import (
 	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
-// TODO: remove once the plugin installation is implemented
-const (
-	vaultPassword    = "pass"
-	hexEncryptionKey = "hexencryptionkey"
-)
-
 func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginKeysignRequest, error) {
 	var txs []types.PluginKeysignRequest
 	err := p.ValidatePluginPolicy(policy)
@@ -65,10 +59,10 @@ func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginK
 				PublicKey:        policy.PublicKey,
 				Messages:         []string{hex.EncodeToString(txHash)},
 				SessionID:        uuid.New().String(),
-				HexEncryptionKey: hexEncryptionKey,
+				HexEncryptionKey: common.HexEncryptionKey,
 				DerivePath:       policy.DerivePath,
 				IsECDSA:          IsECDSA(chainIDInt),
-				VaultPassword:    vaultPassword,
+				VaultPassword:    common.VaultPassword,
 			},
 			Transaction: hex.EncodeToString(rawTx),
 			PluginID:    policy.PluginID,
