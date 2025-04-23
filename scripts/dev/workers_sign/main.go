@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -79,7 +80,7 @@ func main() {
 		return
 	}
 
-	isVerified, err := verifyRawSignature(publicKey, hexEncryptionKey, derivePath, signMessage, signature)
+	isVerified, err := verifyRawSignature(publicKey, hexEncryptionKey, derivePath, signMessage, signature, isEcdsa)
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to verify signature: %w", err))
 		return
@@ -243,10 +244,22 @@ func parseSignResultIntoRawSignature(signResult []byte) ([]byte, error) {
 	return rawSignature(r, s, recoveryID), nil
 }
 
-func verifyRawSignature(vaultPublicKey string, chainCodeHex string, derivePath string, messageHex []byte, signature []byte) (bool, error) {
-
-	// TODO: eddca support, last param is the flag
-	derivedPubKeyHex, err := tss.GetDerivedPubKey(strings.TrimPrefix(vaultPublicKey, "0x"), chainCodeHex, derivePath, false)
+func verifyRawSignature(
+	vaultPublicKey string,
+	chainCodeHex string,
+	derivePath string,
+	messageHex []byte,
+	signature []byte,
+	isEcdsa bool,
+) (bool, error) {
+	// Note: https://github.com/vultisig/mobile-tss-lib/blob/main/tss/common.go#L94
+	// eddca derive not supported atm in tss shared lib
+	derivedPubKeyHex, err := tss.GetDerivedPubKey(
+		strings.TrimPrefix(vaultPublicKey, "0x"),
+		chainCodeHex,
+		derivePath,
+		!isEcdsa,
+	)
 	if err != nil {
 		return false, err
 	}
@@ -256,20 +269,28 @@ func verifyRawSignature(vaultPublicKey string, chainCodeHex string, derivePath s
 		return false, err
 	}
 
-	pk, err := btcec.ParsePubKey(publicKeyBytes, btcec.S256())
-	if err != nil {
-		return false, err
-	}
+	if isEcdsa {
+		pk, err := btcec.ParsePubKey(publicKeyBytes, btcec.S256())
+		if err != nil {
+			return false, err
+		}
 
-	ecdsaPubKey := ecdsa.PublicKey{
-		Curve: btcec.S256(),
-		X:     pk.X,
-		Y:     pk.Y,
-	}
-	R := new(big.Int).SetBytes(signature[:32])
-	S := new(big.Int).SetBytes(signature[32:64])
+		ecdsaPubKey := ecdsa.PublicKey{
+			Curve: btcec.S256(),
+			X:     pk.X,
+			Y:     pk.Y,
+		}
+		R := new(big.Int).SetBytes(signature[:32])
+		S := new(big.Int).SetBytes(signature[32:64])
 
-	return ecdsa.Verify(&ecdsaPubKey, messageHex, R, S), nil
+		return ecdsa.Verify(&ecdsaPubKey, messageHex, R, S), nil
+	} else {
+		if len(signature) != ed25519.SignatureSize {
+			return false, fmt.Errorf("invalid signature size")
+		}
+
+		return ed25519.Verify(publicKeyBytes, messageHex, signature), nil
+	}
 }
 
 func rawSignature(r *big.Int, s *big.Int, recoveryID uint8) []byte {
