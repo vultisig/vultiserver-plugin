@@ -2,9 +2,10 @@ package scheduler
 
 import (
 	"context"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/mock"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 type MockSchedulerService struct {

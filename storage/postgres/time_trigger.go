@@ -7,9 +7,11 @@ import (
 	"github.com/vultisig/vultisigner/storage"
 	"time"
 
+	"github.com/vultisig/vultiserver-plugin/storage"
+
 	"github.com/jackc/pgx/v5"
 
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 var _ storage.TimeTriggerRepository = (*PostgresBackend)(nil)

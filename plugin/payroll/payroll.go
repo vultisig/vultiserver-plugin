@@ -6,8 +6,14 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
-	"github.com/vultisig/vultisigner/plugin"
-	"github.com/vultisig/vultisigner/storage"
+	"github.com/vultisig/vultiserver-plugin/plugin"
+	"github.com/vultisig/vultiserver-plugin/storage"
+)
+
+const (
+	PluginType    = "payroll"
+	pluginVersion = "0.0.1"
+	policyVersion = "0.0.1"
 )
 
 const (
@@ -27,7 +33,7 @@ type PayrollPlugin struct {
 }
 
 type PayrollPluginConfig struct {
-	rpcURL string `mapstructure:"rpc_url" json:"rpc_url"`
+	RpcURL string `mapstructure:"rpc_url" json:"rpc_url"`
 }
 
 func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rawConfig map[string]interface{}) (*PayrollPlugin, error) {
@@ -36,7 +42,7 @@ func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, raw
 		return nil, err
 	}
 
-	rpcClient, err := ethclient.Dial(cfg.rpcURL)
+	rpcClient, err := ethclient.Dial(cfg.RpcURL)
 	if err != nil {
 		return nil, err
 	}

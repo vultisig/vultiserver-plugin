@@ -2,8 +2,9 @@ package syncer
 
 import (
 	"github.com/stretchr/testify/mock"
-	"github.com/vultisig/vultisigner/internal/syncer"
-	"github.com/vultisig/vultisigner/internal/types"
+
+	"github.com/vultisig/vultiserver-plugin/internal/syncer"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 type MockSyncer struct {

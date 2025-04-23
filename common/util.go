@@ -212,6 +212,38 @@ func GetThreshold(value int) (int, error) {
 	return threshold, nil
 }
 
+func EncryptGCM(plainText string, hexEncryptKey string) (string, error) {
+	passwd, err := hex.DecodeString(hexEncryptKey)
+	if err != nil {
+		return "", err
+	}
+
+	hash := sha256.Sum256(passwd)
+	key := hash[:]
+
+	// Create a new AES cipher using the key
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+
+	// Use GCM (Galois/Counter Mode)
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+
+	// Create a nonce. Nonce size is specified by GCM
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", err
+	}
+
+	// Seal encrypts and authenticates plaintext
+	ciphertext := gcm.Seal(nonce, nonce, []byte(plainText), nil)
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
 func DecryptGCM(rawData []byte, hexEncryptKey string) ([]byte, error) {
 	password, err := hex.DecodeString(hexEncryptKey)
 	if err != nil {

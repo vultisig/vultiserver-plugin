@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/internal/jwt"
-	"github.com/vultisig/vultisigner/internal/password"
-	"github.com/vultisig/vultisigner/internal/sigutil"
-	"github.com/vultisig/vultisigner/internal/tasks"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/plugin"
-	"github.com/vultisig/vultisigner/plugin/dca"
-	"github.com/vultisig/vultisigner/plugin/payroll"
+	"github.com/vultisig/vultiserver-plugin/common"
+	"github.com/vultisig/vultiserver-plugin/internal/jwt"
+	"github.com/vultisig/vultiserver-plugin/internal/password"
+	"github.com/vultisig/vultiserver-plugin/internal/sigutil"
+	"github.com/vultisig/vultiserver-plugin/internal/tasks"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/plugin"
+	"github.com/vultisig/vultiserver-plugin/plugin/dca"
+	"github.com/vultisig/vultiserver-plugin/plugin/payroll"
 
 	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/hibiken/asynq"
@@ -143,7 +143,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, message)
 	}
 
-	req.StartSession = false
 	req.Parties = []string{common.PluginPartyID, common.VerifierPartyID}
 
 	buf, err := json.Marshal(req)

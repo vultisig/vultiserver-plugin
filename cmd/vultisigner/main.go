@@ -7,10 +7,10 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vultisig/vultisigner/api"
-	"github.com/vultisig/vultisigner/config"
-	"github.com/vultisig/vultisigner/storage"
-	"github.com/vultisig/vultisigner/storage/postgres"
+	"github.com/vultisig/vultiserver-plugin/api"
+	"github.com/vultisig/vultiserver-plugin/config"
+	"github.com/vultisig/vultiserver-plugin/storage"
+	"github.com/vultisig/vultiserver-plugin/storage/postgres"
 )
 
 func main() {

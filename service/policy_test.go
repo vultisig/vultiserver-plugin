@@ -3,14 +3,15 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/test/mocks/database"
-	"github.com/vultisig/vultisigner/test/mocks/scheduler"
-	"github.com/vultisig/vultisigner/test/mocks/syncer"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/test/mocks/database"
+	"github.com/vultisig/vultiserver-plugin/test/mocks/scheduler"
+	"github.com/vultisig/vultiserver-plugin/test/mocks/syncer"
 
 	"testing"
 )

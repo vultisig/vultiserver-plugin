@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/vultisig/vultisigner/common"
+	"github.com/vultisig/vultiserver-plugin/common"
 	"math/big"
 	"strconv"
 	"strings"
@@ -16,12 +16,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gcommon "github.com/ethereum/go-ethereum/common"
 	gtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hibiken/asynq"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+)
+
+// TODO: remove once the plugin installation is implemented
+const (
+	vaultPassword    = "pass"
+	hexEncryptionKey = "hexencryptionkey"
 )
 
 func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginKeysignRequest, error) {
@@ -43,6 +48,8 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 			payrollPolicy.ChainID[i],
 			payrollPolicy.TokenID[i],
 			policy.PublicKey,
+			policy.ChainCodeHex,
+			policy.DerivePath,
 		)
 		fmt.Printf("Chain ID TEST 1: %s\n", payrollPolicy.ChainID[i])
 		if err != nil {
@@ -55,12 +62,12 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 		signRequest := types.PluginKeysignRequest{
 			KeysignRequest: types.KeysignRequest{
 				PublicKey:        policy.PublicKey,
-				Messages:         []string{txHash},
+				Messages:         []string{hex.EncodeToString(txHash)},
 				SessionID:        uuid.New().String(),
-				HexEncryptionKey: "0123456789abcdef0123456789abcdef",
-				DerivePath:       "m/44/60/0/0/0",
+				HexEncryptionKey: hexEncryptionKey,
+				DerivePath:       policy.DerivePath,
 				IsECDSA:          IsECDSA(chainIDInt),
-				VaultPassword:    "your-secure-password",
+				VaultPassword:    vaultPassword,
 			},
 			Transaction: hex.EncodeToString(rawTx),
 			PluginID:    policy.PluginID,
@@ -88,19 +95,19 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 	return txs, nil
 }
 
-func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipientString string, chainID string, tokenID string, publicKey string) (string, []byte, error) {
+func (p *PayrollPlugin) generatePayrollTransaction(amountString, recipientString, chainID, tokenID, publicKey, chainCodeHex, derivePath string) ([]byte, []byte, error) {
 	amount := new(big.Int)
 	amount.SetString(amountString, 10)
 	recipient := gcommon.HexToAddress(recipientString)
 
 	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to parse ABI: %v", err)
+		return nil, nil, fmt.Errorf("failed to parse ABI: %v", err)
 	}
 
 	inputData, err := parsedABI.Pack("transfer", recipient, amount)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to pack transfer data: %v", err)
+		return nil, nil, fmt.Errorf("failed to pack transfer data: %v", err)
 	}
 
 	// create call message to estimate gas
@@ -113,14 +120,14 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 	// estimate gas limit
 	gasLimit, err := p.rpcClient.EstimateGas(context.Background(), callMsg)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to estimate gas: %v", err)
+		return nil, nil, fmt.Errorf("failed to estimate gas: %v", err)
 	}
 	// add 20% to gas limit for safety
 	gasLimit = gasLimit * 300 / 100
 	// get suggested gas price
 	gasPrice, err := p.rpcClient.SuggestGasPrice(context.Background())
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to get gas price: %v", err)
+		return nil, nil, fmt.Errorf("failed to get gas price: %v", err)
 	}
 	gasPrice = new(big.Int).Mul(gasPrice, big.NewInt(3))
 	// Parse chain ID
@@ -128,25 +135,28 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 	chainIDInt.SetString(chainID, 10)
 	fmt.Printf("Chain ID TEST 3: %s\n", chainIDInt.String())
 
-	derivedAddress, err := common.DeriveAddress(publicKey, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", "m/44/60/0/0/0")
+	derivedAddress, err := common.DeriveAddress(publicKey, chainCodeHex, derivePath)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to derive address: %v", err)
+		return nil, nil, fmt.Errorf("failed to derive address: %v", err)
 	}
 
 	nextNonce, err := p.GetNextNonce(derivedAddress.Hex())
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to get nonce: %v", err)
+		return nil, nil, fmt.Errorf("failed to get nonce: %v", err)
 	}
 
 	// Create unsigned transaction data
+	V := new(big.Int).Set(chainIDInt)
+	V = V.Mul(V, big.NewInt(2))
+	V = V.Add(V, big.NewInt(35))
 	txData := []interface{}{
-		uint64(nextNonce),             // nonce
+		nextNonce,                     // nonce
 		gasPrice,                      // gas price
-		uint64(gasLimit),              // gas limit
-		gcommon.HexToAddress(tokenID), // to address
+		gasLimit,                      // gas limit
+		gcommon.HexToAddress(tokenID), // to
 		big.NewInt(0),                 // value
 		inputData,                     // data
-		chainIDInt,                    // chain id
+		V,                             // chain id
 		uint(0),                       // empty v
 		uint(0),                       // empty r
 	}
@@ -167,10 +177,12 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 
 	rawTx, err := rlp.EncodeToBytes(txData)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to RLP encode transaction: %v", err)
+		return nil, nil, fmt.Errorf("failed to RLP encode transaction: %v", err)
 	}
 
-	txHash := crypto.Keccak256(rawTx)
+	signer := gtypes.NewEIP155Signer(chainIDInt)
+	tx := gtypes.NewTransaction(nextNonce, gcommon.HexToAddress(tokenID), big.NewInt(0), gasLimit, gasPrice, inputData)
+	txHash := signer.Hash(tx).Bytes()
 
 	p.logger.WithFields(logrus.Fields{
 		"raw_tx_hex":   hex.EncodeToString(rawTx),
@@ -183,15 +195,15 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString string, recipien
 		return []types.PluginKeysignRequest{}, fmt.Errorf("failed to decode transaction hex: %w", err)
 	}*/
 	//unmarshal tx from sign req.transaction
-	tx := &gtypes.Transaction{}
-	err = rlp.DecodeBytes(rawTx, tx)
+	txCheck := &gtypes.Transaction{}
+	err = rlp.DecodeBytes(rawTx, txCheck)
 	if err != nil {
 		p.logger.Errorf("Failed to RLP decode transaction: %v", err)
-		return "", nil, fmt.Errorf("failed to RLP decode transaction: %v: %w", err, asynq.SkipRetry)
+		return nil, nil, fmt.Errorf("failed to RLP decode transaction: %v: %w", err, asynq.SkipRetry)
 	}
-	fmt.Printf("Chain ID TEST 4: %s\n", tx.ChainId().String())
+	fmt.Printf("Chain ID TEST 4: %s\n", txCheck.ChainId().String())
 
-	return hex.EncodeToString(txHash), rawTx, nil
+	return txHash, rawTx, nil
 }
 
 func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) error {

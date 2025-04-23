@@ -21,18 +21,18 @@ import (
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
 	"github.com/vultisig/mobile-tss-lib/tss"
 
-	"github.com/vultisig/vultisigner/common"
-	"github.com/vultisig/vultisigner/config"
-	"github.com/vultisig/vultisigner/contexthelper"
-	"github.com/vultisig/vultisigner/internal/syncer"
-	"github.com/vultisig/vultisigner/internal/tasks"
-	"github.com/vultisig/vultisigner/internal/types"
-	"github.com/vultisig/vultisigner/plugin"
-	"github.com/vultisig/vultisigner/plugin/dca"
-	"github.com/vultisig/vultisigner/plugin/payroll"
-	"github.com/vultisig/vultisigner/relay"
-	"github.com/vultisig/vultisigner/storage"
-	"github.com/vultisig/vultisigner/storage/postgres"
+	"github.com/vultisig/vultiserver-plugin/common"
+	"github.com/vultisig/vultiserver-plugin/config"
+	"github.com/vultisig/vultiserver-plugin/internal/syncer"
+	"github.com/vultisig/vultiserver-plugin/internal/tasks"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/plugin"
+	"github.com/vultisig/vultiserver-plugin/plugin/dca"
+	"github.com/vultisig/vultiserver-plugin/plugin/payroll"
+	"github.com/vultisig/vultiserver-plugin/relay"
+	"github.com/vultisig/vultiserver-plugin/storage"
+	"github.com/vultisig/vultiserver-plugin/storage/postgres"
+	"github.com/vultisig/vultiserver/contexthelper"
 )
 
 type WorkerStorage interface {
@@ -482,7 +482,8 @@ func (s *WorkerService) executeSigningProcess(
 	jwtToken string,
 	policy types.PluginPolicy) error {
 
-	signRequest.KeysignRequest.StartSession = true
+	// signRequest.KeysignRequest.StartSession = true
+
 	signRequest.KeysignRequest.Parties = []string{common.PluginPartyID, common.VerifierPartyID}
 	buf, err := json.Marshal(signRequest)
 	if err != nil {

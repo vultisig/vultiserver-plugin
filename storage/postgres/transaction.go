@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 func (p *PostgresBackend) CreateTransactionHistoryTx(ctx context.Context, dbTx pgx.Tx, tx types.TransactionHistory) (uuid.UUID, error) {
@@ -39,7 +40,7 @@ func (p *PostgresBackend) CreateTransactionHistoryTx(ctx context.Context, dbTx p
 
 func (p *PostgresBackend) UpdateTransactionStatusTx(ctx context.Context, dbTx pgx.Tx, txID uuid.UUID, status types.TransactionStatus, metadata map[string]interface{}) error {
 	query := `
-        UPDATE transaction_history 
+        UPDATE transaction_history
         SET status = $1, metadata = metadata || $2::jsonb, updated_at = NOW()
         WHERE id = $3
     `
@@ -73,7 +74,7 @@ func (p *PostgresBackend) CreateTransactionHistory(ctx context.Context, tx types
 
 func (p *PostgresBackend) UpdateTransactionStatus(ctx context.Context, txID uuid.UUID, status types.TransactionStatus, metadata map[string]interface{}) error {
 	query := `
-        UPDATE transaction_history 
+        UPDATE transaction_history
         SET status = $1, metadata = metadata || $2::jsonb, updated_at = NOW()
         WHERE id = $3
     `
@@ -124,15 +125,15 @@ func (p *PostgresBackend) GetTransactionHistory(ctx context.Context, policyID uu
 
 func (p *PostgresBackend) GetTransactionByHash(ctx context.Context, txHash string) (*types.TransactionHistory, error) {
 	query := `
-        SELECT 
-            id, 
-            policy_id, 
-            tx_body, 
+        SELECT
+            id,
+            policy_id,
+            tx_body,
             tx_hash,
-            status, 
-            created_at, 
-            updated_at, 
-            metadata, 
+            status,
+            created_at,
+            updated_at,
+            metadata,
             error_message
         FROM transaction_history
         WHERE tx_hash = $1
