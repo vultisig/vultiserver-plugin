@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/vultisig/vultisigner/storage"
 	"time"
+
+	"github.com/vultisig/vultiserver-plugin/storage"
 
 	"github.com/jackc/pgx/v5"
 

@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 func (p *PostgresBackend) CreateTransactionHistoryTx(ctx context.Context, dbTx pgx.Tx, tx types.TransactionHistory) (uuid.UUID, error) {

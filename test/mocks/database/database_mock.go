@@ -2,10 +2,11 @@ package database
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/mock"
-	"github.com/vultisig/vultisigner/internal/types"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 type MockDB struct {

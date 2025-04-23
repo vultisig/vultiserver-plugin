@@ -3,9 +3,6 @@ package syncer
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
-	"github.com/vultisig/vultisigner/internal/types"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +10,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
 func TestCreatePolicySync(t *testing.T) {
