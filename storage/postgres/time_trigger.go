@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vultisig/vultiserver-plugin/storage"
+
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
+
+var _ storage.TimeTriggerRepository = (*PostgresBackend)(nil)
 
 func (p *PostgresBackend) CreateTimeTriggerTx(ctx context.Context, tx pgx.Tx, trigger types.TimeTrigger) error {
 	if p.pool == nil {

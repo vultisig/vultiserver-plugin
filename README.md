@@ -349,7 +349,7 @@ mc ls local
 
 
 
-### 1. Start the required infrastructure
+### 1. Start the required infrastructure (Docker)
 
 - Postgres
 - Redis

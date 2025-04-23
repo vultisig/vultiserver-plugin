@@ -33,7 +33,7 @@ func main() {
 		panic(fmt.Errorf("failed to hash password: %w", err))
 	}
 
-	pool, err := pgxpool.New(ctx, cfg.Server.Database.DSN)
+	pool, err := pgxpool.New(ctx, cfg.Database.DSN)
 	if err != nil {
 		panic(fmt.Errorf("failed to create connection pool: %w", err))
 	}

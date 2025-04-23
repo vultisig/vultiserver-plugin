@@ -68,35 +68,37 @@ func NewServer(
 	client *asynq.Client,
 	inspector *asynq.Inspector,
 	sdClient *statsd.Client,
-	vaultFilePath string,
 	mode string,
-	jwtSecret string,
 	pluginType string,
-	rpcURL string,
 	pluginConfigs map[string]map[string]interface{},
+	vaultFilePath string,
+	jwtSecret string,
 	logger *logrus.Logger,
 ) *Server {
 	logger.Infof("Server mode: %s, plugin type: %s", mode, pluginType)
 
 	var plugin plugin.Plugin
-	var schedulerService *scheduler.SchedulerService
-	var syncerService syncer.PolicySyncer
+	var schedulerService *scheduler.SchedulerService = nil
+	var syncerService syncer.PolicySyncer = nil
 	var err error
+
 	if mode == "plugin" {
 		switch pluginType {
-		case "payroll":
-			plugin, err = payroll.NewPayrollPlugin(db, logrus.WithField("service", "plugin").Logger, pluginConfigs["payroll"])
+		case payroll.PluginType:
+			plugin, err = payroll.NewPayrollPlugin(db, logrus.WithField("service", "plugin").Logger, pluginConfigs[payroll.PluginType])
 			if err != nil {
 				logger.Fatal("failed to initialize payroll plugin", err)
 			}
-		case "dca":
-			plugin, err = dca.NewDCAPlugin(db, logger, pluginConfigs["dca"])
+
+		case dca.PluginType:
+			plugin, err = dca.NewDCAPlugin(db, logger, pluginConfigs[dca.PluginType])
 			if err != nil {
 				logger.Fatal("fail to initialize DCA plugin: ", err)
 			}
 		default:
 			logger.Fatalf("Invalid plugin type: %s", pluginType)
 		}
+
 		schedulerService = scheduler.NewSchedulerService(
 			db,
 			logger.WithField("service", "scheduler").Logger,
@@ -108,7 +110,7 @@ func NewServer(
 
 		logger.Info("Creating Syncer")
 
-		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Server.Host, cfg.Server.Port)
+		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Verifier.Host, cfg.Verifier.Port)
 	}
 
 	policyService, err := service.NewPolicyService(db, syncerService, schedulerService, logger.WithField("service", "policy").Logger)
@@ -222,7 +224,13 @@ func (s *Server) StartServer() error {
 	syncGroup.POST("/transaction", s.CreateTransaction)
 	syncGroup.PUT("/transaction", s.UpdateTransaction)
 
-	return e.Start(fmt.Sprintf(":%d", s.cfg.Server.Port))
+	var port int64
+	if s.cfg.Mode == "plugin" {
+		port = s.cfg.Plugin.Port
+	} else if s.cfg.Mode == "verifier" {
+		port = s.cfg.Verifier.Port
+	}
+	return e.Start(fmt.Sprintf(":%d", port))
 }
 
 func (s *Server) Ping(c echo.Context) error {

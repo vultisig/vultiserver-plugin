@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/vultisig/vultiserver-plugin/config"
 	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/plugin/dca"
 )
 
 var vaultName string
@@ -77,10 +78,10 @@ func main() {
 	policy := types.PluginPolicy{
 		ID:            policyId,
 		PublicKey:     key,
-		PluginID:      "dca",
-		PluginVersion: "1.0.0",
-		PolicyVersion: "1.0.0",
-		PluginType:    "dca",
+		PluginID:      dca.PluginType,
+		PluginVersion: dca.PluginVersion,
+		PolicyVersion: dca.PolicyVersion,
+		PluginType:    dca.PluginType,
 		Active:        true,
 		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
@@ -106,7 +107,7 @@ func main() {
 	fmt.Println("DCA policy", string(policyBytes))
 	policy.Policy = policyBytes
 
-	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Server.Host, pluginConfig.Server.Port)
+	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Plugin.Host, pluginConfig.Plugin.Port)
 
 	reqBytes, err := json.Marshal(policy)
 	if err != nil {
