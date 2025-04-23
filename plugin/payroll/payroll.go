@@ -16,12 +16,6 @@ const (
 	policyVersion = "0.0.1"
 )
 
-const (
-	PluginType    = "payroll"
-	pluginVersion = "0.0.1"
-	policyVersion = "0.0.1"
-)
-
 //go:embed frontend
 var frontend embed.FS
 
