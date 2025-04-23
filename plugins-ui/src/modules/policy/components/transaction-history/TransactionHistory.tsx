@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { usePolicies } from "../../context/PolicyProvider";
-import { PolicyTransactionHistory } from "../../models/policy";
-import "./TransactionHistory.css";
+import { usePolicies } from "@/modules/policy/context/PolicyProvider";
+import { PolicyTransactionHistory } from "@/modules/policy/models/policy";
+import "@/modules/policy/components/transaction-history/TransactionHistory.css";
 import { publish } from "@/utils/eventBus";
 import Pagination from "@/modules/core/components/ui/pagination/Pagination";
 
@@ -73,22 +73,36 @@ const TransactionHistory = ({ policyId }: TransactionHistoryProps) => {
   };
 
   return (
-    <div className="history-panel">
+    <div className="history-panel" data-testid="transaction-history-wrapper">
       <h2>Transaction History</h2>
       <ul>
         {historyData &&
           historyData.map((item) => {
             const { date, time } = formatDate(item.updated_at);
             return (
-              <li key={item.id} className="history-item">
-                <span className="history-status">{item.status}</span>
-                <span className="history-date">{date}</span>
-                <span className="history-time">{time}</span>
+              <li
+                key={item.id}
+                className="history-item"
+                data-testid="transaction-history-entries"
+              >
+                <span className="history-status" data-testid="status">
+                  {item.status}
+                </span>
+                <span className="history-date" data-testid="date">
+                  {date}
+                </span>
+                <span className="history-time" data-testid="time">
+                  {time}
+                </span>
               </li>
             );
           })}
-        {!historyData && (
-          <li key={1} className="history-item">
+        {!historyData?.length && (
+          <li
+            key={1}
+            className="history-item"
+            data-testid="transaction-history-no-results"
+          >
             Nothing to see here yet.
           </li>
         )}

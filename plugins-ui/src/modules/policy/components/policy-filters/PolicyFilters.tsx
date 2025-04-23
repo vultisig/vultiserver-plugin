@@ -15,19 +15,10 @@ type Status = "all" | "active" | "inactive";
 const policyStatuses = ["all", "active", "inactive"];
 const DEFAULT_STATUS = "all";
 
-const isStatus = (value: string): value is Status => {
-  return policyStatuses.includes(value);
-};
-
 // if needed this function could be further extended or refactor in case not all policies have active status
 const PolicyFilters = ({ onFiltersChange }: TableFitlersProps) => {
   const handleStatusChange = (change: string) => {
-    if (!isStatus(change)) {
-      onFiltersChange([]);
-      return;
-    }
-
-    const value = statusMap[change];
+    const value = statusMap[change as keyof typeof statusMap];
     onFiltersChange(value === null ? [] : [{ id: "status", value }]);
   };
 

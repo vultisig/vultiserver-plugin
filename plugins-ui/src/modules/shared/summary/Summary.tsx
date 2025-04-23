@@ -1,7 +1,7 @@
 import Accordion from "@/modules/core/components/ui/accordion/Accordion";
 import "./Summary.css";
 
-type Row = { key: string; value: string };
+export type Row = { key: string; value: string };
 
 type SummaryProps = {
   title: string;
