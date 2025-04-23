@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/vultisig/vultiserver-plugin/config"
 	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/plugin"
+	"github.com/vultisig/vultiserver-plugin/plugin/payroll"
 )
 
 var vaultName string
@@ -114,18 +116,18 @@ func main() {
 		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
-	payrollPolicy := types.PayrollPolicy{
+	payrollPolicy := payroll.Policy{
 		ChainID:    chainIDs, // Todo : move this elsewhere, or the frontend deals with this?
 		TokenID:    tokenContracts,
-		Recipients: []types.PayrollRecipient{},
-		Schedule: types.Schedule{
+		Recipients: []payroll.Recipient{},
+		Schedule: plugin.Schedule{
 			Frequency: frequency,
 			StartTime: time.Now().UTC().Add(20 * time.Second).Format(time.RFC3339),
 		},
 	}
 
 	for i, recipient := range recipientAddresses {
-		payrollPolicy.Recipients = append(payrollPolicy.Recipients, types.PayrollRecipient{
+		payrollPolicy.Recipients = append(payrollPolicy.Recipients, payroll.Recipient{
 			Address: recipient,
 			Amount:  recipientAmounts[i],
 		})

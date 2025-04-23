@@ -19,19 +19,19 @@ const (
 //go:embed frontend
 var frontend embed.FS
 
-type PayrollPlugin struct {
+type Plugin struct {
 	db           storage.DatabaseStorage
 	nonceManager *plugin.NonceManager
 	rpcClient    *ethclient.Client
 	logger       logrus.FieldLogger
 }
 
-type PayrollPluginConfig struct {
+type PluginConfig struct {
 	RpcURL string `mapstructure:"rpc_url" json:"rpc_url"`
 }
 
-func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rawConfig map[string]interface{}) (*PayrollPlugin, error) {
-	var cfg PayrollPluginConfig
+func NewPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rawConfig map[string]interface{}) (*Plugin, error) {
+	var cfg PluginConfig
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, raw
 		return nil, err
 	}
 
-	return &PayrollPlugin{
+	return &Plugin{
 		db:           db,
 		rpcClient:    rpcClient,
 		nonceManager: plugin.NewNonceManager(rpcClient),
@@ -49,10 +49,10 @@ func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, raw
 	}, nil
 }
 
-func (p *PayrollPlugin) FrontendSchema() ([]byte, error) {
+func (p *Plugin) FrontendSchema() ([]byte, error) {
 	return frontend.ReadFile("./fronted/index.html") //TODO: jsonSchema not implemented yet
 }
 
-func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {
+func (p *Plugin) GetNextNonce(address string) (uint64, error) {
 	return p.nonceManager.GetNextNonce(address)
 }
