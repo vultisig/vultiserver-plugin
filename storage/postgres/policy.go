@@ -23,8 +23,8 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types
 	var policyJSON []byte
 
 	query := `
-        SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy 
-        FROM plugin_policies 
+        SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
+        FROM plugin_policies
         WHERE id = $1`
 
 	err := p.pool.QueryRow(ctx, query, id).Scan(
@@ -56,7 +56,7 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 	}
 
 	query := `
-  	SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy 
+  	SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy
 		FROM plugin_policies
 		WHERE public_key = $1
 		AND plugin_type = $2`
@@ -148,9 +148,9 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 
 	// TODO: update other fields
 	query := `
-		UPDATE plugin_policies 
-		SET public_key = $2, 
-				plugin_type = $3, 
+		UPDATE plugin_policies
+		SET public_key = $2,
+				plugin_type = $3,
 				signature = $4,
 				active = $5,
 				policy = $6

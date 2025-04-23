@@ -14,48 +14,18 @@ import (
 )
 
 const PLUGINS_TABLE = "plugins"
+const PLUGIN_TAGS_TABLE = "plugin_tags"
 
-func (p *PostgresBackend) FindPluginById(ctx context.Context, id string) (*types.Plugin, error) {
-	query := fmt.Sprintf(`SELECT * FROM %s WHERE id = $1 LIMIT 1;`, PLUGINS_TABLE)
-
-	rows, err := p.pool.Query(ctx, query, id)
-	if err != nil {
-		return nil, err
-	}
-
-	plugin, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[types.Plugin])
-	if err != nil {
-		return nil, err
-	}
-
-	return &plugin, nil
-}
-
-func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, sort string) (types.PlugisDto, error) {
-	if p.pool == nil {
-		return types.PlugisDto{}, fmt.Errorf("database pool is nil")
-	}
-
-	orderBy, orderDirection := common.GetSortingCondition(sort)
-
-	query := fmt.Sprintf(`
-		SELECT *, COUNT(*) OVER() AS total_count
-		FROM %s 
-		ORDER BY %s %s
-		LIMIT $1 OFFSET $2`, PLUGINS_TABLE, orderBy, orderDirection)
-
-	rows, err := p.pool.Query(ctx, query, take, skip)
-	if err != nil {
-		return types.PlugisDto{}, err
-	}
-
+func (P *PostgresBackend) collectPlugins(rows pgx.Rows) ([]types.Plugin, error) {
 	defer rows.Close()
 
 	var plugins []types.Plugin
-	var totalCount int
-
+	pluginMap := make(map[string]*types.Plugin)
 	for rows.Next() {
 		var plugin types.Plugin
+		var tagId *string
+		var tagName *string
+		var tagColor *string
 
 		err := rows.Scan(
 			&plugin.ID,
@@ -67,21 +37,198 @@ func (p *PostgresBackend) FindPlugins(ctx context.Context, skip int, take int, s
 			&plugin.Metadata,
 			&plugin.ServerEndpoint,
 			&plugin.PricingID,
-			&totalCount,
+			&plugin.CategoryID,
+			&tagId,
+			&tagName,
+			&tagColor,
 		)
 		if err != nil {
-			return types.PlugisDto{}, err
+			return plugins, err
 		}
 
-		plugins = append(plugins, plugin)
+		// add plugin if does not already exist in the map
+		if _, exists := pluginMap[plugin.ID]; !exists {
+			plugin.Tags = []types.Tag{}
+			pluginMap[plugin.ID] = &plugin
+		}
+
+		// add tag to plugin tag list
+		if tagId != nil {
+			pluginMap[plugin.ID].Tags = append(pluginMap[plugin.ID].Tags, types.Tag{
+				ID:    *tagId,
+				Name:  *tagName,
+				Color: *tagColor,
+			})
+		}
 	}
 
-	pluginsDto := types.PlugisDto{
+	// convert map to list
+	for _, p := range pluginMap {
+		plugins = append(plugins, *p)
+	}
+
+	return plugins, nil
+}
+
+func (p *PostgresBackend) FindPluginById(ctx context.Context, id string) (*types.Plugin, error) {
+	query := fmt.Sprintf(
+		`SELECT p.*, t.*
+		FROM %s p
+		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
+		LEFT JOIN tags t ON pt.tag_id = t.id
+		WHERE p.id = $1;`,
+		PLUGINS_TABLE,
+	)
+
+	rows, err := p.pool.Query(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	plugins, err := p.collectPlugins(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	plugin := plugins[0]
+
+	return &plugin, nil
+}
+
+func (p *PostgresBackend) FindPlugins(
+	ctx context.Context,
+	filters types.PluginFilters,
+	skip int,
+	take int,
+	sort string,
+) (types.PluginsPaginatedList, error) {
+	if p.pool == nil {
+		return types.PluginsPaginatedList{}, fmt.Errorf("database pool is nil")
+	}
+
+	orderBy, orderDirection := common.GetSortingCondition(sort)
+
+	joinQuery := fmt.Sprintf(`
+		FROM %s p
+		LEFT JOIN plugin_tags pt ON p.id = pt.plugin_id
+		LEFT JOIN tags t ON pt.tag_id = t.id`,
+		PLUGINS_TABLE,
+	)
+
+	query := `SELECT p.*, t.*` + joinQuery
+	queryTotal := `SELECT COUNT(DISTINCT p.id) as total_count` + joinQuery
+
+	args := []any{}
+	argsTotal := []any{}
+	currentArgNumber := 1
+
+	// filters
+	filterClause := "WHERE"
+	if filters.Term != nil {
+		queryFilter := fmt.Sprintf(
+			` %s (p.title ILIKE $%d OR p.description ILIKE $%d)`,
+			filterClause,
+			currentArgNumber,
+			currentArgNumber+1,
+		)
+		filterClause = "AND"
+		currentArgNumber += 2
+
+		term := "%" + *filters.Term + "%"
+		args = append(args, term, term)
+		argsTotal = append(argsTotal, term, term)
+
+		query += queryFilter
+		queryTotal += queryFilter
+	}
+
+	if filters.TagID != nil {
+		queryFilter := fmt.Sprintf(
+			` %s p.id IN (
+				SELECT pti.plugin_id
+    		FROM plugin_tags pti
+    		JOIN tags ti ON pti.tag_id = ti.id
+    		WHERE ti.id = $%d
+			)`,
+			filterClause,
+			currentArgNumber,
+		)
+
+		queryFilterTotal := fmt.Sprintf(
+			` %s t.id = $%d`,
+			filterClause,
+			currentArgNumber,
+		)
+		filterClause = "AND"
+		currentArgNumber += 1
+
+		args = append(args, filters.TagID)
+		argsTotal = append(argsTotal, filters.TagID)
+
+		query += queryFilter
+		queryTotal += queryFilterTotal
+	}
+
+	if filters.CategoryID != nil {
+		queryFilter := fmt.Sprintf(
+			` %s p.category_id = $%d`,
+			filterClause,
+			currentArgNumber,
+		)
+		filterClause = "AND"
+		currentArgNumber += 1
+
+		args = append(args, filters.CategoryID)
+		argsTotal = append(argsTotal, filters.CategoryID)
+
+		query += queryFilter
+		queryTotal += queryFilter
+	}
+
+	// pagination
+	queryOrderPaginate := fmt.Sprintf(
+		` ORDER BY p.%s %s LIMIT $%d OFFSET $%d;`,
+		pgx.Identifier{orderBy}.Sanitize(),
+		orderDirection,
+		currentArgNumber,
+		currentArgNumber+1,
+	)
+	args = append(args, take, skip)
+	query += queryOrderPaginate
+
+	queryTotal += " GROUP BY p.id;"
+
+	// execute
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return types.PluginsPaginatedList{}, err
+	}
+
+	plugins, err := p.collectPlugins(rows)
+	if err != nil {
+		return types.PluginsPaginatedList{}, err
+	}
+
+	// execute total results count
+	var totalCount int
+	err = p.pool.QueryRow(ctx, queryTotal, argsTotal...).Scan(&totalCount)
+	if err != nil {
+		// exactly 1 row expected, if no results return empty list
+		if err.Error() == "no rows in result set" {
+			return types.PluginsPaginatedList{
+				Plugins:    plugins,
+				TotalCount: 0,
+			}, nil
+		}
+		return types.PluginsPaginatedList{}, err
+	}
+
+	pluginsList := types.PluginsPaginatedList{
 		Plugins:    plugins,
 		TotalCount: totalCount,
 	}
 
-	return pluginsDto, nil
+	return pluginsList, nil
 }
 
 func (p *PostgresBackend) CreatePlugin(ctx context.Context, pluginDto types.PluginCreateDto) (*types.Plugin, error) {
@@ -91,14 +238,16 @@ func (p *PostgresBackend) CreatePlugin(ctx context.Context, pluginDto types.Plug
 		description,
 		metadata,
 		server_endpoint,
-		pricing_id
+		pricing_id,
+		category_id
 	) VALUES (
 		@Type,
 		@Title,
 		@Description,
 		@Metadata,
 		@ServerEndpoint,
-		@PricingID
+		@PricingID,
+		@CategoryID
 	) RETURNING id;`, PLUGINS_TABLE)
 	args := pgx.NamedArgs{
 		"Type":           pluginDto.Type,
@@ -107,6 +256,7 @@ func (p *PostgresBackend) CreatePlugin(ctx context.Context, pluginDto types.Plug
 		"Metadata":       pluginDto.Metadata,
 		"ServerEndpoint": pluginDto.ServerEndpoint,
 		"PricingID":      pluginDto.PricingID,
+		"CategoryID":     pluginDto.CategoryID,
 	}
 
 	var createdId string
@@ -182,4 +332,40 @@ func (p *PostgresBackend) DeletePluginById(ctx context.Context, id string) error
 	}
 
 	return nil
+}
+
+func (p *PostgresBackend) AttachTagToPlugin(ctx context.Context, pluginId string, tagId string) (*types.Plugin, error) {
+	query := fmt.Sprintf(`INSERT INTO %s (
+		plugin_id,
+		tag_id
+	) VALUES (
+		@PluginID,
+		@TagID
+	);`, PLUGIN_TAGS_TABLE)
+	args := pgx.NamedArgs{
+		"PluginID": pluginId,
+		"TagID":    tagId,
+	}
+
+	_, err := p.pool.Exec(ctx, query, args)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.FindPluginById(ctx, pluginId)
+}
+
+func (p *PostgresBackend) DetachTagFromPlugin(ctx context.Context, pluginId string, tagId string) (*types.Plugin, error) {
+	query := fmt.Sprintf(`DELETE FROM %s WHERE plugin_id = @PluginID AND tag_id = @TagID;`, PLUGIN_TAGS_TABLE)
+	args := pgx.NamedArgs{
+		"PluginID": pluginId,
+		"TagID":    tagId,
+	}
+
+	_, err := p.pool.Exec(ctx, query, args)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.FindPluginById(ctx, pluginId)
 }

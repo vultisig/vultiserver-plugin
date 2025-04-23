@@ -15,9 +15,17 @@ type Plugin struct {
 	Metadata       json.RawMessage `json:"metadata" validate:"required"`
 	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
 	PricingID      string          `json:"pricing_id" validate:"required"`
+	CategoryID     string          `json:"category_id" validate:"required"`
+	Tags           []Tag           `json:"tags"`
 }
 
-type PlugisDto struct {
+type PluginFilters struct {
+	Term       *string `json:"term"`
+	TagID      *string `json:"tag_id"`
+	CategoryID *string `json:"category_id"`
+}
+
+type PluginsPaginatedList struct {
 	Plugins    []Plugin `json:"plugins"`
 	TotalCount int      `json:"total_count"`
 }
@@ -29,6 +37,7 @@ type PluginCreateDto struct {
 	Metadata       json.RawMessage `json:"metadata" validate:"required"`
 	ServerEndpoint string          `json:"server_endpoint" validate:"required"`
 	PricingID      string          `json:"pricing_id" validate:"required"`
+	CategoryID     string          `json:"category_id" validate:"required"`
 }
 
 // using references on struct fields allows us to process partially field DTOs
@@ -38,4 +47,5 @@ type PluginUpdateDto struct {
 	Metadata       *json.RawMessage `json:"metadata"`
 	ServerEndpoint *string          `json:"server_endpoint"`
 	PricingID      *string          `json:"pricing_id"`
+	CategoryID     string           `json:"category_id" validate:"required"`
 }

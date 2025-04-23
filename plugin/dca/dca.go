@@ -12,12 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
-	"github.com/vultisig/vultiserver-plugin/common"
-	"github.com/vultisig/vultiserver-plugin/internal/sigutil"
-	"github.com/vultisig/vultiserver-plugin/internal/types"
-	"github.com/vultisig/vultiserver-plugin/pkg/uniswap"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gcommon "github.com/ethereum/go-ethereum/common"
@@ -26,9 +20,15 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/mobile-tss-lib/tss"
+
+	"github.com/vultisig/vultiserver-plugin/common"
+	"github.com/vultisig/vultiserver-plugin/internal/sigutil"
+	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/pkg/uniswap"
 )
 
 const (

@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
 	rsyncer "github.com/vultisig/vultiserver-plugin/internal/syncer"
 	"github.com/vultisig/vultiserver-plugin/internal/tasks"
 	"github.com/vultisig/vultiserver-plugin/internal/types"

@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"github.com/stretchr/testify/mock"
+
 	"github.com/vultisig/vultiserver-plugin/internal/syncer"
 	"github.com/vultisig/vultiserver-plugin/internal/types"
 )

@@ -8,9 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
 	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/vultisig/vultiserver-plugin/internal/tasks"
