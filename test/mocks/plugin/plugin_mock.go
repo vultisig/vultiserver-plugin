@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"embed"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/vultisig/mobile-tss-lib/tss"
@@ -23,9 +22,9 @@ func (m *MockPlugin) SigningComplete(ctx context.Context, signature tss.KeysignR
 	return args.Error(0)
 }
 
-func (m *MockPlugin) FrontendSchema() embed.FS {
+func (m *MockPlugin) FrontendSchema() ([]byte, error) {
 	args := m.Called()
-	return args.Get(0).(embed.FS)
+	return args.Get(0).([]byte), args.Error(1)
 }
 
 func (m *MockPlugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
