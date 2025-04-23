@@ -369,9 +369,16 @@ func (s *WorkerService) JoinKeySign(req types.KeysignRequest) (map[string]tss.Ke
 	localPartyId := localStateAccessor.Vault.LocalPartyId
 	server := relay.NewRelayClient(serverURL)
 
-	// Let's register session here
-	if err := server.RegisterSessionWithRetry(req.SessionID, localPartyId); err != nil {
-		return nil, fmt.Errorf("failed to register session: %w", err)
+	// TODO: remove this, and provide proper fix for the DKLS keysign
+	if s.cfg.Mode == "plugin" {
+		err := server.StartSession(req.SessionID, req.Parties)
+		if err != nil {
+			return nil, fmt.Errorf("failed to start session: %w", err)
+		}
+	} else {
+		if err := server.RegisterSessionWithRetry(req.SessionID, localPartyId); err != nil {
+			return nil, fmt.Errorf("failed to register session: %w", err)
+		}
 	}
 	// wait longer for keysign start
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute+3*time.Second)
