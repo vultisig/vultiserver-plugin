@@ -1,6 +1,6 @@
 package dca
 
-import "github.com/vultisig/vultisigner/plugin"
+import "github.com/vultisig/vultiserver-plugin/plugin"
 
 type DCAPolicy struct {
 	ChainID            string          `json:"chain_id"`
@@ -26,7 +26,8 @@ type RawTxData struct {
 type DCAPluginConfig struct {
 	RpcURL  string `mapstructure:"rpc_url" json:"rpc_url"`
 	Uniswap struct {
-		V2Router string `mapstructure:"v2_router" json:"v2_router"`
-		Deadline int64  `mapstructure:"deadline" json:"deadline"`
+		V2Router string  `mapstructure:"v2_router" json:"v2_router"`
+		Deadline int64   `mapstructure:"deadline" json:"deadline"`
+		Slippage float64 `mapstructure:"slippage" json:"slippage"`
 	} `mapstructure:"uniswap" json:"uniswap"`
 }

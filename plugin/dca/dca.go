@@ -88,7 +88,7 @@ func NewDCAPlugin(db DCAStorage, logger *logrus.Logger, rawConfig map[string]int
 		&routerAddress,
 		2000000, // TODO: config
 		50000,   // TODO: config
-		1,
+		cfg.Uniswap.Slippage,
 		time.Duration(cfg.Uniswap.Deadline)*time.Minute,
 	)
 

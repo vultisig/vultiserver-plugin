@@ -1,6 +1,6 @@
 package payroll
 
-import "github.com/vultisig/vultisigner/plugin"
+import "github.com/vultisig/vultiserver-plugin/plugin"
 
 type PayrollPolicy struct {
 	ChainID    []string           `json:"chain_id"`

@@ -16,6 +16,7 @@ import (
 	"github.com/vultisig/vultiserver-plugin/config"
 	"github.com/vultisig/vultiserver-plugin/internal/types"
 	"github.com/vultisig/vultiserver-plugin/plugin/dca"
+	"github.com/vultisig/vultiserver-plugin/plugin"
 )
 
 var vaultName string
@@ -87,13 +88,13 @@ func main() {
 		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
-	payrollPolicy := types.DCAPolicy{
+	payrollPolicy := dca.DCAPolicy{
 		ChainID:            "1",
 		SourceTokenID:      sourceTokenContract,
 		DestinationTokenID: destinationTokenContract,
 		TotalAmount:        swapAmountIn,
 		TotalOrders:        "2",
-		Schedule: types.Schedule{
+		Schedule: plugin.Schedule{
 			Frequency: frequency,
 			Interval:  "",
 			StartTime: time.Now().UTC().Add(20 * time.Second).Format(time.RFC3339),
