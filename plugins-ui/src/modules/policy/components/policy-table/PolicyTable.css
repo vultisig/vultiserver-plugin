@@ -30,6 +30,10 @@
         &:last-child {
             display: flex;
             justify-content: flex-end;
+
+            &.empty-message-row {
+                display: table-cell ;   
+            }
         }
     }
 }
