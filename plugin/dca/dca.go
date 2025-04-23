@@ -56,23 +56,23 @@ type EthClient interface {
 	SendTransaction(ctx context.Context, tx *gtypes.Transaction) error
 }
 
-type DCAStorage interface {
+type Storage interface {
 	WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
 	CountTransactions(ctx context.Context, policyUUID uuid.UUID, status types.TransactionStatus, txType string) (int64, error)
 	UpdatePluginPolicyTx(ctx context.Context, tx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)
 }
 
-type DCAPlugin struct {
+type Plugin struct {
 	uniswapClient uniswap.Client
 	rpcClient     EthClient
-	db            DCAStorage
+	db            Storage
 	logger        *logrus.Logger
 	waitMined     func(ctx context.Context, backend bind.DeployBackend, tx *gtypes.Transaction) (*gtypes.Receipt, error)
 	signLegacyTx  func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error)
 }
 
-func NewDCAPlugin(db DCAStorage, logger *logrus.Logger, rawConfig map[string]interface{}) (*DCAPlugin, error) {
-	var cfg DCAPluginConfig
+func NewPlugin(db Storage, logger *logrus.Logger, rawConfig map[string]interface{}) (*Plugin, error) {
+	var cfg PluginConfig
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func NewDCAPlugin(db DCAStorage, logger *logrus.Logger, rawConfig map[string]int
 		return nil, fmt.Errorf("fail to initialize Uniswap client: %w", err)
 	}
 
-	return &DCAPlugin{
+	return &Plugin{
 		uniswapClient: uniswapClient,
 		rpcClient:     rpcClient,
 		db:            db,
@@ -107,13 +107,13 @@ func NewDCAPlugin(db DCAStorage, logger *logrus.Logger, rawConfig map[string]int
 	}, nil
 }
 
-func (p *DCAPlugin) SigningComplete(
+func (p *Plugin) SigningComplete(
 	ctx context.Context,
 	signature tss.KeysignResponse,
 	signRequest types.PluginKeysignRequest,
 	policy types.PluginPolicy,
 ) error {
-	var dcaPolicy DCAPolicy
+	var dcaPolicy Policy
 	if err := json.Unmarshal(policy.Policy, &dcaPolicy); err != nil {
 		return fmt.Errorf("fail to unmarshal DCA policy: %w", err)
 	}
@@ -154,7 +154,7 @@ func (p *DCAPlugin) SigningComplete(
 	return nil
 }
 
-func (p *DCAPlugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
+func (p *Plugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
 	if policyDoc.PluginType != PluginType {
 		return fmt.Errorf("policy does not match plugin type, expected: %s, got: %s", PluginType, policyDoc.PluginType)
 	}
@@ -186,7 +186,7 @@ func (p *DCAPlugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
 		return fmt.Errorf("invalid public_key")
 	}
 
-	var dcaPolicy DCAPolicy
+	var dcaPolicy Policy
 	if err := json.Unmarshal(policyDoc.Policy, &dcaPolicy); err != nil {
 		return fmt.Errorf("fail to unmarshal DCA policy: %w", err)
 	}
@@ -310,7 +310,7 @@ func validateInterval(intervalStr string, frequency string) error {
 	return nil
 }
 
-func (p *DCAPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginKeysignRequest, error) {
+func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginKeysignRequest, error) {
 	p.logger.Info("DCA: PROPOSE TRANSACTIONS")
 
 	var txs []types.PluginKeysignRequest
@@ -321,7 +321,7 @@ func (p *DCAPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.Plug
 		return txs, fmt.Errorf("fail to validate plugin policy: %w", err)
 	}
 
-	var dcaPolicy DCAPolicy
+	var dcaPolicy Policy
 	if err := json.Unmarshal(policy.Policy, &dcaPolicy); err != nil {
 		return txs, fmt.Errorf("fail to unmarshal dca policy, err: %w", err)
 	}
@@ -393,7 +393,7 @@ func (p *DCAPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.Plug
 	return txs, nil
 }
 
-func (p *DCAPlugin) ValidateProposedTransactions(policy types.PluginPolicy, txs []types.PluginKeysignRequest) error {
+func (p *Plugin) ValidateProposedTransactions(policy types.PluginPolicy, txs []types.PluginKeysignRequest) error {
 	p.logger.Info("DCA: VALIDATE TRANSACTION PROPOSAL")
 
 	if len(txs) == 0 {
@@ -404,7 +404,7 @@ func (p *DCAPlugin) ValidateProposedTransactions(policy types.PluginPolicy, txs 
 		return fmt.Errorf("failed to validate plugin policy: %w", err)
 	}
 
-	var dcaPolicy DCAPolicy
+	var dcaPolicy Policy
 	if err := json.Unmarshal(policy.Policy, &dcaPolicy); err != nil {
 		return fmt.Errorf("failed to unmarshal DCA policy: %w", err)
 	}
@@ -456,7 +456,7 @@ func (p *DCAPlugin) ValidateProposedTransactions(policy types.PluginPolicy, txs 
 	return nil
 }
 
-func (p *DCAPlugin) validateTransaction(keysignRequest types.PluginKeysignRequest, completedSwaps int64, policyTotalAmount, policyTotalOrders, policyChainID *big.Int, sourceAddrPolicy, destAddrPolicy, signerAddress *gcommon.Address) error {
+func (p *Plugin) validateTransaction(keysignRequest types.PluginKeysignRequest, completedSwaps int64, policyTotalAmount, policyTotalOrders, policyChainID *big.Int, sourceAddrPolicy, destAddrPolicy, signerAddress *gcommon.Address) error {
 	// Parse the transaction
 	var tx *gtypes.Transaction
 	txBytes, err := hex.DecodeString(keysignRequest.Transaction)
@@ -512,7 +512,7 @@ func (p *DCAPlugin) validateTransaction(keysignRequest types.PluginKeysignReques
 	}
 }
 
-func (p *DCAPlugin) validateSwapTransaction(tx *gtypes.Transaction, completedSwaps int64, policyTotalAmount, policyTotalOrders *big.Int, sourceAddrPolicy *gcommon.Address, destAddrPolicy *gcommon.Address, signerAddress *gcommon.Address) error {
+func (p *Plugin) validateSwapTransaction(tx *gtypes.Transaction, completedSwaps int64, policyTotalAmount, policyTotalOrders *big.Int, sourceAddrPolicy *gcommon.Address, destAddrPolicy *gcommon.Address, signerAddress *gcommon.Address) error {
 	parsedSwapABI, err := p.getSwapABI()
 	if err != nil {
 		p.logger.Error("failed to parse swap ABI: ", err)
@@ -535,7 +535,7 @@ func (p *DCAPlugin) validateSwapTransaction(tx *gtypes.Transaction, completedSwa
 	return nil
 }
 
-func (p *DCAPlugin) validateApproveTransaction(tx *gtypes.Transaction, completedSwaps int64, policyTotalAmount, policyTotalOrders *big.Int) error {
+func (p *Plugin) validateApproveTransaction(tx *gtypes.Transaction, completedSwaps int64, policyTotalAmount, policyTotalOrders *big.Int) error {
 	parsedApproveABI, err := p.getApproveABI()
 	if err != nil {
 		p.logger.Error("failed to parse approve ABI: ", err)
@@ -558,7 +558,7 @@ func (p *DCAPlugin) validateApproveTransaction(tx *gtypes.Transaction, completed
 	return nil
 }
 
-func (p *DCAPlugin) validateApproveParameters(tx *gtypes.Transaction, method *abi.Method, completedSwaps int64, policyTotalAmount, policyTotalOrders *big.Int) error {
+func (p *Plugin) validateApproveParameters(tx *gtypes.Transaction, method *abi.Method, completedSwaps int64, policyTotalAmount, policyTotalOrders *big.Int) error {
 	p.logger.Info("VALIDATING APPROVE PARAMETERS")
 
 	// Decode the parameters
@@ -594,7 +594,7 @@ func (p *DCAPlugin) validateApproveParameters(tx *gtypes.Transaction, method *ab
 	return nil
 }
 
-func (p *DCAPlugin) validateSwapParameters(tx *gtypes.Transaction, method *abi.Method, completedSwaps int64, policyTotalAmount, policyTotalOrders *big.Int, sourceAddrPolicy, destAddrPolicy, signerAddress *gcommon.Address) error {
+func (p *Plugin) validateSwapParameters(tx *gtypes.Transaction, method *abi.Method, completedSwaps int64, policyTotalAmount, policyTotalOrders *big.Int, sourceAddrPolicy, destAddrPolicy, signerAddress *gcommon.Address) error {
 	p.logger.Info("VALIDATING SWAP PARAMETERS")
 
 	inputData := tx.Data()[4:]
@@ -633,7 +633,7 @@ func (p *DCAPlugin) validateSwapParameters(tx *gtypes.Transaction, method *abi.M
 	return nil
 }
 
-func (p *DCAPlugin) generateSwapTransactions(chainID *big.Int, signerAddress *gcommon.Address, srcToken, destToken string, swapAmount *big.Int) ([]RawTxData, error) {
+func (p *Plugin) generateSwapTransactions(chainID *big.Int, signerAddress *gcommon.Address, srcToken, destToken string, swapAmount *big.Int) ([]RawTxData, error) {
 	srcTokenAddress := gcommon.HexToAddress(srcToken)
 	destTokenAddress := gcommon.HexToAddress(destToken)
 
@@ -679,7 +679,7 @@ func (p *DCAPlugin) generateSwapTransactions(chainID *big.Int, signerAddress *gc
 	return rawTxsData, nil
 }
 
-func (p *DCAPlugin) getCompletedSwapTransactionsCount(ctx context.Context, policyID string) (int64, error) {
+func (p *Plugin) getCompletedSwapTransactionsCount(ctx context.Context, policyID string) (int64, error) {
 	policyUUID, err := uuid.Parse(policyID)
 	if err != nil {
 		return 0, fmt.Errorf("invalid policy_id: %s", policyID)
@@ -691,7 +691,7 @@ func (p *DCAPlugin) getCompletedSwapTransactionsCount(ctx context.Context, polic
 	return count, nil
 }
 
-func (p *DCAPlugin) calculateSwapAmountPerOrder(totalAmount, totalOrders *big.Int, completedSwaps int64) *big.Int {
+func (p *Plugin) calculateSwapAmountPerOrder(totalAmount, totalOrders *big.Int, completedSwaps int64) *big.Int {
 	baseAmount := new(big.Int).Div(totalAmount, totalOrders)
 	p.logger.Info("DCA: BASE AMOUNT: ", baseAmount.String())
 	remainder := new(big.Int).Mod(totalAmount, totalOrders)
@@ -706,7 +706,7 @@ func (p *DCAPlugin) calculateSwapAmountPerOrder(totalAmount, totalOrders *big.In
 	return swapAmount
 }
 
-func (p *DCAPlugin) completePolicy(ctx context.Context, policy types.PluginPolicy) error {
+func (p *Plugin) completePolicy(ctx context.Context, policy types.PluginPolicy) error {
 	p.logger.WithFields(logrus.Fields{
 		"policy_id": policy.ID,
 	}).Info("DCA: All orders completed, no transactions to propose")
@@ -727,7 +727,7 @@ func (p *DCAPlugin) completePolicy(ctx context.Context, policy types.PluginPolic
 	return nil
 }
 
-func (p *DCAPlugin) getSwapABI() (abi.ABI, error) {
+func (p *Plugin) getSwapABI() (abi.ABI, error) {
 	routerABI := `[
         {
             "name": "swapExactTokensForTokens",
@@ -759,7 +759,7 @@ func (p *DCAPlugin) getSwapABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(routerABI))
 }
 
-func (p *DCAPlugin) getApproveABI() (abi.ABI, error) {
+func (p *Plugin) getApproveABI() (abi.ABI, error) {
 	approveABI := `[
 		{
 			"name": "approve",
@@ -786,6 +786,6 @@ func (p *DCAPlugin) getApproveABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(approveABI))
 }
 
-func (p *DCAPlugin) FrontendSchema() ([]byte, error) {
+func (p *Plugin) FrontendSchema() ([]byte, error) {
 	return embeddedFileDCASchema.ReadFile("dcaPluginUiSchema.json")
 }

@@ -2,7 +2,7 @@ package dca
 
 import "github.com/vultisig/vultiserver-plugin/plugin"
 
-type DCAPolicy struct {
+type Policy struct {
 	ChainID            string          `json:"chain_id"`
 	SourceTokenID      string          `json:"source_token_id"`
 	DestinationTokenID string          `json:"destination_token_id"`
@@ -23,7 +23,7 @@ type RawTxData struct {
 	Type       string
 }
 
-type DCAPluginConfig struct {
+type PluginConfig struct {
 	RpcURL  string `mapstructure:"rpc_url" json:"rpc_url"`
 	Uniswap struct {
 		V2Router string  `mapstructure:"v2_router" json:"v2_router"`

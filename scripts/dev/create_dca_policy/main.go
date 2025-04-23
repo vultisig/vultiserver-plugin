@@ -15,8 +15,8 @@ import (
 
 	"github.com/vultisig/vultiserver-plugin/config"
 	"github.com/vultisig/vultiserver-plugin/internal/types"
-	"github.com/vultisig/vultiserver-plugin/plugin/dca"
 	"github.com/vultisig/vultiserver-plugin/plugin"
+	"github.com/vultisig/vultiserver-plugin/plugin/dca"
 )
 
 var vaultName string
@@ -88,7 +88,7 @@ func main() {
 		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
-	payrollPolicy := dca.DCAPolicy{
+	payrollPolicy := dca.Policy{
 		ChainID:            "1",
 		SourceTokenID:      sourceTokenContract,
 		DestinationTokenID: destinationTokenContract,

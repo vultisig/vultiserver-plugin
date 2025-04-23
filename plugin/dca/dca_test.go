@@ -24,13 +24,12 @@ import (
 
 	pg "github.com/vultisig/vultiserver-plugin/plugin"
 
-
 	"math/big"
 	"testing"
 )
 
 func createValidPolicy() types.PluginPolicy {
-	dcaPolicy := DCAPolicy{
+	dcaPolicy := Policy{
 		ChainID:            "1",
 		SourceTokenID:      "0x1111111111111111111111111111111111111111",
 		DestinationTokenID: "0x2222222222222222222222222222222222222222",
@@ -85,7 +84,7 @@ func rlpUnsignedTxAndHash(tx *gtypes.Transaction, chainID *big.Int) ([]byte, []b
 }
 
 func createSwapTransaction(t *testing.T, chainID *big.Int, amountIn *big.Int, amountOutMin *big.Int, path []gcommon.Address, to gcommon.Address, routerAddress gcommon.Address) ([]byte, []byte, error) {
-	plugin := DCAPlugin{}
+	plugin := Plugin{}
 	parsedABI, err := plugin.getSwapABI()
 	require.NoError(t, err)
 
@@ -101,7 +100,7 @@ func createSwapTransaction(t *testing.T, chainID *big.Int, amountIn *big.Int, am
 	return hash, rawTx, nil
 }
 func createApproveTransaction(t *testing.T, chainID *big.Int, spender gcommon.Address, amount *big.Int, tokenAddress gcommon.Address) ([]byte, []byte, error) {
-	plugin := DCAPlugin{}
+	plugin := Plugin{}
 	parsedABI, err := plugin.getApproveABI()
 	require.NoError(t, err)
 	data, err := parsedABI.Pack("approve", spender, amount)
@@ -170,7 +169,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 	mockDB := new(database.MockDB)
 	logger := logrus.StandardLogger()
 
-	plugin := &DCAPlugin{
+	plugin := &Plugin{
 		uniswapClient: mockUniswap,
 		db:            mockDB,
 		logger:        logger,
@@ -242,7 +241,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid source and destination tokens",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := DCAPolicy{
+				dcaPolicy := Policy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x1111111111111111111111111111111111111111", // Same as source
@@ -263,7 +262,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid total amount",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := DCAPolicy{
+				dcaPolicy := Policy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
@@ -284,7 +283,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid total orders",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := DCAPolicy{
+				dcaPolicy := Policy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
@@ -305,7 +304,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid price range",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := DCAPolicy{
+				dcaPolicy := Policy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
@@ -340,7 +339,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Invalid frequency",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				dcaPolicy := DCAPolicy{
+				dcaPolicy := Policy{
 					ChainID:            "1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
@@ -381,7 +380,7 @@ func TestCalculateSwapAmountPerOrder(t *testing.T) {
 	mockDB := new(database.MockDB)
 	logger := logrus.StandardLogger()
 
-	plugin := &DCAPlugin{
+	plugin := &Plugin{
 		uniswapClient: mockUniswap,
 		db:            mockDB,
 		logger:        logger,
@@ -487,7 +486,7 @@ func TestGetCompletedSwapTransactionsCount(t *testing.T) {
 			logger := logrus.StandardLogger()
 
 			tc.mockSetup(mockDB)
-			plugin := &DCAPlugin{
+			plugin := &Plugin{
 				uniswapClient: mockUniswap,
 				rpcClient:     mockEth,
 				db:            mockDB,
@@ -530,7 +529,7 @@ func TestProposeTransactions(t *testing.T) {
 			name:   "All swaps completed",
 			policy: policy,
 			mockSetup: func(db *database.MockDB, mockUniswap *uniswapclient.MockUniswapClient) {
-				dcaPolicy := DCAPolicy{}
+				dcaPolicy := Policy{}
 				err := json.Unmarshal(policy.Policy, &dcaPolicy)
 				require.NoError(t, err)
 
@@ -625,7 +624,7 @@ func TestProposeTransactions(t *testing.T) {
 			logger := logrus.StandardLogger()
 
 			tc.mockSetup(mockDB, mockUniswap)
-			plugin := &DCAPlugin{
+			plugin := &Plugin{
 				uniswapClient: mockUniswap,
 				rpcClient:     mockEth,
 				db:            mockDB,
@@ -812,7 +811,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 			policy:     policy,
 			txRequests: []types.PluginKeysignRequest{validSwapRequest},
 			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
-				dcaPolicy := DCAPolicy{}
+				dcaPolicy := Policy{}
 				err := json.Unmarshal(policy.Policy, &dcaPolicy)
 				require.NoError(t, err)
 				totalOrders, _ := new(big.Int).SetString(dcaPolicy.TotalOrders, 10)
@@ -887,7 +886,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 
 			tc.mockSetup(mockDB, mockUniswap)
 
-			plugin := &DCAPlugin{
+			plugin := &Plugin{
 				uniswapClient: mockUniswap,
 				logger:        logger,
 				db:            mockDB,
@@ -1083,7 +1082,7 @@ func TestValidateTransaction(t *testing.T) {
 
 			tc.mockSetup(mockUniswap)
 
-			plugin := DCAPlugin{
+			plugin := Plugin{
 				uniswapClient: mockUniswap,
 				logger:        logger,
 				db:            mockDB,
@@ -1305,7 +1304,7 @@ func TestSigningComplete(t *testing.T) {
 			tc.mockSetup(mockEth)
 
 			// Create plugin
-			plugin := DCAPlugin{
+			plugin := Plugin{
 				waitMined:     tc.waitMined,
 				signLegacyTx:  tc.signLegacyTx,
 				uniswapClient: mockUniswap,

@@ -1,6 +1,5 @@
 package payroll
 
-const PLUGIN_TYPE = "payroll"
 const erc20ABI = `[{
     "name": "transfer",
     "type": "function",

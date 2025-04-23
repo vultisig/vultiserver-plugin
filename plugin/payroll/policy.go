@@ -15,7 +15,7 @@ import (
 	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
-func (p *PayrollPlugin) ValidateProposedTransactions(policy types.PluginPolicy, txs []types.PluginKeysignRequest) error {
+func (p *Plugin) ValidateProposedTransactions(policy types.PluginPolicy, txs []types.PluginKeysignRequest) error {
 	err := p.ValidatePluginPolicy(policy)
 	if err != nil {
 		return fmt.Errorf("failed to validate plugin policy: %v", err)
@@ -26,7 +26,7 @@ func (p *PayrollPlugin) ValidateProposedTransactions(policy types.PluginPolicy, 
 		return fmt.Errorf("failed to parse ABI: %v", err)
 	}
 
-	var payrollPolicy PayrollPolicy
+	var payrollPolicy Policy
 	if err := json.Unmarshal(policy.Policy, &payrollPolicy); err != nil {
 		return fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
@@ -86,12 +86,12 @@ func (p *PayrollPlugin) ValidateProposedTransactions(policy types.PluginPolicy, 
 	return nil
 }
 
-func (p *PayrollPlugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
-	if policyDoc.PluginType != PLUGIN_TYPE {
-		return fmt.Errorf("policy does not match plugin type, expected: %s, got: %s", PLUGIN_TYPE, policyDoc.PluginType)
+func (p *Plugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
+	if policyDoc.PluginType != PluginType {
+		return fmt.Errorf("policy does not match plugin type, expected: %s, got: %s", PluginType, policyDoc.PluginType)
 	}
 
-	var payrollPolicy PayrollPolicy
+	var payrollPolicy Policy
 	if err := json.Unmarshal(policyDoc.Policy, &payrollPolicy); err != nil {
 		return fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
