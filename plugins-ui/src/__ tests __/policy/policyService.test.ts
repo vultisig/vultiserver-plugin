@@ -38,12 +38,12 @@ describe("PolicyService", () => {
       );
       const mockResponse: PluginPolicy = {
         id: "1",
-        public_key: "public_key",
+        public_key_ecdsa: "public_key_ecdsa",
+        public_key_eddsa: "public_key_eddsa",
         plugin_type: "pluginType",
         is_ecdsa: true,
         chain_code_hex: "",
         derive_path: "",
-        plugin_id: "",
         plugin_version: "0.0.1",
         policy_version: "0.0.1",
         active: true,
@@ -102,12 +102,12 @@ describe("PolicyService", () => {
       );
       const mockResponse: PluginPolicy = {
         id: "1",
-        public_key: "public_key",
+        public_key_ecdsa: "public_key_ecdsa",
+        public_key_eddsa: "public_key_eddsa",
         plugin_type: "pluginType",
         is_ecdsa: true,
         chain_code_hex: "",
         derive_path: "",
-        plugin_id: "",
         plugin_version: "0.0.1",
         policy_version: "0.0.1",
         active: true,
@@ -168,13 +168,13 @@ describe("PolicyService", () => {
       const mockResponse: PluginPolicy[] = [
         {
           id: "1",
-          public_key: "public_key",
+          public_key_ecdsa: "public_key_ecdsa",
+          public_key_eddsa: "public_key_eddsa",
           plugin_type: "pluginType",
           active: true,
           is_ecdsa: true,
           chain_code_hex: "",
           derive_path: "",
-          plugin_id: "",
           plugin_version: "0.0.1",
           policy_version: "0.0.1",
           signature: "signature",

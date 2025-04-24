@@ -12,7 +12,8 @@ import { useParams } from "react-router-dom";
 const mockPolicies = [
   {
     id: "1",
-    public_key: "public_key_1",
+    public_key_ecdsa: "public_key_1_ecdsa",
+    public_key_eddsa: "public_key_1_eddsa",
     plugin_type: "plugin_type",
     active: true,
     signature: "signature",
@@ -24,7 +25,8 @@ const mockPolicies = [
   },
   {
     id: "2",
-    public_key: "public_key_2",
+    public_key_ecdsa: "public_key_2_ecdsa",
+    public_key_eddsa: "public_key_2_eddsa",
     plugin_type: "plugin_type",
     active: false,
     signature: "signature",
@@ -84,11 +86,11 @@ const TestComponent = () => {
         onClick={() =>
           addPolicy({
             id: "3",
-            public_key: "public_key_1",
+            public_key_ecdsa: "public_key_1_ecdsa",
+            public_key_eddsa: "public_key_1_eddsa",
             is_ecdsa: true,
             chain_code_hex: "",
             derive_path: "",
-            plugin_id: "",
             plugin_version: "0.0.1",
             policy_version: "0.0.1",
             plugin_type: "plugin_type",
@@ -105,11 +107,11 @@ const TestComponent = () => {
         onClick={() =>
           updatePolicy({
             id: "2",
-            public_key: "public_key_1",
+            public_key_ecdsa: "public_key_1_ecdsa",
+            public_key_eddsa: "public_key_1_eddsa",
             is_ecdsa: true,
             chain_code_hex: "",
             derive_path: "",
-            plugin_id: "",
             plugin_version: "0.0.1",
             policy_version: "0.0.1",
             plugin_type: "plugin_type",
