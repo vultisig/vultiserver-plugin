@@ -3,6 +3,7 @@ import "./Review.css"; // Import CSS file for styling
 import { useState } from "react";
 import Button from "@/modules/core/components/ui/button/Button";
 import DOMPurify from "dompurify";
+import StarContainer from "../star-container/StartContainer";
 
 const STAR_MAX_COUNT = 5;
 
@@ -19,24 +20,12 @@ const LeaveReview = () => {
     <section className="leave-review">
       <section className="review-score">
         <label className="label">Leave a review</label>
-        <div className="star-container">
-          {[...Array(STAR_MAX_COUNT)].map((_, num) => (
-            <Button
-              key={num}
-              size="mini"
-              type="button"
-              style={{ padding: "0px" }}
-              styleType="tertiary"
-              onClick={() => setRating(num + 1)}
-            >
-              <Star
-                className={`star ${num + 1 <= rating ? "filled" : ""}`}
-                width="24px"
-                height="24px"
-              />
-            </Button>
-          ))}
-        </div>
+
+        <StarContainer
+          key={rating}
+          initialRating={rating}
+          onChange={setRating}
+        />
       </section>
       <textarea
         cols={80}
@@ -47,7 +36,7 @@ const LeaveReview = () => {
       ></textarea>
 
       <Button
-        className="review-button"
+        className={`review-button ${!rating || !input ? "disabled" : ""}`}
         size="medium"
         type="button"
         styleType="primary"
