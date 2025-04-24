@@ -120,7 +120,7 @@
         }
       },
       "token_id": {
-        "ui:widget": "TokenSelector",
+        "ui:widget": "TokenSelectorArray",
         "ui:options": {
           "classNames": "input-background stacked-input"
         }
@@ -214,6 +214,7 @@
       }
     ],
     "mapping": {
+      "policyId": "id",
       "chainId": "policy.chain_id.0",
       "startDate": "policy.schedule.start_time",
       "endDate": "policy.schedule.end_time",
