@@ -94,9 +94,9 @@ func TestHandlePluginTransaction(t *testing.T) {
 
 				// Setup GetPluginPolicy
 				policy := types.PluginPolicy{
-					ID:         "f1674509-df78-4982-8a7f-29c37c4ebe1c",
-					PublicKey:  "public-key-123",
-					PluginType: "test-plugin",
+					ID:             "f1674509-df78-4982-8a7f-29c37c4ebe1c",
+					PublicKeyEcdsa: "public-key-123",
+					PluginType:     "test-plugin",
 				}
 				db.On("GetPluginPolicy", mock.Anything, "f1674509-df78-4982-8a7f-29c37c4ebe1c").Return(policy, nil)
 
@@ -175,9 +175,9 @@ func TestHandlePluginTransaction(t *testing.T) {
 
 				// Setup GetPluginPolicy
 				policy := types.PluginPolicy{
-					ID:         "policy-234",
-					PublicKey:  "public-key-234",
-					PluginType: "test-plugin",
+					ID:             "policy-234",
+					PublicKeyEcdsa: "public-key-234",
+					PluginType:     "test-plugin",
 				}
 				db.On("GetPluginPolicy", mock.Anything, "policy-234").Return(policy, nil)
 
@@ -196,9 +196,9 @@ func TestHandlePluginTransaction(t *testing.T) {
 
 				// Setup GetPluginPolicy
 				policy := types.PluginPolicy{
-					ID:         "policy-234",
-					PublicKey:  "public-key-234",
-					PluginType: "test-plugin",
+					ID:             "policy-234",
+					PublicKeyEcdsa: "public-key-234",
+					PluginType:     "test-plugin",
 				}
 				db.On("GetPluginPolicy", mock.Anything, "policy-234").Return(policy, nil)
 
@@ -229,9 +229,9 @@ func TestHandlePluginTransaction(t *testing.T) {
 
 				// Setup GetPluginPolicy
 				policy := types.PluginPolicy{
-					ID:         "policy-234",
-					PublicKey:  "public-key-234",
-					PluginType: "test-plugin",
+					ID:             "policy-234",
+					PublicKeyEcdsa: "public-key-234",
+					PluginType:     "test-plugin",
 				}
 				db.On("GetPluginPolicy", mock.Anything, "policy-234").Return(policy, nil)
 
@@ -262,9 +262,9 @@ func TestHandlePluginTransaction(t *testing.T) {
 
 				// Setup GetPluginPolicy
 				policy := types.PluginPolicy{
-					ID:         "policy-234",
-					PublicKey:  "public-key-234",
-					PluginType: "test-plugin",
+					ID:             "policy-234",
+					PublicKeyEcdsa: "public-key-234",
+					PluginType:     "test-plugin",
 				}
 				db.On("GetPluginPolicy", mock.Anything, "policy-234").Return(policy, nil)
 
@@ -298,9 +298,9 @@ func TestHandlePluginTransaction(t *testing.T) {
 
 				// Setup GetPluginPolicy
 				policy := types.PluginPolicy{
-					ID:         "f1674509-df78-4982-8a7f-29c37c4ebe1c",
-					PublicKey:  "public-key-123",
-					PluginType: "test-plugin",
+					ID:             "f1674509-df78-4982-8a7f-29c37c4ebe1c",
+					PublicKeyEcdsa: "public-key-123",
+					PluginType:     "test-plugin",
 				}
 				db.On("GetPluginPolicy", mock.Anything, "f1674509-df78-4982-8a7f-29c37c4ebe1c").Return(policy, nil)
 

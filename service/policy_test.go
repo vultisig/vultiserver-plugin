@@ -18,10 +18,10 @@ import (
 
 func createSamplePolicy(id string) types.PluginPolicy {
 	return types.PluginPolicy{
-		ID:         id,
-		PluginType: "testPlugin",
-		PublicKey:  "testPublicKey",
-		Policy:     []byte(`{"key":"value"}`),
+		ID:             id,
+		PluginType:     "testPlugin",
+		PublicKeyEcdsa: "testPublicKey",
+		Policy:         []byte(`{"key":"value"}`),
 	}
 }
 
