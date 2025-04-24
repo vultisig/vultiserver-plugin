@@ -882,21 +882,16 @@ func (s *Server) DetachPluginTag(c echo.Context) error {
 }
 
 func (s *Server) CreateReview(c echo.Context) error {
-	fmt.Println(1, "CreateReview")
 	var review types.ReviewCreateDto
 	if err := c.Bind(&review); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
-
-	fmt.Println(2, "CreateReview")
 
 	if err := c.Validate(&review); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
 			"message": err.Error(),
 		})
 	}
-
-	fmt.Println(3, "CreateReview")
 
 	review.Comment = html.EscapeString(review.Comment) // Converts to safe string to prevent XSS todo rework this it escapes ' < when it shouldn't
 
@@ -911,8 +906,6 @@ func (s *Server) CreateReview(c echo.Context) error {
 
 		return c.JSON(http.StatusBadRequest, message)
 	}
-
-	fmt.Println(4, "CreateReview")
 
 	created, err := s.pluginService.CreatePluginReviewWithRating(c.Request().Context(), review, pluginID)
 	if err != nil {
