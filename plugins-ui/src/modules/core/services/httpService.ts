@@ -39,6 +39,7 @@ export const post = async (endpoint: string, data: any, options?: any) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...options?.headers,
       },
       body: JSON.stringify(data),
       ...options,

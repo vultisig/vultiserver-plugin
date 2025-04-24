@@ -342,7 +342,7 @@ func CheckIfPublicKeyIsValid(pubKeyBytes []byte, isEcdsa bool) bool {
 	return false
 }
 
-func GetSortingCondition(sort string) (string, string) {
+func GetSortingCondition(sort string, allowedColumns map[string]bool) (string, string) {
 	// Default sorting column
 	orderBy := "created_at"
 	orderDirection := "ASC"
@@ -352,7 +352,6 @@ func GetSortingCondition(sort string) (string, string) {
 	columnName := strings.TrimPrefix(sort, "-") // Remove "-" if present
 
 	// Ensure orderBy is a valid column name (prevent SQL injection)
-	allowedColumns := map[string]bool{"updated_at": true, "created_at": true, "title": true}
 	if allowedColumns[columnName] {
 		orderBy = columnName // Use the provided column if valid
 	}

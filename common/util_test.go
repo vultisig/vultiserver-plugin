@@ -58,7 +58,7 @@ func TestGetSortingCondition(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		orderBy, orderDirection := GetSortingCondition(tt.sort)
+		orderBy, orderDirection := GetSortingCondition(tt.sort, map[string]bool{"updated_at": true, "created_at": true, "title": true})
 
 		if orderBy != tt.expectedOrderBy {
 			t.Errorf("sort: %s -> orderBy: %s, expected: %s", tt.sort, orderBy, tt.expectedOrderBy)

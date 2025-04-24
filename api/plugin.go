@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"strconv"
 	"strings"
@@ -687,7 +688,7 @@ func (s *Server) GetPlugin(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	plugin, err := s.db.FindPluginById(c.Request().Context(), pluginID)
+	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), pluginID)
 	if err != nil {
 		message := echo.Map{
 			"message": "failed to get plugin",
@@ -711,7 +712,7 @@ func (s *Server) CreatePlugin(c echo.Context) error {
 		})
 	}
 
-	created, err := s.db.CreatePlugin(c.Request().Context(), plugin)
+	created, err := s.pluginService.CreatePluginWithRating(c.Request().Context(), plugin)
 	if err != nil {
 		message := echo.Map{
 			"message": "failed to create plugin",
@@ -787,7 +788,7 @@ func (s *Server) AttachPluginTag(c echo.Context) error {
 			"error":   "plugin id is required",
 		})
 	}
-	plugin, err := s.db.FindPluginById(c.Request().Context(), pluginID)
+	plugin, err := s.db.FindPluginById(c.Request().Context(), nil, pluginID)
 	if err != nil {
 		s.logger.Error(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -844,7 +845,7 @@ func (s *Server) DetachPluginTag(c echo.Context) error {
 			"error":   "plugin id is required",
 		})
 	}
-	plugin, err := s.db.FindPluginById(c.Request().Context(), pluginID)
+	plugin, err := s.db.FindPluginById(c.Request().Context(), nil, pluginID)
 	if err != nil {
 		s.logger.Error(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -878,6 +879,92 @@ func (s *Server) DetachPluginTag(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, updatedPlugin)
+}
+
+func (s *Server) CreateReview(c echo.Context) error {
+	fmt.Println(1, "CreateReview")
+	var review types.ReviewCreateDto
+	if err := c.Bind(&review); err != nil {
+		return fmt.Errorf("fail to parse request, err: %w", err)
+	}
+
+	fmt.Println(2, "CreateReview")
+
+	if err := c.Validate(&review); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": err.Error(),
+		})
+	}
+
+	fmt.Println(3, "CreateReview")
+
+	review.Comment = html.EscapeString(review.Comment) // Converts to safe string to prevent XSS todo rework this it escapes ' < when it shouldn't
+
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		err := fmt.Errorf("plugin id is required")
+		message := echo.Map{
+			"message": "failed to get plugin",
+			"error":   err.Error(),
+		}
+		s.logger.Error(err)
+
+		return c.JSON(http.StatusBadRequest, message)
+	}
+
+	fmt.Println(4, "CreateReview")
+
+	created, err := s.pluginService.CreatePluginReviewWithRating(c.Request().Context(), review, pluginID)
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to create review",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	fmt.Println(5, "CreateReview")
+
+	return c.JSON(http.StatusOK, created)
+}
+
+func (s *Server) GetReviews(c echo.Context) error {
+	pluginId := c.Param("pluginId")
+	if pluginId == "" {
+		err := fmt.Errorf("plugin id is required")
+		message := echo.Map{
+			"message": "failed to get plugin",
+			"error":   err.Error(),
+		}
+		s.logger.Error(err)
+
+		return c.JSON(http.StatusBadRequest, message)
+	}
+
+	skip, err := strconv.Atoi(c.QueryParam("skip"))
+
+	if err != nil {
+		skip = 0
+	}
+
+	take, err := strconv.Atoi(c.QueryParam("take"))
+
+	if err != nil {
+		take = 999
+	}
+
+	sort := c.QueryParam("sort")
+
+	reviews, err := s.db.FindReviews(c.Request().Context(), pluginId, skip, take, sort)
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to get reviews",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	return c.JSON(http.StatusOK, reviews)
 }
 
 func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) bool {
