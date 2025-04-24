@@ -8,6 +8,7 @@ import { usePolicies } from "../../context/PolicyProvider";
 import { TitleFieldTemplate } from "../policy-title/PolicyTitle";
 import TokenSelector from "@/modules/shared/token-selector/TokenSelector";
 import WeiConverter from "@/modules/shared/wei-converter/WeiConverter";
+import TokenSelectorArray from "@/modules/shared/token-selector-array/TokenSelectorArray";
 import { RJSFValidationError } from "@rjsf/utils";
 
 type PolicyFormProps = {
@@ -38,7 +39,10 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
   };
 
   const customFormats = {
-    "evm-address": /^0x[a-fA-F0-9]{40}$/g,
+    "evm-address": (value: string) => {
+      const regex = /^0x[a-fA-F0-9]{40}$/g;
+      return regex.test(value);
+    },
   };
 
   const customValidator = customizeValidator({
@@ -122,7 +126,7 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
           onChange={onChange}
           showErrorList={false}
           templates={{ TitleFieldTemplate }}
-          widgets={{ TokenSelector, WeiConverter }}
+          widgets={{ TokenSelector, WeiConverter, TokenSelectorArray }}
           transformErrors={transformErrors}
           liveValidate={!!policyId}
           readonly={!!policyId}
