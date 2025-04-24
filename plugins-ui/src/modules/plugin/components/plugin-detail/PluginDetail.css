@@ -34,14 +34,4 @@
         height: 277px;
         border-radius: 3.69px;
       }
-
-      .review-rating-header {
-        font-size: 1.75rem;
-      }
-
-      .review-rating {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-      }
 }

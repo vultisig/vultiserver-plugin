@@ -224,7 +224,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error: any) {
       console.error("Failed to delete policy:", error);
       setToast({
-        message: error.message,
+        message: error.message || "Failed to delete policy",
         error: error.error,
         type: "error",
       });

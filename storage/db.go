@@ -29,6 +29,8 @@ type DatabaseStorage interface {
 	PluginRepository
 	CategoryRepository
 	TagRepository
+	ReviewRepository
+	RatingRepository
 	Close() error
 }
 
@@ -74,8 +76,8 @@ type PricingRepository interface {
 
 type PluginRepository interface {
 	FindPlugins(ctx context.Context, filters types.PluginFilters, skip int, take int, sort string) (types.PluginsPaginatedList, error)
-	FindPluginById(ctx context.Context, id string) (*types.Plugin, error)
-	CreatePlugin(ctx context.Context, pluginDto types.PluginCreateDto) (*types.Plugin, error)
+	FindPluginById(ctx context.Context, dbTx pgx.Tx, id string) (*types.Plugin, error)
+	CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto types.PluginCreateDto) (string, error)
 	UpdatePlugin(ctx context.Context, id string, updates types.PluginUpdateDto) (*types.Plugin, error)
 	DeletePluginById(ctx context.Context, id string) error
 	AttachTagToPlugin(ctx context.Context, pluginId string, tagId string) (*types.Plugin, error)
@@ -93,4 +95,16 @@ type TagRepository interface {
 	FindTagById(ctx context.Context, id string) (*types.Tag, error)
 	FindTagByName(ctx context.Context, name string) (*types.Tag, error)
 	CreateTag(ctx context.Context, tagDto types.CreateTagDto) (*types.Tag, error)
+}
+
+type ReviewRepository interface {
+	CreateReview(ctx context.Context, reviewDto types.ReviewCreateDto, pluginId string) (string, error)
+	FindReviews(ctx context.Context, pluginId string, take int, skip int, sort string) (types.ReviewsDto, error)
+	FindReviewById(ctx context.Context, db pgx.Tx, id string) (*types.ReviewDto, error)
+}
+
+type RatingRepository interface {
+	FindRatingByPluginId(ctx context.Context, dbTx pgx.Tx, pluginId string) ([]types.PluginRatingDto, error)
+	CreateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string) error
+	UpdateRatingForPlugin(ctx context.Context, dbTx pgx.Tx, pluginId string, reviewRating int) error
 }

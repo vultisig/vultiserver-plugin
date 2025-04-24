@@ -228,7 +228,7 @@ describe("PolicyProvider", () => {
         name: "Add Policy",
       });
 
-      await fireEvent.click(newPolicyButton);
+      fireEvent.click(newPolicyButton);
 
       await waitFor(() => {
         expect(screen.getByText("1")).toBeInTheDocument();
@@ -254,7 +254,7 @@ describe("PolicyProvider", () => {
         name: "Add Policy",
       });
 
-      await fireEvent.click(newPolicyButton);
+      fireEvent.click(newPolicyButton);
 
       await waitFor(() => {
         expect(screen.getByText("1")).toBeInTheDocument();
@@ -291,7 +291,7 @@ describe("PolicyProvider", () => {
         name: "Update Policy",
       });
 
-      await fireEvent.click(updatePolicyButton);
+      fireEvent.click(updatePolicyButton);
 
       await waitFor(() => {
         expect(screen.getByText("1")).toBeInTheDocument();
@@ -316,12 +316,72 @@ describe("PolicyProvider", () => {
         name: "Update Policy",
       });
 
-      await fireEvent.click(updatePolicyButton);
+      fireEvent.click(updatePolicyButton);
 
       await waitFor(() => {
         expect(screen.getByText("1")).toBeInTheDocument();
         expect(screen.getByText("2")).toBeInTheDocument();
         expect(screen.getByText("Failed to update policy")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("removePolicy", () => {
+    it("should delete policy from context", async () => {
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+
+      (PolicyService.deletePolicy as Mock).mockResolvedValue({});
+
+      await renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+      });
+
+      const deletePolicyButton = screen.getByRole("button", {
+        name: "Delete Policy",
+      });
+
+      fireEvent.click(deletePolicyButton);
+
+      await waitFor(() => {
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.queryByText("2")).not.toBeInTheDocument();
+        expect(
+          screen.getByText("Policy deleted successfully!")
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("should set error message if request fails", async () => {
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+
+      (PolicyService.deletePolicy as Mock).mockRejectedValue("API Error");
+
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+      });
+
+      const deletePolicyButton = screen.getByRole("button", {
+        name: "Delete Policy",
+      });
+
+      fireEvent.click(deletePolicyButton);
+
+      await waitFor(() => {
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+        expect(screen.getByText("Failed to delete policy")).toBeInTheDocument();
       });
     });
   });

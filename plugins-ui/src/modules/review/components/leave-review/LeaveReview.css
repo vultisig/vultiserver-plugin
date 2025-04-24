@@ -1,0 +1,44 @@
+.leave-review {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    .review-button {
+      align-self: flex-end;
+    }
+
+}
+
+.review-score {
+    display: flex;
+    align-items: center;
+    gap: 50px;
+}
+
+
+.label {
+    font-size: 1.375rem;
+}
+
+.review-textarea {
+    min-height: 130px;
+    background-color: var(--background-secondary-color);
+    border-color: var(--border-light-color);
+    color: var(--text-primary-color);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 36px;
+    margin-bottom: 16px;
+
+}
+
+textarea::placeholder {
+    color: var(--text-light-color);
+    opacity: 1; /* Ensure visibility */
+}
+
+/* Cross-browser support */
+textarea:-webkit-input-placeholder { color: var(--text-light-color); } /* Chrome, Safari */
+textarea:-moz-placeholder { color: var(--text-light-color); } /* Firefox 19+ */
+textarea::-moz-placeholder { color: var(--text-light-color); } /* Firefox 4-18 */
+textarea:-ms-input-placeholder { color: var(--text-light-color); } /* IE 10+ */

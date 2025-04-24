@@ -2,8 +2,12 @@ type Tag = {
   id: string;
   name: string;
   color: string;
-}
+};
 
+export type PluginRatings = {
+  rating: number;
+  count: number;
+};
 export type Plugin = {
   id: string;
   type: string;
@@ -14,4 +18,5 @@ export type Plugin = {
   pricing_id: string;
   category_id: string;
   tags: Tag[];
+  ratings: PluginRatings[];
 };

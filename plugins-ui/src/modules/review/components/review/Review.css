@@ -1,0 +1,23 @@
+
+.review-icon {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(to right, white, var(--button-tertiary-color));
+    border-radius: 50%;
+  }
+
+  .review-date {
+    color: var(--text-extra-light-color)
+  }
+
+  .review-info-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .single-review {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }

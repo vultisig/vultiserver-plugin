@@ -1,19 +1,31 @@
-import Star from "@/assets/Star.svg?react";
-import "./Review.css"; // Import CSS file for styling
+import "./LeaveReview.css";
 import { useState } from "react";
 import Button from "@/modules/core/components/ui/button/Button";
-import DOMPurify from "dompurify";
-import StarContainer from "../star-container/StartContainer";
-
-const STAR_MAX_COUNT = 5;
+import { CreateReview } from "@/modules/marketplace/models/marketplace";
+import { useReviews } from "../../context/ReviewProvider";
+import StarContainer from "@/modules/shared/star-container/StartContainer";
 
 const LeaveReview = () => {
-  const [rating, setRating] = useState<number>(0);
-  const [input, setInput] = useState("");
+  const { pluginId, addReview } = useReviews();
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const sanitizedText = DOMPurify.sanitize(e.target.value);
-    setInput(sanitizedText);
+  const [input, setInput] = useState("");
+  const [rating, setRating] = useState(0);
+
+  const submitReview = () => {
+    if (rating && input) {
+      const review: CreateReview = {
+        address: "TODO", // todo remove this when we have the participant from installation
+        comment: input,
+        rating: rating,
+      };
+
+      addReview(pluginId, review).then((reviewAdded) => {
+        if (reviewAdded) {
+          setInput("");
+          setRating(0);
+        }
+      });
+    }
   };
 
   return (
@@ -28,11 +40,11 @@ const LeaveReview = () => {
         />
       </section>
       <textarea
-        cols={80}
+        cols={78}
         className="review-textarea"
         placeholder="Install the plugin to leave a review"
         value={input}
-        onChange={handleChange}
+        onChange={(e) => setInput(e.target.value)}
       ></textarea>
 
       <Button
@@ -40,7 +52,7 @@ const LeaveReview = () => {
         size="medium"
         type="button"
         styleType="primary"
-        onClick={() => console.log("TODO make request")}
+        onClick={submitReview}
       >
         Leave a review
       </Button>
