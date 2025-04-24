@@ -9,7 +9,10 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/storage"
 )
+
+var _ storage.TimeTriggerRepository = (*PostgresBackend)(nil)
 
 func (p *PostgresBackend) CreateTimeTriggerTx(ctx context.Context, tx pgx.Tx, trigger types.TimeTrigger) error {
 	if p.pool == nil {
@@ -17,8 +20,8 @@ func (p *PostgresBackend) CreateTimeTriggerTx(ctx context.Context, tx pgx.Tx, tr
 	}
 
 	query := `
-		INSERT INTO time_triggers 
-    (policy_id, cron_expression, start_time, end_time, frequency, interval, status) 
+		INSERT INTO time_triggers
+    (policy_id, cron_expression, start_time, end_time, frequency, interval, status)
     VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
@@ -100,7 +103,7 @@ func (p *PostgresBackend) UpdateTimeTriggerLastExecution(ctx context.Context, po
 	}
 
 	query := `
-		UPDATE time_triggers 
+		UPDATE time_triggers
 		SET last_execution = $2
 		WHERE policy_id = $1
 	`
@@ -138,8 +141,8 @@ func (p *PostgresBackend) GetTriggerStatus(ctx context.Context, policyID string)
 	}
 
 	query := `
-		SELECT status 
-		FROM time_triggers 
+		SELECT status
+		FROM time_triggers
 		WHERE policy_id = $1
 	`
 
@@ -161,7 +164,7 @@ func (p *PostgresBackend) UpdateTriggerStatus(ctx context.Context, policyID stri
 	}
 
 	query := `
-		UPDATE time_triggers 
+		UPDATE time_triggers
 		SET status = $2
 		WHERE policy_id = $1
 	`

@@ -30,14 +30,14 @@ const (
 	hexEncryptionKey = "hexencryptionkey"
 )
 
-func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginKeysignRequest, error) {
+func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginKeysignRequest, error) {
 	var txs []types.PluginKeysignRequest
 	err := p.ValidatePluginPolicy(policy)
 	if err != nil {
 		return txs, fmt.Errorf("failed to validate plugin policy: %v", err)
 	}
 
-	var payrollPolicy types.PayrollPolicy
+	var payrollPolicy Policy
 	if err := json.Unmarshal(policy.Policy, &payrollPolicy); err != nil {
 		return txs, fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
@@ -96,7 +96,7 @@ func (p *PayrollPlugin) ProposeTransactions(policy types.PluginPolicy) ([]types.
 	return txs, nil
 }
 
-func (p *PayrollPlugin) generatePayrollTransaction(amountString, recipientString, chainID, tokenID, publicKey, chainCodeHex, derivePath string) ([]byte, []byte, error) {
+func (p *Plugin) generatePayrollTransaction(amountString, recipientString, chainID, tokenID, publicKey, chainCodeHex, derivePath string) ([]byte, []byte, error) {
 	amount := new(big.Int)
 	amount.SetString(amountString, 10)
 	recipient := gcommon.HexToAddress(recipientString)
@@ -207,7 +207,7 @@ func (p *PayrollPlugin) generatePayrollTransaction(amountString, recipientString
 	return txHash, rawTx, nil
 }
 
-func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) error {
+func (p *Plugin) SigningComplete(ctx context.Context, signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) error {
 	R, S, V, originalTx, chainID, _, err := p.convertData(signature, signRequest, policy)
 	if err != nil {
 		return fmt.Errorf("failed to convert R and S: %v", err)
@@ -250,7 +250,7 @@ func (p *PayrollPlugin) SigningComplete(ctx context.Context, signature tss.Keysi
 	return p.monitorTransaction(signedTx)
 }
 
-func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) (R *big.Int, S *big.Int, V *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, err error) {
+func (p *Plugin) convertData(signature tss.KeysignResponse, signRequest types.PluginKeysignRequest, policy types.PluginPolicy) (R *big.Int, S *big.Int, V *big.Int, originalTx *gtypes.Transaction, chainID *big.Int, recoveryID int64, err error) {
 	// convert R and S from hex strings to big.Int
 	R = new(big.Int)
 	R.SetString(signature.R, 16)
@@ -278,7 +278,7 @@ func (p *PayrollPlugin) convertData(signature tss.KeysignResponse, signRequest t
 	}
 
 	policybytes := policy.Policy
-	payrollPolicy := types.PayrollPolicy{}
+	payrollPolicy := Policy{}
 	err = json.Unmarshal(policybytes, &payrollPolicy)
 	if err != nil {
 		p.logger.Errorf("Failed to unmarshal policy: %v", err)

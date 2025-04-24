@@ -9,7 +9,10 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/storage"
 )
+
+var _ storage.PolicyRepository = (*PostgresBackend)(nil)
 
 func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error) {
 	if p.pool == nil {

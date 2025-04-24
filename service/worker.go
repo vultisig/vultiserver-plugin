@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -33,24 +35,42 @@ import (
 	"github.com/vultisig/vultiserver/contexthelper"
 )
 
+type WorkerStorage interface {
+	WithTransaction(ctx context.Context, fn func(ctx context.Context, tx pgx.Tx) error) error
+	UpdateTriggerStatus(ctx context.Context, policyID string, status types.TimeTriggerStatus) error
+	UpdateTimeTriggerLastExecution(ctx context.Context, policyID string) error
+	GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error)
+	CreateTransactionHistoryTx(ctx context.Context, dbTx pgx.Tx, tx types.TransactionHistory) (uuid.UUID, error)
+	UpdateTransactionStatusTx(ctx context.Context, dbTx pgx.Tx, txID uuid.UUID, status types.TransactionStatus, metadata map[string]interface{}) error
+}
+
+type Inspector interface {
+	GetTaskInfo(queue, id string) (*asynq.TaskInfo, error)
+}
+
+type Enqueuer interface {
+	Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)
+}
 type WorkerService struct {
 	cfg          config.Config
 	verifierHost string
 	verifierPort int64
 	redis        *storage.RedisStorage
 	logger       *logrus.Logger
-	queueClient  *asynq.Client
+	queueClient  Enqueuer
 	sdClient     *statsd.Client
 	blockStorage *storage.BlockStorage
-	inspector    *asynq.Inspector
+	inspector    Inspector
 	plugin       plugin.Plugin
-	db           storage.DatabaseStorage
-	syncer       syncer.PolicySyncer
-	authService  *AuthService
+	db           WorkerStorage
+	// TODO
+	// rpcClient    *ethclient.Client
+	syncer      syncer.PolicySyncer
+	authService Auth
 }
 
 // NewWorker creates a new worker service
-func NewWorker(cfg config.Config, verifierHost string, verifierPort int64, queueClient *asynq.Client, sdClient *statsd.Client, syncer syncer.PolicySyncer, authService *AuthService, blockStorage *storage.BlockStorage, inspector *asynq.Inspector) (*WorkerService, error) {
+func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Client, syncer syncer.PolicySyncer, authService *AuthService, blockStorage *storage.BlockStorage, inspector *asynq.Inspector) (*WorkerService, error) {
 	logger := logrus.WithField("service", "worker").Logger
 
 	redis, err := storage.NewRedisStorage(cfg)
@@ -58,26 +78,26 @@ func NewWorker(cfg config.Config, verifierHost string, verifierPort int64, queue
 		return nil, fmt.Errorf("storage.NewRedisStorage failed: %w", err)
 	}
 
-	db, err := postgres.NewPostgresBackend(false, cfg.Server.Database.DSN)
+	db, err := postgres.NewPostgresBackend(false, cfg.Database.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("fail to connect to database: %w", err)
 	}
 
 	var plugin plugin.Plugin
-	if cfg.Server.Mode == "plugin" {
-		switch cfg.Server.Plugin.Type {
-		case "payroll":
-			plugin, err = payroll.NewPayrollPlugin(db, logrus.WithField("service", "plugin").Logger, cfg.Plugin.PluginConfigs["payroll"])
+	if cfg.Mode == "plugin" {
+		switch cfg.PluginType {
+		case payroll.PluginType:
+			plugin, err = payroll.NewPlugin(db, logrus.WithField("service", "plugin").Logger, cfg.PluginPackage[payroll.PluginType])
 			if err != nil {
 				return nil, fmt.Errorf("fail to initialize payroll plugin: %w", err)
 			}
-		case "dca":
-			plugin, err = dca.NewDCAPlugin(db, logger, cfg.Plugin.PluginConfigs["dca"])
+		case dca.PluginType:
+			plugin, err = dca.NewPlugin(db, logger, cfg.PluginPackage[dca.PluginType])
 			if err != nil {
 				return nil, fmt.Errorf("fail to initialize DCA plugin: %w", err)
 			}
 		default:
-			logger.Fatalf("Invalid plugin type: %s", cfg.Server.Plugin.Type)
+			logger.Fatalf("Invalid plugin type: %s", cfg.PluginType)
 		}
 	}
 
@@ -93,8 +113,8 @@ func NewWorker(cfg config.Config, verifierHost string, verifierPort int64, queue
 		logger:       logger,
 		syncer:       syncer,
 		authService:  authService,
-		verifierHost: verifierHost,
-		verifierPort: verifierPort,
+		verifierHost: cfg.Verifier.Host,
+		verifierPort: cfg.Verifier.Port,
 	}, nil
 }
 
@@ -322,7 +342,7 @@ func (s *WorkerService) HandleReshare(ctx context.Context, t *asynq.Task) error 
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid reshare request: %s: %w", err, asynq.SkipRetry)
 	}
-	localState, err := relay.NewLocalStateAccessorImp(s.cfg.Server.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
+	localState, err := relay.NewLocalStateAccessorImp(s.cfg.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
 	if err != nil {
 		s.logger.Errorf("relay.NewLocalStateAccessorImp failed: %v", err)
 		return fmt.Errorf("relay.NewLocalStateAccessorImp failed: %v: %w", err, asynq.SkipRetry)
@@ -383,10 +403,14 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 		"policy_id": triggerEvent.PolicyID,
 	}).Info("plugin transaction request")
 
-	policy, err := s.db.GetPluginPolicy(ctx, triggerEvent.PolicyID)
+	return s.processPluginTransaction(ctx, triggerEvent.PolicyID)
+}
+
+func (s *WorkerService) processPluginTransaction(ctx context.Context, policyID string) error {
+	policy, err := s.db.GetPluginPolicy(ctx, policyID)
 	if err != nil {
 		s.logger.Errorf("db.GetPluginPolicy failed: %v", err)
-		return fmt.Errorf("db.GetPluginPolicy failed: %v: %w", err, asynq.SkipRetry)
+		return fmt.Errorf("db.GetPluginPolicy failed: %w", err)
 	}
 
 	s.logger.WithFields(logrus.Fields{
@@ -398,126 +422,180 @@ func (s *WorkerService) HandlePluginTransaction(ctx context.Context, t *asynq.Ta
 	// Propose transactions to sign
 	signRequests, err := s.plugin.ProposeTransactions(policy)
 	if err != nil {
-		s.logger.Errorf("Failed to create signing request: %v", err)
-		return fmt.Errorf("failed to create signing request: %v: %w", err, asynq.SkipRetry)
+		s.logger.Errorf("ProposeTransactions failed: %v", err)
+		return fmt.Errorf("ProposeTransactions failed: %w", err)
 	}
 
 	jwtToken, err := s.authService.GenerateToken()
 	if err != nil {
-		s.logger.Errorf("Failed to generate jwt token: %v", err)
+		s.logger.Errorf("GenerateToken failed: %v", err)
+		return fmt.Errorf("GenerateToken failed: %w", err)
 	}
 
 	for _, signRequest := range signRequests {
-		policyUUID, err := uuid.Parse(signRequest.PolicyID)
-		if err != nil {
-			s.logger.Errorf("Failed to parse policy ID as UUID: %v", err)
-			return err
+		if err := s.processSignRequest(ctx, signRequest, policy, jwtToken); err != nil {
+			s.logger.Errorf("Processing sign request failed: %v", err)
+			return fmt.Errorf("processing sign request failed: %w", err)
 		}
+	}
+	return nil
+}
 
-		// create transaction with PENDING status
-		metadata := map[string]interface{}{
-			"timestamp":        time.Now(),
-			"plugin_type":      signRequest.PluginType,
-			"public_key":       signRequest.KeysignRequest.PublicKey,
-			"transaction_type": signRequest.TransactionType,
-		}
+func (s *WorkerService) processSignRequest(ctx context.Context, signRequest types.PluginKeysignRequest, policy types.PluginPolicy, jwtToken string) error {
+	policyUUID, err := uuid.Parse(signRequest.PolicyID)
+	if err != nil {
+		return fmt.Errorf("failed to parse policy UUID: %w", err)
+	}
 
-		newTx := types.TransactionHistory{
-			PolicyID: policyUUID,
-			TxBody:   signRequest.Transaction,
-			TxHash:   signRequest.Messages[0],
-			Status:   types.StatusPending,
-			Metadata: metadata,
-		}
+	// Create transaction history record with PENDING status
+	metadata := map[string]interface{}{
+		"timestamp":        time.Now(),
+		"plugin_type":      signRequest.PluginType,
+		"public_key":       signRequest.KeysignRequest.PublicKey,
+		"transaction_type": signRequest.TransactionType,
+	}
 
-		if err := s.upsertAndSyncTransaction(ctx, syncer.CreateAction, &newTx, jwtToken); err != nil {
-			return fmt.Errorf("upsertAndSyncTransaction failed: %w", err)
-		}
+	newTx := types.TransactionHistory{
+		PolicyID: policyUUID,
+		TxBody:   signRequest.Transaction,
+		TxHash:   signRequest.Messages[0],
+		Status:   types.StatusPending,
+		Metadata: metadata,
+	}
 
-		// start TSS signing process
-		err = s.initiateTxSignWithVerifier(ctx, signRequest, metadata, newTx, jwtToken)
-		if err != nil {
-			return err
-		}
+	if err := s.upsertAndSyncTransaction(ctx, syncer.CreateAction, &newTx, jwtToken); err != nil {
+		return fmt.Errorf("upsertAndSyncTransaction failed: %w", err)
+	}
 
-		// prepare local sign request
-		signRequest.KeysignRequest.Parties = []string{common.PluginPartyID, common.VerifierPartyID}
-		buf, err := json.Marshal(signRequest.KeysignRequest)
-		if err != nil {
-			s.logger.Errorf("Failed to marshal local sign request: %v", err)
-			return err
-		}
+	// Start TSS signing process
+	if err := s.initiateTxSignWithVerifier(ctx, signRequest, metadata, newTx, jwtToken); err != nil {
+		return fmt.Errorf("failed to initiate sign with verifier: %w", err)
+	}
 
-		// Enqueue TypeKeySign directly
-		ti, err := s.queueClient.Enqueue(
-			asynq.NewTask(tasks.TypeKeySign, buf),
-			asynq.MaxRetry(0),
-			asynq.Timeout(2*time.Minute),
-			asynq.Retention(5*time.Minute),
-			asynq.Queue(tasks.QUEUE_NAME),
-		)
-		if err != nil {
-			s.logger.Errorf("Failed to enqueue signing task: %v", err)
-			continue
-		}
+	return s.executeSigningProcess(ctx, signRequest, metadata, newTx, jwtToken, policy)
+}
 
-		s.logger.Infof("Enqueued signing task: %s", ti.ID)
+// executeSigningProcess handles the actual signing process and result handling
+func (s *WorkerService) executeSigningProcess(
+	ctx context.Context,
+	signRequest types.PluginKeysignRequest,
+	metadata map[string]interface{},
+	newTx types.TransactionHistory,
+	jwtToken string,
+	policy types.PluginPolicy) error {
 
-		// wait for result with timeout
-		result, err := s.waitForTaskResult(ti.ID, 120*time.Second) // adjust timeout as needed (each policy provider should be able to set it, but there should be an incentive to not retry too much)
-		if err != nil {                                            //do we consider that the signature is always valid if err = nil?
-			metadata["error"] = err.Error()
-			metadata["task_id"] = ti.ID
-			newTx.Status = types.StatusSigningFailed
-			newTx.Metadata = metadata
-			if err := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); err != nil {
-				s.logger.Errorf("upsertAndSyncTransaction failed: %v", err)
-			}
-			return err
-		}
+	// signRequest.KeysignRequest.StartSession = true
 
-		// Update to SIGNED status with result
+	signRequest.KeysignRequest.Parties = []string{common.PluginPartyID, common.VerifierPartyID}
+	buf, err := json.Marshal(signRequest)
+	if err != nil {
+		return fmt.Errorf("failed to marshal signRequest: %w", err)
+	}
+
+	// Enqueue TypeKeySign directly
+	ti, err := s.queueClient.Enqueue(
+		asynq.NewTask(tasks.TypeKeySign, buf),
+		asynq.MaxRetry(0),
+		asynq.Timeout(2*time.Minute),
+		asynq.Retention(5*time.Minute),
+		asynq.Queue(tasks.QUEUE_NAME),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to enqueue signing task: %w", err)
+	}
+
+	s.logger.Infof("Enqueued signing task: %s", ti.ID)
+
+	// Wait for result with timeout
+	result, err := s.waitForTaskResult(ti.ID, 120*time.Second)
+	if err != nil {
+		metadata["error"] = err.Error()
 		metadata["task_id"] = ti.ID
-		metadata["result"] = result
-		newTx.Status = types.StatusSigned
+		newTx.Status = types.StatusSigningFailed
 		newTx.Metadata = metadata
-		if err := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); err != nil {
-			return fmt.Errorf("upsertAndSyncTransaction failed: %v", err)
+		if syncErr := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); syncErr != nil {
+			s.logger.Errorf("upsertAndSyncTransaction failed: %v", syncErr)
 		}
+		return fmt.Errorf("waitForTaskResult failed: %w", err)
+	}
 
-		var signatures map[string]tss.KeysignResponse
-		if err := json.Unmarshal(result, &signatures); err != nil {
-			s.logger.Errorf("Failed to unmarshal signatures: %v", err)
-			return fmt.Errorf("failed to unmarshal signatures: %w", err)
-		}
-		var signature tss.KeysignResponse
-		for _, sig := range signatures {
-			signature = sig
-			break
-		}
+	// Update to SIGNED status with result
+	metadata["task_id"] = ti.ID
+	metadata["result"] = result
+	newTx.Status = types.StatusSigned
+	newTx.Metadata = metadata
+	if err := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); err != nil {
+		return fmt.Errorf("upsertAndSyncTransaction failed: %w", err)
+	}
+	return s.completeSigningProcess(ctx, result, signRequest, metadata, newTx, jwtToken, policy)
 
-		err = s.plugin.SigningComplete(ctx, signature, signRequest, policy)
-		if err != nil {
-			s.logger.Errorf("Failed to complete signing: %v", err)
+}
 
-			newTx.Status = types.StatusRejected
-			newTx.Metadata = metadata
-			if err := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); err != nil {
-				s.logger.Errorf("upsertAndSyncTransaction failed: %v", err)
-			}
-			return fmt.Errorf("fail to complete signing: %w", err)
-		}
+func (s *WorkerService) completeSigningProcess(ctx context.Context, result []byte, signRequest types.PluginKeysignRequest, metadata map[string]interface{}, newTx types.TransactionHistory, jwtToken string, policy types.PluginPolicy) error {
+	var signatures map[string]tss.KeysignResponse
+	if err := json.Unmarshal(result, &signatures); err != nil {
+		return fmt.Errorf("failed to unmarshal signatures: %w", err)
+	}
 
-		newTx.Status = types.StatusMined
+	var signature tss.KeysignResponse
+	for _, sig := range signatures {
+		signature = sig
+		break
+	}
+
+	err := s.plugin.SigningComplete(ctx, signature, signRequest, policy)
+	if err != nil {
+		s.logger.Errorf("Failed to complete signing: %v", err)
+
+		newTx.Status = types.StatusRejected
 		newTx.Metadata = metadata
-		if err := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); err != nil {
-			s.logger.Errorf("upsertAndSyncTransaction failed: %v", err)
+		if syncErr := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); syncErr != nil {
+			s.logger.Errorf("upsertAndSyncTransaction failed: %v", syncErr)
 		}
+		return fmt.Errorf("fail to complete signing: %w", err)
+	}
+
+	newTx.Status = types.StatusMined
+	newTx.Metadata = metadata
+	if err := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); err != nil {
+		s.logger.Errorf("upsertAndSyncTransaction failed: %v", err)
 	}
 
 	return nil
 }
 
+func (s *WorkerService) upsertAndSyncTransaction(ctx context.Context, action syncer.Action, tx *types.TransactionHistory, jwtToken string) error {
+	s.logger.Info("upsertAndSyncTransaction started with action: ", action)
+
+	err := s.db.WithTransaction(ctx, func(ctx context.Context, dbTx pgx.Tx) error {
+		if action == syncer.CreateAction {
+			txID, err := s.db.CreateTransactionHistoryTx(ctx, dbTx, *tx)
+			if err != nil {
+				s.logger.Errorf("Failed to create (or update) transaction history tx: %v", err)
+				return fmt.Errorf("failed to create transaction history: %w", err)
+			}
+			tx.ID = txID
+		} else {
+			if err := s.db.UpdateTransactionStatusTx(ctx, dbTx, tx.ID, tx.Status, tx.Metadata); err != nil {
+				return fmt.Errorf("failed to update transaction status: %w", err)
+			}
+		}
+
+		if err := s.syncer.SyncTransaction(action, jwtToken, *tx); err != nil {
+			return fmt.Errorf("failed to sync transaction: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("transaction failed: %w", err)
+	}
+
+	return nil
+}
+
+// initiateTxSignWithVerifier communicates with the verifier for signing
 func (s *WorkerService) initiateTxSignWithVerifier(ctx context.Context, signRequest types.PluginKeysignRequest, metadata map[string]interface{}, newTx types.TransactionHistory, jwtToken string) error {
 	signBytes, err := json.Marshal(signRequest)
 	if err != nil {
@@ -554,38 +632,7 @@ func (s *WorkerService) initiateTxSignWithVerifier(ctx context.Context, signRequ
 		if err := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); err != nil {
 			s.logger.Errorf("upsertAndSyncTransaction failed: %v", err)
 		}
-		return err
-	}
-	return nil
-}
-
-func (s *WorkerService) upsertAndSyncTransaction(ctx context.Context, action syncer.Action, tx *types.TransactionHistory, jwtToken string) error {
-	s.logger.Info("upsertAndSyncTransaction started with action: ", action)
-	dbTx, err := s.db.Pool().Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer dbTx.Rollback(ctx)
-
-	if action == syncer.CreateAction {
-		txID, err := s.db.CreateTransactionHistoryTx(ctx, dbTx, *tx)
-		if err != nil {
-			s.logger.Errorf("Failed to create (or update) transaction history tx: %v", err)
-			return fmt.Errorf("failed to create transaction history: %w", err)
-		}
-		tx.ID = txID
-	} else {
-		if err = s.db.UpdateTransactionStatusTx(ctx, dbTx, tx.ID, tx.Status, tx.Metadata); err != nil {
-			return fmt.Errorf("failed to update transaction status: %w", err)
-		}
-	}
-
-	if err = s.syncer.SyncTransaction(action, jwtToken, *tx); err != nil {
-		return fmt.Errorf("failed to sync transaction: %w", err)
-	}
-
-	if err = dbTx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return fmt.Errorf("verifier responded with error: %s", string(respBody))
 	}
 	return nil
 }
@@ -648,7 +695,7 @@ func (s *WorkerService) HandleReshareDKLS(ctx context.Context, t *asynq.Task) er
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid reshare request: %s: %w", err, asynq.SkipRetry)
 	}
-	localState, err := relay.NewLocalStateAccessorImp(s.cfg.Server.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
+	localState, err := relay.NewLocalStateAccessorImp(s.cfg.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
 	if err != nil {
 		s.logger.Errorf("relay.NewLocalStateAccessorImp failed: %v", err)
 		return fmt.Errorf("relay.NewLocalStateAccessorImp failed: %v: %w", err, asynq.SkipRetry)
@@ -702,7 +749,7 @@ func (s *WorkerService) HandleMigrateDKLS(ctx context.Context, t *asynq.Task) er
 	if err := req.IsValid(); err != nil {
 		return fmt.Errorf("invalid migrate request: %s: %w", err, asynq.SkipRetry)
 	}
-	localState, err := relay.NewLocalStateAccessorImp(s.cfg.Server.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
+	localState, err := relay.NewLocalStateAccessorImp(s.cfg.VaultsFilePath, req.PublicKey, req.EncryptionPassword, s.blockStorage)
 	if err != nil {
 		s.logger.Errorf("relay.NewLocalStateAccessorImp failed: %v", err)
 		return fmt.Errorf("relay.NewLocalStateAccessorImp failed: %v: %w", err, asynq.SkipRetry)

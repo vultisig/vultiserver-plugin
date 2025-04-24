@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -33,74 +31,126 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	var req types.PluginKeysignRequest
 	if err := c.Bind(&req); err != nil {
-		return fmt.Errorf("fail to parse request, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to parse request, err: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	// Plugin-specific validations
+	// Plugin-specific validations //TODO: maybe this is not okay since we do not want this kind of specific checks in verifier
 	if len(req.Messages) != 1 {
-		return fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
+		wrappedErr := fmt.Errorf("plugin signing requires exactly one message hash, current: %d", len(req.Messages))
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusBadRequest, message)
 	}
 
 	// Get policy from database
 	policy, err := s.db.GetPluginPolicy(c.Request().Context(), req.PolicyID)
 	if err != nil {
-		return fmt.Errorf("failed to get policy from database: %w", err)
+		wrappedErr := fmt.Errorf("failed to get policy from database: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	// Validate policy matches plugin
 	if policy.PluginType != req.PluginType {
-		return fmt.Errorf("policy plugin mismatch")
+		mismatchErr := errors.New("policy plugin mismatch")
+		s.logger.Error(mismatchErr)
+		message := map[string]interface{}{
+			"error": mismatchErr.Error(),
+		}
+		return c.JSON(http.StatusBadRequest, message)
 	}
 
 	// We re-init plugin as verification server doesn't have plugin defined
 	var plg plugin.Plugin
 	plg, err = s.initializePlugin(policy.PluginType)
 	if err != nil {
-		return fmt.Errorf("failed to initialize plugin: %w", err)
+		wrappedErr := fmt.Errorf("fail to initialize plugin: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	if err := plg.ValidateProposedTransactions(policy, []types.PluginKeysignRequest{req}); err != nil {
-		return fmt.Errorf("failed to validate transaction proposal: %w", err)
+		wrappedErr := fmt.Errorf("fail to validate proposed transactions: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusBadRequest, message)
 	}
 
 	// Validate message hash matches transaction
 	txHash, err := calculateTransactionHash(req.Transaction)
 	if err != nil {
-		return fmt.Errorf("fail to calculate transaction hash: %w", err)
+		wrappedErr := fmt.Errorf("fail to calculate transaction hash: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 	if txHash != req.Messages[0] {
-		return fmt.Errorf("message hash does not match transaction hash. expected %s, got %s", txHash, req.Messages[0])
+		wrappedErr := fmt.Errorf("message hash does not match transaction hash. expected %s, got %s", txHash, req.Messages[0])
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
-	// Reuse existing signing logic
+	// Reuse existing signing logic //TODO: why we return here with status OK
 	result, err := s.redis.Get(c.Request().Context(), req.SessionID)
 	if err == nil && result != "" {
 		return c.NoContent(http.StatusOK)
 	}
 
 	if err := s.redis.Set(c.Request().Context(), req.SessionID, req.SessionID, 30*time.Minute); err != nil {
+		//TODO: should we return error here or just log it
 		s.logger.Errorf("fail to set session, err: %v", err)
 	}
 
 	filePathName := common.GetVaultBackupFilename(req.PublicKey)
 	content, err := s.blockStorage.GetFile(filePathName)
 	if err != nil {
-		wrappedErr := fmt.Errorf("fail to read file, err: %w", err)
-		s.logger.Infof("fail to read file in SignPluginMessages, err: %v", err)
-		s.logger.Error(wrappedErr)
-		return wrappedErr
+		wrappedErr := fmt.Errorf("fail to read file: %s", filePathName)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	_, err = common.DecryptVaultFromBackup(req.VaultPassword, content)
 	if err != nil {
-		return fmt.Errorf("fail to decrypt vault from the backup, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to decrypt file from the backup: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	req.Parties = []string{common.PluginPartyID, common.VerifierPartyID}
 
 	buf, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("fail to marshal to json, err: %w", err)
+		wrappedErr := fmt.Errorf("fail to marshal request: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	// TODO: check if this is relevant
@@ -109,8 +159,12 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 
 	txToSign, err := s.db.GetTransactionByHash(c.Request().Context(), txHash)
 	if err != nil {
-		s.logger.Errorf("Failed to get transaction by hash from database: %v", err)
-		return fmt.Errorf("fail to get transaction by hash: %w", err)
+		wrappedErr := fmt.Errorf("fail to get transaction by hash: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	s.logger.Debug("PLUGIN SERVER: KEYSIGN TASK")
@@ -127,7 +181,12 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 		if updateErr := s.db.UpdateTransactionStatus(c.Request().Context(), txToSign.ID, types.StatusSigningFailed, txToSign.Metadata); updateErr != nil {
 			s.logger.Errorf("Failed to update transaction status: %v", updateErr)
 		}
-		return fmt.Errorf("fail to enqueue keysign task: %w", err)
+		wrappedErr := fmt.Errorf("fail to enqueue task: %w", err)
+		s.logger.Error(wrappedErr)
+		message := map[string]interface{}{
+			"error": wrappedErr.Error(),
+		}
+		return c.JSON(http.StatusInternalServerError, message)
 	}
 
 	txToSign.Metadata["task_id"] = ti.ID
@@ -138,33 +197,6 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	s.logger.Infof("Created transaction history for tx from plugin: %s...", req.Transaction[:min(20, len(req.Transaction))])
 
 	return c.JSON(http.StatusOK, ti.ID)
-}
-
-func (s *Server) GetPluginPolicyById(c echo.Context) error {
-	policyID := c.Param("policyId")
-	if policyID == "" {
-		err := fmt.Errorf("policy ID is required")
-		message := map[string]interface{}{
-			"message": "failed to get policy",
-			"error":   err.Error(),
-		}
-		s.logger.Error(err)
-
-		return c.JSON(http.StatusBadRequest, message)
-	}
-
-	policy, err := s.policyService.GetPluginPolicy(c.Request().Context(), policyID)
-	if err != nil {
-		err = fmt.Errorf("failed to get policy: %w", err)
-		message := map[string]interface{}{
-			"message": fmt.Sprintf("failed to get policy: %s", policyID),
-			"error":   err.Error(),
-		}
-		s.logger.Error(err)
-		return c.JSON(http.StatusInternalServerError, message)
-	}
-
-	return c.JSON(http.StatusOK, policy)
 }
 
 func (s *Server) GetAllPluginPolicies(c echo.Context) error {
@@ -219,7 +251,6 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 	}
 
 	// We re-init plugin as verification server doesn't have plugin defined
-
 	var plg plugin.Plugin
 	plg, err := s.initializePlugin(policy.PluginType)
 	if err != nil {
@@ -420,26 +451,32 @@ func (s *Server) GetPolicySchema(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	keyPath := filepath.Join("plugin", pluginType, "dcaPluginUiSchema.json")
+	plg, err := s.initializePlugin(pluginType)
+	if err != nil {
+		message := map[string]interface{}{
+			"message": fmt.Sprintf("failed to initialize plugin with this type: %s", pluginType),
+		}
+		s.logger.Error(fmt.Sprintf("GetPolicySchema: %v", err))
+		return c.JSON(http.StatusInternalServerError, message)
+	}
 
-	jsonData, err := os.ReadFile(keyPath)
+	jsonSchema, err := plg.FrontendSchema()
 	if err != nil {
 		message := map[string]interface{}{
 			"message": fmt.Sprintf("missing schema for plugin: %s", pluginType),
 		}
-		s.logger.Error(err)
+		s.logger.Error(fmt.Sprintf("GetPolicySchema: %v", err))
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
 	var data map[string]interface{}
-	jsonErr := json.Unmarshal([]byte(jsonData), &data)
-	if jsonErr != nil {
-
+	err = json.Unmarshal(jsonSchema, &data)
+	if err != nil {
 		message := map[string]interface{}{
-			"message": fmt.Sprintf("could not unmarshal json: %s", jsonErr),
-			"error":   jsonErr.Error(),
+			"message": fmt.Sprintf("could not unmarshal json: %s", err),
+			"error":   err.Error(),
 		}
-		s.logger.Error(jsonErr)
+		s.logger.Error(fmt.Sprintf("GetPolicySchema: %v", err))
 		return c.JSON(http.StatusInternalServerError, message)
 	}
 
@@ -473,10 +510,10 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 
 func (s *Server) initializePlugin(pluginType string) (plugin.Plugin, error) {
 	switch pluginType {
-	case "payroll":
-		return payroll.NewPayrollPlugin(s.db, s.logger, s.pluginConfigs["payroll"])
-	case "dca":
-		return dca.NewDCAPlugin(s.db, s.logger, s.pluginConfigs["dca"])
+	case payroll.PluginType:
+		return payroll.NewPlugin(s.db, s.logger, s.pluginConfigs[payroll.PluginType])
+	case dca.PluginType:
+		return dca.NewPlugin(s.db, s.logger, s.pluginConfigs[dca.PluginType])
 	default:
 		return nil, fmt.Errorf("unknown plugin type: %s", pluginType)
 	}
@@ -502,7 +539,7 @@ func (s *Server) UserLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"message": "Invalid credentials"})
 	}
 
-	token, err := jwt.GenerateJWT(user.ID, s.cfg.Server.UserAuth.JwtSecret)
+	token, err := jwt.GenerateJWT(user.ID, s.cfg.UserAuth.JwtSecret)
 	if err != nil {
 		s.logger.Error("Failed to generate jwt", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"message": "Failed to generate token"})
@@ -589,6 +626,32 @@ func (s *Server) DeletePricing(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (s *Server) GetCategories(c echo.Context) error {
+	categories, err := s.db.FindCategories(c.Request().Context())
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to get categories",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	return c.JSON(http.StatusOK, categories)
+}
+
+func (s *Server) GetTags(c echo.Context) error {
+	tags, err := s.db.FindTags(c.Request().Context())
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to get tags",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	return c.JSON(http.StatusOK, tags)
+}
+
 func (s *Server) GetPlugins(c echo.Context) error {
 	skip, err := strconv.Atoi(c.QueryParam("skip"))
 
@@ -604,7 +667,14 @@ func (s *Server) GetPlugins(c echo.Context) error {
 
 	sort := c.QueryParam("sort")
 
-	plugins, err := s.db.FindPlugins(c.Request().Context(), skip, take, sort)
+	filters := types.PluginFilters{
+		Term:       common.GetQueryParam(c, "term"),
+		TagID:      common.GetQueryParam(c, "tag_id"),
+		CategoryID: common.GetQueryParam(c, "category_id"),
+	}
+
+	plugins, err := s.db.FindPlugins(c.Request().Context(), filters, skip, take, sort)
+
 	if err != nil {
 		message := echo.Map{
 			"message": "failed to get plugins",
@@ -719,6 +789,107 @@ func (s *Server) DeletePlugin(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (s *Server) AttachPluginTag(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to find plugin",
+			"error":   "plugin id is required",
+		})
+	}
+	plugin, err := s.db.FindPluginById(c.Request().Context(), pluginID)
+	if err != nil {
+		s.logger.Error(err)
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to find plugin",
+			"error":   "plugin not found",
+		})
+	}
+
+	var createTagDto types.CreateTagDto
+	if err := c.Bind(&createTagDto); err != nil {
+		return fmt.Errorf("fail to parse request, err: %w", err)
+	}
+	if err := c.Validate(&createTagDto); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": err.Error(),
+		})
+	}
+
+	var tag *types.Tag
+	tag, err = s.db.FindTagByName(c.Request().Context(), createTagDto.Name)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			tag, err = s.db.CreateTag(c.Request().Context(), createTagDto)
+			if err != nil {
+				s.logger.Error(err)
+				return c.JSON(http.StatusInternalServerError, echo.Map{
+					"message": "failed to create tag",
+				})
+			}
+		} else {
+			s.logger.Error(err)
+			return c.JSON(http.StatusInternalServerError, echo.Map{
+				"message": "failed to check for existing tag",
+			})
+		}
+	}
+
+	updatedPlugin, err := s.db.AttachTagToPlugin(c.Request().Context(), plugin.ID, tag.ID)
+	if err != nil {
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "failed to attach tag",
+		})
+	}
+
+	return c.JSON(http.StatusOK, updatedPlugin)
+}
+
+func (s *Server) DetachPluginTag(c echo.Context) error {
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to find plugin",
+			"error":   "plugin id is required",
+		})
+	}
+	plugin, err := s.db.FindPluginById(c.Request().Context(), pluginID)
+	if err != nil {
+		s.logger.Error(err)
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to find plugin",
+			"error":   "plugin not found",
+		})
+	}
+
+	tagID := c.Param("tagId")
+	if tagID == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to find tag",
+			"error":   "tag id is required",
+		})
+	}
+	tag, err := s.db.FindTagById(c.Request().Context(), tagID)
+	if err != nil {
+		s.logger.Error(err)
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to find tag",
+			"error":   "tag not found",
+		})
+	}
+
+	updatedPlugin, err := s.db.DetachTagFromPlugin(c.Request().Context(), plugin.ID, tag.ID)
+	if err != nil {
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "failed to detach tag",
+		})
+	}
+
+	return c.JSON(http.StatusOK, updatedPlugin)
 }
 
 func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) bool {
