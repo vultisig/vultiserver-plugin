@@ -51,6 +51,7 @@ DROP TABLE IF EXISTS plugin_policies;
 CREATE TABLE plugin_policies (
     id UUID PRIMARY KEY,
     public_key TEXT NOT NULL,
+    plugin_id TEXT NOT NULL,
     plugin_version TEXT NOT NULL,
     policy_version TEXT NOT NULL,
     plugin_type plugin_type NOT NULL,
