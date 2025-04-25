@@ -1,6 +1,8 @@
 import { RJSFSchema } from "@rjsf/utils";
 
-export type Policy<T = string | number | boolean | null | undefined> = {
+export type Policy<
+  T = string | number | boolean | string[] | null | undefined,
+> = {
   [key: string]: T | Policy<T>;
 };
 
