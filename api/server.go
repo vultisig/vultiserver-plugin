@@ -90,9 +90,10 @@ func NewServer(
 			if err != nil {
 				logger.Fatal("failed to initialize payroll plugin", err)
 			}
-
 		case dca.PluginType:
-			plugin, err = dca.NewPlugin(db, logger, pluginConfigs[dca.PluginType])
+			syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Verifier.Host, cfg.Verifier.Port)
+
+			plugin, err = dca.NewPlugin(db, syncerService, logger, pluginConfigs[dca.PluginType])
 			if err != nil {
 				logger.Fatal("fail to initialize DCA plugin: ", err)
 			}
@@ -111,7 +112,6 @@ func NewServer(
 
 		logger.Info("Creating Syncer")
 
-		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Verifier.Host, cfg.Verifier.Port)
 	}
 
 	policyService, err := service.NewPolicyService(db, syncerService, schedulerService, logger.WithField("service", "policy").Logger)

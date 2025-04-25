@@ -62,10 +62,8 @@ type WorkerService struct {
 	inspector    Inspector
 	plugin       plugin.Plugin
 	db           WorkerStorage
-	// TODO
-	// rpcClient    *ethclient.Client
-	syncer      syncer.PolicySyncer
-	authService Auth
+	syncer       syncer.PolicySyncer
+	authService  Auth
 }
 
 // NewWorker creates a new worker service
@@ -91,7 +89,7 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 				return nil, fmt.Errorf("fail to initialize payroll plugin: %w", err)
 			}
 		case dca.PluginType:
-			plugin, err = dca.NewPlugin(db, logger, cfg.PluginPackage[dca.PluginType])
+			plugin, err = dca.NewPlugin(db, syncer, logger, cfg.PluginPackage[dca.PluginType])
 			if err != nil {
 				return nil, fmt.Errorf("fail to initialize DCA plugin: %w", err)
 			}
