@@ -74,7 +74,7 @@ type Plugin struct {
 	signLegacyTx  func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error)
 }
 
-func NewPlugin(db Storage, logger *logrus.Logger, rawConfig map[string]interface{}) (*Plugin, error) {
+func NewPlugin(db Storage, syncer syncer.PolicySyncer, logger *logrus.Logger, rawConfig map[string]interface{}) (*Plugin, error) {
 	var cfg PluginConfig
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
 		return nil, err
@@ -104,6 +104,7 @@ func NewPlugin(db Storage, logger *logrus.Logger, rawConfig map[string]interface
 		uniswapClient: uniswapClient,
 		rpcClient:     rpcClient,
 		db:            db,
+		syncer:        syncer,
 		logger:        logger,
 		waitMined:     bind.WaitMined,
 		signLegacyTx:  sigutil.SignLegacyTx,
