@@ -16,8 +16,10 @@ const (
 	policyVersion = "0.0.1"
 )
 
-//go:embed frontend
-var frontend embed.FS
+var (
+	//go:embed payrollPluginUiSchema.json
+	embeddedFilePayrollSchema embed.FS
+)
 
 type Plugin struct {
 	db           storage.DatabaseStorage
@@ -35,7 +37,6 @@ func NewPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rawConfig 
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
 		return nil, err
 	}
-
 	rpcClient, err := ethclient.Dial(cfg.RpcURL)
 	if err != nil {
 		return nil, err
@@ -50,7 +51,7 @@ func NewPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rawConfig 
 }
 
 func (p *Plugin) FrontendSchema() ([]byte, error) {
-	return frontend.ReadFile("./fronted/index.html") //TODO: jsonSchema not implemented yet
+	return embeddedFilePayrollSchema.ReadFile("payrollPluginUiSchema.json")
 }
 
 func (p *Plugin) GetNextNonce(address string) (uint64, error) {

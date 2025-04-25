@@ -1,5 +1,5 @@
 import Form, { IChangeEvent } from "@rjsf/core";
-import validator from "@rjsf/validator-ajv8";
+import { customizeValidator } from "@rjsf/validator-ajv8";
 import "./PolicyForm.css";
 import { generatePolicy } from "../../utils/policy.util";
 import { PluginPolicy, PolicySchema } from "../../models/policy";
@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { usePolicies } from "../../context/PolicyProvider";
 import { TitleFieldTemplate } from "../policy-title/PolicyTitle";
 import TokenSelector from "@/modules/shared/token-selector/TokenSelector";
+import TokenSelectorArray from "@/modules/shared/token-selector-array/TokenSelectorArray.tsx";
 import WeiConverter from "@/modules/shared/wei-converter/WeiConverter";
 import { RJSFValidationError } from "@rjsf/utils";
 import { v4 as uuidv4 } from "uuid";
@@ -37,6 +38,17 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
   const onChange = (e: IChangeEvent) => {
     setFormData(e.formData);
   };
+
+  const customFormats = {
+    "evm-address": (value: string) => {
+      const regex = /^0x[a-fA-F0-9]{40}$/g;
+      return regex.test(value);
+    },
+  };
+
+  const customValidator = customizeValidator({
+    customFormats,
+  });
 
   const onSubmit = async (submitData: IChangeEvent) => {
     if (schema?.form) {
@@ -93,6 +105,11 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
       if (error.name === "required") {
         error.message = "required";
       }
+      if (error.name === "format") {
+        if (error.params.format === "evm-address") {
+          error.message = "should be valid EVM address";
+        }
+      }
       return error;
     });
   };
@@ -105,19 +122,21 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
           idPrefix={pluginType}
           schema={schema.form.schema}
           uiSchema={schema.form.uiSchema}
-          validator={validator}
+          validator={customValidator}
           formData={formData}
           onSubmit={onSubmit}
           onChange={onChange}
           showErrorList={false}
           templates={{ TitleFieldTemplate }}
-          widgets={{ TokenSelector, WeiConverter }}
+          widgets={{ TokenSelector, WeiConverter, TokenSelectorArray }}
           transformErrors={transformErrors}
           liveValidate={!!policyId}
           readonly={!!policyId}
           formContext={{
             editing: !!policyId,
-            sourceTokenId: formData.source_token_id as string, // sourceTokenId is needed in WeiConverter/TitleFieldTemplate and probably on most of the existing plugins to get the rigth decimal places based on token address
+            sourceTokenId:
+              (formData.source_token_id as string) ||
+              (formData.token_id as string[])?.at(0), // sourceTokenId is needed in WeiConverter/TitleFieldTemplate and probably on most of the existing plugins to get the rigth decimal places based on token address
             destinationTokenId: formData.destination_token_id as string, // destinationTokenId is needed in TitleFieldTemplate
           }}
         />

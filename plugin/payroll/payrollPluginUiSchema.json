@@ -1,0 +1,224 @@
+{
+  "form": {
+    "schema": {
+      "title": "Payroll",
+      "type": "object",
+      "required": ["recipients", "schedule", "token_id"],
+      "properties": {
+        "chain_id": {
+          "type": "array",
+          "minItems": 1,
+          "items": [
+            {
+              "type": "string",
+              "default": "1"
+            }
+          ]
+        },
+        "schedule": {
+          "type": "object",
+          "items": {
+            "type": "object"
+          },
+          "required": ["interval", "frequency", "start_time"],
+          "properties": {
+            "interval": {
+              "title": "Every",
+              "type": "number"
+            },
+            "frequency": {
+              "type": "string",
+              "title": "Time",
+              "enum": ["minutely", "hourly", "daily", "weekly", "monthly"],
+              "default": "minutely"
+            },
+            "start_time": {
+              "title": "Start Date",
+              "type": "string",
+              "format": "date-time"
+            },
+            "end_time": {
+              "title": "End Date",
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "dependencies": {
+            "frequency": {
+              "oneOf": [
+                {
+                  "properties": {
+                    "frequency": {
+                      "enum": ["minutely"]
+                    },
+                    "interval": {
+                      "type": "number",
+                      "pattern": "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$"
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "frequency": {
+                      "enum": ["hourly", "daily", "weekly", "monthly"]
+                    },
+                    "interval": {
+                      "type": "number",
+                      "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "token_id": {
+          "type": "array",
+          "title": "Payment token",
+          "items": [
+            {
+              "type": "string",
+              "default": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+            }
+          ]
+        },
+        "recipients": {
+          "title": "Recipients",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["address", "amount"],
+            "properties": {
+              "address": {
+                "title": "Address",
+                "type": "string",
+                "format": "evm-address"
+              },
+              "amount": {
+                "title": "Amount",
+                "type": "number",
+                "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "uiSchema": {
+      "ui:order": ["schedule", "token_id", "*"],
+      "ui:description": "Here lies a description for Payroll plugin",
+      "ui:submitButtonOptions": {
+        "submitText": "Save policy"
+      },
+      "chain_id": {
+        "ui:options": {
+          "label": false
+        },
+        "items": {
+          "ui:widget": "hidden"
+        }
+      },
+      "token_id": {
+        "ui:widget": "TokenSelectorArray",
+        "ui:options": {
+          "classNames": "input-background stacked-input"
+        }
+      },
+      "schedule": {
+        "ui:hideError": true,
+        "ui:order": ["interval", "frequency", "start_time", "end_time"],
+        "ui:options": {
+          "label": false
+        },
+        "ui:classNames": "form-row grid two-columns",
+        "frequency": {
+          "ui:readonly": false,
+          "ui:hideError": true,
+          "ui:classNames": "input-background stacked-input"
+        },
+        "interval": {
+          "ui:readonly": false,
+          "ui:hideError": false,
+          "ui:classNames": "input-background stacked-input"
+        },
+        "start_time": {
+          "ui:readonly": false,
+          "ui:hideError": false,
+          "ui:classNames": "input-background stacked-input",
+          "ui:style": {
+            "flex": "1 0 100%"
+          }
+        },
+        "end_time": {
+          "ui:readonly": false,
+          "ui:hideError": false,
+          "ui:classNames": "input-background stacked-input",
+          "ui:style": {
+            "flex": "1 0 100%"
+          }
+        }
+      },
+      "recipients": {
+        "ui:classNames": "form-array-row form-row",
+        "ui:style": {
+          "display": "flex",
+          "marginTop": "30px"
+        },
+        "ui:options": {
+          "orderable": false
+        },
+        "items": {
+          "ui:classNames": "no-margin",
+          "ui:options": {
+            "label": false,
+            "orderable": false
+          },
+          "ui:style": {
+            "display": "flex"
+          },
+          "address": {
+            "ui:classNames": "input-background stacked-input"
+          },
+          "amount": {
+            "ui:widget": "WeiConverter",
+            "ui:classNames": "input-background stacked-input"
+          }
+        }
+      }
+    },
+    "plugin_version": "0.0.1",
+    "policy_version": "0.0.1",
+    "plugin_type": "payroll"
+  },
+  "table": {
+    "columns": [
+      {
+        "accessorKey": "chainId",
+        "header": "Chain ID"
+      },
+      {
+        "accessorKey": "startDate",
+        "header": "Start Date",
+        "cellComponent": "DateColumn"
+      },
+      {
+        "accessorKey": "endDate",
+        "header": "End Date",
+        "cellComponent": "DateColumn"
+      },
+      {
+        "accessorKey": "paymentToken",
+        "header": "Payment Token",
+        "cellComponent": "TokenImage"
+      }
+    ],
+    "mapping": {
+      "policyId": "id",
+      "chainId": "policy.chain_id.0",
+      "startDate": "policy.schedule.start_time",
+      "endDate": "policy.schedule.end_time",
+      "paymentToken": "policy.token_id.0"
+    }
+  }
+}

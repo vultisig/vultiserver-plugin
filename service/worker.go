@@ -415,7 +415,6 @@ func (s *WorkerService) processPluginTransaction(ctx context.Context, policyID s
 		"plugin_type": policy.PluginType,
 	}).Info("Retrieved policy for signing")
 
-	// Propose transactions to sign
 	signRequests, err := s.plugin.ProposeTransactions(policy)
 	if err != nil {
 		s.logger.Errorf("ProposeTransactions failed: %v", err)
@@ -541,14 +540,14 @@ func (s *WorkerService) completeSigningProcess(ctx context.Context, result []byt
 
 	err := s.plugin.SigningComplete(ctx, signature, signRequest, policy)
 	if err != nil {
-		s.logger.Errorf("Failed to complete signing: %v", err)
+		s.logger.Errorf("Failed to finish after signing: %v", err)
 
 		newTx.Status = types.StatusRejected
 		newTx.Metadata = metadata
 		if syncErr := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); syncErr != nil {
 			s.logger.Errorf("upsertAndSyncTransaction failed: %v", syncErr)
 		}
-		return fmt.Errorf("fail to complete signing: %w", err)
+		return fmt.Errorf("fail to finish after signing: %w", err)
 	}
 
 	newTx.Status = types.StatusMined
