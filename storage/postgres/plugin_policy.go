@@ -39,9 +39,9 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types
 		&policy.ChainCodeHex,
 		&policy.DerivePath,
 		&policy.Active,
+		&policy.Progress,
 		&policy.Signature,
 		&policyJSON,
-		&policy.Progress,
 	)
 
 	if err != nil {
@@ -82,9 +82,9 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKeyEcd
 			&policy.ChainCodeHex,
 			&policy.DerivePath,
 			&policy.Active,
+			&policy.Progress,
 			&policy.Signature,
 			&policy.Policy,
-			&policy.Progress,
 		)
 		if err != nil {
 			return nil, err
@@ -103,8 +103,8 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 
 	query := `
   	INSERT INTO plugin_policies (
-      id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, signature, policy
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, progress, signature, policy
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, progress, signature, policy
 	`
 
@@ -120,6 +120,7 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&policy.ChainCodeHex,
 		&policy.DerivePath,
 		&policy.Active,
+		&policy.Progress,
 		&policy.Signature,
 		policyJSON,
 	).Scan(
@@ -133,9 +134,9 @@ func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&insertedPolicy.ChainCodeHex,
 		&insertedPolicy.DerivePath,
 		&insertedPolicy.Active,
+		&insertedPolicy.Progress,
 		&insertedPolicy.Signature,
 		&insertedPolicy.Policy,
-		&insertedPolicy.Progress,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert policy: %w", err)
