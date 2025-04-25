@@ -49,6 +49,7 @@ type Server struct {
 	sdClient      *statsd.Client
 	scheduler     *scheduler.SchedulerService
 	policyService service.Policy
+	pluginService service.Plugin
 	authService   *service.AuthService
 	syncer        syncer.PolicySyncer
 	plugin        plugin.Plugin
@@ -89,9 +90,10 @@ func NewServer(
 			if err != nil {
 				logger.Fatal("failed to initialize payroll plugin", err)
 			}
-
 		case dca.PluginType:
-			plugin, err = dca.NewPlugin(db, logger, pluginConfigs[dca.PluginType])
+			syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Verifier.Host, cfg.Verifier.Port)
+
+			plugin, err = dca.NewPlugin(db, syncerService, logger, pluginConfigs[dca.PluginType])
 			if err != nil {
 				logger.Fatal("fail to initialize DCA plugin: ", err)
 			}
@@ -110,12 +112,16 @@ func NewServer(
 
 		logger.Info("Creating Syncer")
 
-		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Verifier.Host, cfg.Verifier.Port)
 	}
 
 	policyService, err := service.NewPolicyService(db, syncerService, schedulerService, logger.WithField("service", "policy").Logger)
 	if err != nil {
 		logger.Fatalf("Failed to initialize policy service: %v", err)
+	}
+
+	pluginService, err := service.NewPluginService(db, logger.WithField("service", "plugin").Logger)
+	if err != nil {
+		logger.Fatalf("Failed to initialize plugin service: %v", err)
 	}
 
 	authService := service.NewAuthService(jwtSecret)
@@ -135,6 +141,7 @@ func NewServer(
 		logger:        logger,
 		syncer:        syncerService,
 		policyService: policyService,
+		pluginService: pluginService,
 		authService:   authService,
 		pluginConfigs: pluginConfigs,
 	}
@@ -206,6 +213,9 @@ func (s *Server) StartServer() error {
 		pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
 		pluginsGroup.POST("/:pluginId/tags", s.AttachPluginTag, s.userAuthMiddleware)
 		pluginsGroup.DELETE("/:pluginId/tags/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
+
+		pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
+		pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
 
 		pricingsGroup := e.Group("/pricings")
 		pricingsGroup.GET("/:pricingId", s.GetPricing)

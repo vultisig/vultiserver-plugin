@@ -19,6 +19,7 @@ CREATE TABLE plugin_policies (
     chain_code_hex TEXT NOT NULL,
     derive_path TEXT NOT NULL,
     active BOOLEAN DEFAULT TRUE,
+    progress progress_status NOT NULL DEFAULT 'IN PROGRESS',
     signature TEXT NOT NULL,
     policy JSONB NOT NULL
 );
@@ -60,7 +61,8 @@ CREATE TABLE plugin_policies (
     is_ecdsa BOOLEAN DEFAULT TRUE,
     chain_code_hex TEXT NOT NULL,
     derive_path TEXT NOT NULL,
-    active BOOLEAN DEFAULT TRUE
+    active BOOLEAN DEFAULT TRUE,
+    progress progress_status NOT NULL DEFAULT 'IN PROGRESS'
 );
 
 -- add constraints as they were before this migration

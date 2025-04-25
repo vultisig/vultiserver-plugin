@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"strconv"
 	"strings"
@@ -282,7 +283,7 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	if !s.verifyPolicySignature(policy, false) {
+	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		message := map[string]interface{}{
 			"message": "Authorization failed",
@@ -361,7 +362,7 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	if !s.verifyPolicySignature(policy, true) {
+	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		message := map[string]interface{}{
 			"message": "Authorization failed",
@@ -418,7 +419,7 @@ func (s *Server) DeletePluginPolicyById(c echo.Context) error {
 	// This is because we have different signature stored in the database.
 	policy.Signature = reqBody.Signature
 
-	if !s.verifyPolicySignature(policy, true) {
+	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		message := map[string]interface{}{
 			"message": "Authorization failed",
@@ -513,7 +514,7 @@ func (s *Server) initializePlugin(pluginType string) (plugin.Plugin, error) {
 	case payroll.PluginType:
 		return payroll.NewPlugin(s.db, s.logger, s.pluginConfigs[payroll.PluginType])
 	case dca.PluginType:
-		return dca.NewPlugin(s.db, s.logger, s.pluginConfigs[dca.PluginType])
+		return dca.NewPlugin(s.db, s.syncer, s.logger, s.pluginConfigs[dca.PluginType])
 	default:
 		return nil, fmt.Errorf("unknown plugin type: %s", pluginType)
 	}
@@ -699,7 +700,7 @@ func (s *Server) GetPlugin(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	plugin, err := s.db.FindPluginById(c.Request().Context(), pluginID)
+	plugin, err := s.pluginService.GetPluginWithRating(c.Request().Context(), pluginID)
 	if err != nil {
 		message := echo.Map{
 			"message": "failed to get plugin",
@@ -723,7 +724,7 @@ func (s *Server) CreatePlugin(c echo.Context) error {
 		})
 	}
 
-	created, err := s.db.CreatePlugin(c.Request().Context(), plugin)
+	created, err := s.pluginService.CreatePluginWithRating(c.Request().Context(), plugin)
 	if err != nil {
 		message := echo.Map{
 			"message": "failed to create plugin",
@@ -799,7 +800,7 @@ func (s *Server) AttachPluginTag(c echo.Context) error {
 			"error":   "plugin id is required",
 		})
 	}
-	plugin, err := s.db.FindPluginById(c.Request().Context(), pluginID)
+	plugin, err := s.db.FindPluginById(c.Request().Context(), nil, pluginID)
 	if err != nil {
 		s.logger.Error(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -856,7 +857,7 @@ func (s *Server) DetachPluginTag(c echo.Context) error {
 			"error":   "plugin id is required",
 		})
 	}
-	plugin, err := s.db.FindPluginById(c.Request().Context(), pluginID)
+	plugin, err := s.db.FindPluginById(c.Request().Context(), nil, pluginID)
 	if err != nil {
 		s.logger.Error(err)
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -892,8 +893,87 @@ func (s *Server) DetachPluginTag(c echo.Context) error {
 	return c.JSON(http.StatusOK, updatedPlugin)
 }
 
-func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) bool {
-	msgHex, err := policyToMessageHex(policy, update)
+func (s *Server) CreateReview(c echo.Context) error {
+	var review types.ReviewCreateDto
+	if err := c.Bind(&review); err != nil {
+		return fmt.Errorf("fail to parse request, err: %w", err)
+	}
+
+	if err := c.Validate(&review); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": err.Error(),
+		})
+	}
+
+	review.Comment = html.EscapeString(review.Comment) // Converts to safe string to prevent XSS todo rework this it escapes ' < when it shouldn't
+
+	pluginID := c.Param("pluginId")
+	if pluginID == "" {
+		err := fmt.Errorf("plugin id is required")
+		message := echo.Map{
+			"message": "failed to get plugin",
+			"error":   err.Error(),
+		}
+		s.logger.Error(err)
+
+		return c.JSON(http.StatusBadRequest, message)
+	}
+
+	created, err := s.pluginService.CreatePluginReviewWithRating(c.Request().Context(), review, pluginID)
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to create review",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	fmt.Println(5, "CreateReview")
+
+	return c.JSON(http.StatusOK, created)
+}
+
+func (s *Server) GetReviews(c echo.Context) error {
+	pluginId := c.Param("pluginId")
+	if pluginId == "" {
+		err := fmt.Errorf("plugin id is required")
+		message := echo.Map{
+			"message": "failed to get plugin",
+			"error":   err.Error(),
+		}
+		s.logger.Error(err)
+
+		return c.JSON(http.StatusBadRequest, message)
+	}
+
+	skip, err := strconv.Atoi(c.QueryParam("skip"))
+
+	if err != nil {
+		skip = 0
+	}
+
+	take, err := strconv.Atoi(c.QueryParam("take"))
+
+	if err != nil {
+		take = 999
+	}
+
+	sort := c.QueryParam("sort")
+
+	reviews, err := s.db.FindReviews(c.Request().Context(), pluginId, skip, take, sort)
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to get reviews",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	return c.JSON(http.StatusOK, reviews)
+}
+
+func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
+	msgHex, err := policyToMessageHex(policy)
 	if err != nil {
 		s.logger.Error(fmt.Errorf("failed to convert policy to message hex: %w", err))
 		return false
@@ -919,14 +999,12 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy, update bool) b
 	return isVerified
 }
 
-func policyToMessageHex(policy types.PluginPolicy, isUpdate bool) (string, error) {
-	if !isUpdate {
-		policy.ID = ""
-	}
-	// signature is not part of the message that is signed
+func policyToMessageHex(policy types.PluginPolicy) (string, error) {
+	// signature & progress are not part of the message that is signed
 	policy.Signature = ""
+	policy.Progress = ""
 
-	serializedPolicy, err := json.Marshal(policy)
+	serializedPolicy, err := common.ToSortedJSON(policy)
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize policy")
 	}

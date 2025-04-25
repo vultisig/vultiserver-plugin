@@ -46,7 +46,8 @@
 
   .only-section {
     display: flex;
-    height: calc(100vh - 60px);
+    height: calc(100vh - 90px);
+    padding: 0 300px;
     margin: 0 auto;
     width: 80%;
     max-width: 1200px;

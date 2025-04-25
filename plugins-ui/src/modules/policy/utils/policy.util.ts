@@ -19,6 +19,7 @@ export const generatePolicy = (
     chain_code_hex: "",
     derive_path: "",
     active: true,
+    progress: "",
     signature: "",
     policy: convertToStrings(policy),
   };
@@ -79,4 +80,17 @@ export const isEcdsaChain = (chainId: string) => {
     default:
       return true;
   }
+};
+
+export const sortObjectAlphabetically = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectAlphabetically);
+  } else if (obj && typeof obj === "object" && obj.constructor === Object) {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, value]) => [key, sortObjectAlphabetically(value)])
+    );
+  }
+  return obj;
 };

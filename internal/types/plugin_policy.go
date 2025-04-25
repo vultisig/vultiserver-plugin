@@ -19,6 +19,7 @@ type PluginPolicy struct {
 	ChainCodeHex   string          `json:"chain_code_hex" validate:"required"`
 	DerivePath     string          `json:"derive_path" validate:"required"`
 	Active         bool            `json:"active" validate:"required"`
+	Progress       string          `json:"progress" validate:"required"`
 	Signature      string          `json:"signature" validate:"required"`
 	Policy         json.RawMessage `json:"policy" validate:"required"`
 }

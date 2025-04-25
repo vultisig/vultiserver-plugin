@@ -15,6 +15,7 @@ import Toast from "@/modules/core/components/ui/toast/Toast";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import { isEcdsaChain } from "@/modules/policy/utils/policy.util";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
+import { sortObjectAlphabetically } from "../utils/policy.util";
 
 export interface PolicyContextType {
   pluginType: string;
@@ -225,7 +226,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error: any) {
       console.error("Failed to delete policy:", error);
       setToast({
-        message: error.message,
+        message: error.message || "Failed to delete policy",
         error: error.error,
         type: "error",
       });
@@ -254,10 +255,13 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
       policy.public_key_ecdsa = vault.publicKeyEcdsa;
       policy.public_key_eddsa = vault.publicKeyEddsa;
       policy.signature = "";
+      policy.progress = "";
       policy.is_ecdsa = isEcdsaChain(chainId);
       policy.chain_code_hex = vault.hexChainCode;
       policy.derive_path = derivePathMap[chain];
-      const serializedPolicy = JSON.stringify(policy);
+      const policyWithSortedProperties = sortObjectAlphabetically(policy);
+
+      const serializedPolicy = JSON.stringify(policyWithSortedProperties);
       const hexMessage = toHex(serializedPolicy);
 
       const signature = await VulticonnectWalletService.signCustomMessage(

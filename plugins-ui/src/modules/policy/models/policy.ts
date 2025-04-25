@@ -15,6 +15,7 @@ export type PluginPolicy = {
   chain_code_hex: string;
   derive_path: string;
   active: boolean;
+  progress: string;
   signature: string;
   policy: Policy;
 };

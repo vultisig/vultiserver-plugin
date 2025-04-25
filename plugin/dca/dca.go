@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/vultisig/vultiserver-plugin/common"
 	"github.com/vultisig/vultiserver-plugin/internal/sigutil"
+	"github.com/vultisig/vultiserver-plugin/internal/syncer"
 	"github.com/vultisig/vultiserver-plugin/internal/types"
 	"github.com/vultisig/vultiserver-plugin/pkg/uniswap"
 )
@@ -67,12 +69,13 @@ type Plugin struct {
 	uniswapClient uniswap.Client
 	rpcClient     EthClient
 	db            Storage
+	syncer        syncer.PolicySyncer
 	logger        *logrus.Logger
 	waitMined     func(ctx context.Context, backend bind.DeployBackend, tx *gtypes.Transaction) (*gtypes.Receipt, error)
 	signLegacyTx  func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error)
 }
 
-func NewPlugin(db Storage, logger *logrus.Logger, rawConfig map[string]interface{}) (*Plugin, error) {
+func NewPlugin(db Storage, syncer syncer.PolicySyncer, logger *logrus.Logger, rawConfig map[string]interface{}) (*Plugin, error) {
 	var cfg PluginConfig
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
 		return nil, err
@@ -102,6 +105,7 @@ func NewPlugin(db Storage, logger *logrus.Logger, rawConfig map[string]interface
 		uniswapClient: uniswapClient,
 		rpcClient:     rpcClient,
 		db:            db,
+		syncer:        syncer,
 		logger:        logger,
 		waitMined:     bind.WaitMined,
 		signLegacyTx:  sigutil.SignLegacyTx,
@@ -304,8 +308,8 @@ func validateInterval(intervalStr string, frequency string) error {
 
 	switch frequency {
 	case "minutely":
-		if interval < 15 {
-			return fmt.Errorf("minutely interval must be at least 15 minutes")
+		if interval < 15 || interval > 60 {
+			return fmt.Errorf("minutely interval must be at least 15 minutes or at most 60")
 		}
 	case "hourly":
 		if interval > 23 {
@@ -468,7 +472,7 @@ func (p *Plugin) ValidateProposedTransactions(policy types.PluginPolicy, txs []t
 	if err != nil {
 		return fmt.Errorf("fail to get completed swaps: %w", err)
 	}
-	// TODO: Change this to make the policy to status COMPLETED if: completed swaps == total orders.
+
 	if completedSwaps >= totalOrders.Int64() {
 		if err := p.completePolicy(context.Background(), policy); err != nil {
 			return fmt.Errorf("fail to complete policy: %w", err)
@@ -741,18 +745,25 @@ func (p *Plugin) completePolicy(ctx context.Context, policy types.PluginPolicy) 
 		"policy_id": policy.ID,
 	}).Info("DCA: All orders completed, no transactions to propose")
 
-	// TODO: Sync a COMPLETED state for the policy with the verifier database.
-	//err := p.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
-	//	policy.Active = false
-	//	_, err := p.db.UpdatePluginPolicyTx(ctx, tx, policy)
-	//	if err != nil {
-	//		return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
-	//	}
-	//	return nil
-	//})
-	//if err != nil {
-	//	return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
-	//}
+	err := p.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		policy.Progress = "DONE"
+
+		_, err := p.db.UpdatePluginPolicyTx(ctx, tx, policy)
+		if err != nil {
+			return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
+		}
+
+		if p.syncer != nil && !reflect.ValueOf(p.syncer).IsNil() {
+			if err := p.syncer.UpdatePolicySync(policy); err != nil {
+				return fmt.Errorf("failed to sync update policy: %w", err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("dca: failed to update plugin policy tx: %w", err)
+	}
 
 	return nil
 }
