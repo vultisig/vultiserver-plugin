@@ -54,14 +54,14 @@ func (m *MockDB) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id strin
 	return args.Error(0)
 }
 
-func (m *MockDB) GetAllPluginPolicies(ctx context.Context, pluginType string, publicKey string) ([]types.PluginPolicy, error) {
+func (m *MockDB) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string, take int, skip int) (types.PluginPolicyPaginatedList, error) {
 	args := m.Called(ctx, pluginType, publicKey)
-	return args.Get(0).([]types.PluginPolicy), args.Error(1)
+	return args.Get(0).(types.PluginPolicyPaginatedList), args.Error(1)
 }
 
-func (m *MockDB) GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]types.TransactionHistory, error) {
+func (m *MockDB) GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) (types.TransactionHistoryPaginatedList, error) {
 	args := m.Called(ctx, policyID, transactionType, take, skip)
-	return args.Get(0).([]types.TransactionHistory), args.Error(1)
+	return args.Get(0).(types.TransactionHistoryPaginatedList), args.Error(1)
 }
 
 func (m *MockDB) GetPluginPolicy(ctx context.Context, policyID string) (types.PluginPolicy, error) {

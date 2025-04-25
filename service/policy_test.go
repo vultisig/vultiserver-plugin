@@ -501,7 +501,7 @@ func TestGetPluginPolicies(t *testing.T) {
 			policyService, err := NewPolicyService(mockDB, nil, nil, logrus.StandardLogger())
 			require.NoError(t, err)
 
-			policies, err := policyService.GetPluginPolicies(ctx, tc.pluginType, tc.publicKey)
+			policies, err := policyService.GetPluginPolicies(ctx, tc.pluginType, tc.publicKey, 10, 0)
 
 			if tc.expectErr {
 				require.Error(t, err)
@@ -641,7 +641,7 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 			policyService, err := NewPolicyService(mockDB, nil, nil, logrus.StandardLogger())
 			require.NoError(t, err)
 
-			policies, err := policyService.GetPluginPolicyTransactionHistory(ctx, tc.policyID)
+			policies, err := policyService.GetPluginPolicyTransactionHistory(ctx, tc.policyID, 10, 0)
 
 			if tc.expectErr {
 				require.Error(t, err)
