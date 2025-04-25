@@ -179,7 +179,7 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		policy.Active,
 		policyJSON,
 	}
-	returningFields := "id, public_key, plugin_id, plugin_version, policy_version, plugin_type, signature, active, progress, policy"
+	returningFields := "id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active,	progress, signature, policy"
 
 	if policy.Progress != "" {
 		setClauses = append(setClauses, fmt.Sprintf("progress = $%d", len(args)+1))
@@ -206,8 +206,8 @@ func (p *PostgresBackend) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx,
 		&updatedPolicy.ChainCodeHex,
 		&updatedPolicy.DerivePath,
 		&updatedPolicy.Active,
-		&updatedPolicy.Signature,
 		&updatedPolicy.Progress,
+		&updatedPolicy.Signature,
 		&updatedPolicy.Policy,
 	}
 
