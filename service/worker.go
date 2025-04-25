@@ -533,14 +533,14 @@ func (s *WorkerService) completeSigningProcess(ctx context.Context, result []byt
 
 	err = plg.SigningComplete(ctx, signature, signRequest, policy)
 	if err != nil {
-		s.logger.Errorf("Failed to complete signing: %v", err)
+		s.logger.Errorf("Failed to finish after signing: %v", err)
 
 		newTx.Status = types.StatusRejected
 		newTx.Metadata = metadata
 		if syncErr := s.upsertAndSyncTransaction(ctx, syncer.UpdateAction, &newTx, jwtToken); syncErr != nil {
 			s.logger.Errorf("upsertAndSyncTransaction failed: %v", syncErr)
 		}
-		return fmt.Errorf("fail to complete signing: %w", err)
+		return fmt.Errorf("fail to finish after signing: %w", err)
 	}
 
 	newTx.Status = types.StatusMined

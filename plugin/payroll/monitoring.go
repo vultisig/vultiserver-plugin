@@ -103,6 +103,7 @@ func (p *Plugin) monitorTransaction(tx *gtypes.Transaction) error {
 				}
 
 				// Transaction successful
+				p.logger.Info("Transaction successfully MINED")
 				return nil
 			}
 		}
