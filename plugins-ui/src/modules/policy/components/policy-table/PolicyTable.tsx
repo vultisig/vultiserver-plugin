@@ -7,7 +7,10 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useEffect, useState } from "react";
-import { usePolicies } from "@/modules/policy/context/PolicyProvider";
+import {
+  POLICY_ITEMS_PER_PAGE,
+  usePolicies,
+} from "@/modules/policy/context/PolicyProvider";
 import PolicyFilters from "../policy-filters/PolicyFilters";
 import "./PolicyTable.css";
 import TokenPair from "@/modules/shared/token-pair/TokenPair";
@@ -17,6 +20,7 @@ import TokenAmount from "@/modules/shared/token-amount/TokenAmount";
 import { mapTableColumnData } from "../../utils/policy.util";
 import ActiveStatus from "@/modules/shared/active-status/ActiveStatus";
 import { PolicySchema } from "../../models/policy";
+import Pagination from "@/modules/core/components/ui/pagination/Pagination";
 
 const componentMap: Record<string, React.FC<any>> = {
   TokenPair,
@@ -56,8 +60,16 @@ const getTableColumns = (schema: PolicySchema) => {
 
 const PolicyTable = () => {
   const [data, setData] = useState<any>(() => []);
-  const { policyMap, policySchemaMap, pluginType } = usePolicies();
+  const {
+    policyMap,
+    policySchemaMap,
+    pluginType,
+    policiesTotalCount,
+    currentPage,
+    setCurrentPage,
+  } = usePolicies();
   const [columns, setColumns] = useState<ColumnDef<any>[]>([]);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
     const savedSchema = policySchemaMap.get(pluginType);
@@ -84,6 +96,13 @@ const PolicyTable = () => {
     }
   }, [policySchemaMap, policyMap]);
 
+  useEffect(() => {
+    setTotalPages(Math.ceil(policiesTotalCount / POLICY_ITEMS_PER_PAGE));
+    if (policiesTotalCount / POLICY_ITEMS_PER_PAGE > 1 && currentPage === 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, policiesTotalCount]);
+
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]); // can set initial column filter state here
 
   const table = useReactTable({
@@ -96,6 +115,10 @@ const PolicyTable = () => {
     getFilteredRowModel: getFilteredRowModel(), // needed for client-side filtering
     getCoreRowModel: getCoreRowModel(),
   });
+
+  const onCurrentPageChange = (page: number): void => {
+    setCurrentPage(page);
+  };
 
   if (columns.length === 0) return;
 
@@ -143,6 +166,14 @@ const PolicyTable = () => {
             )}
           </tbody>
         </table>
+      )}
+
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onCurrentPageChange}
+        />
       )}
     </div>
   );

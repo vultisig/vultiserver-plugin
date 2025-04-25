@@ -52,23 +52,25 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types
 	return policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string) ([]types.PluginPolicy, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string, take int, skip int) (types.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
-		return []types.PluginPolicy{}, fmt.Errorf("database pool is nil")
+		return types.PluginPolicyPaginatedList{}, fmt.Errorf("database pool is nil")
 	}
 
 	query := `
-  	SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy, progress
+  	SELECT id, public_key, is_ecdsa, chain_code_hex, derive_path, plugin_id, plugin_version, policy_version, plugin_type, signature, active, policy, progress, COUNT(*) OVER() AS total_count
 		FROM plugin_policies
 		WHERE public_key = $1
-		AND plugin_type = $2`
+		AND plugin_type = $2
+		LIMIT $3 OFFSET $4`
 
-	rows, err := p.pool.Query(ctx, query, publicKey, pluginType)
+	rows, err := p.pool.Query(ctx, query, publicKey, pluginType, take, skip)
 	if err != nil {
-		return nil, err
+		return types.PluginPolicyPaginatedList{}, err
 	}
 	defer rows.Close()
 	var policies []types.PluginPolicy
+	var totalCount int
 	for rows.Next() {
 		var policy types.PluginPolicy
 		err := rows.Scan(
@@ -85,14 +87,20 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey st
 			&policy.Active,
 			&policy.Policy,
 			&policy.Progress,
+			&totalCount,
 		)
 		if err != nil {
-			return nil, err
+			return types.PluginPolicyPaginatedList{}, err
 		}
 		policies = append(policies, policy)
 	}
 
-	return policies, nil
+	dto := types.PluginPolicyPaginatedList{
+		Policies:   policies,
+		TotalCount: totalCount,
+	}
+
+	return dto, nil
 }
 
 func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {
