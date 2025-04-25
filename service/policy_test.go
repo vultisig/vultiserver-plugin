@@ -462,7 +462,7 @@ func TestGetPluginPolicies(t *testing.T) {
 					createSamplePolicy("policy1"),
 					createSamplePolicy("policy2"),
 				}
-				db.On("GetAllPluginPolicies", ctx, "testType", "testKey").
+				db.On("GetAllPluginPolicies", ctx, "testType", "testKey", 10, 0).
 					Return(policies, nil)
 			},
 			expectErr:   false,
@@ -473,7 +473,7 @@ func TestGetPluginPolicies(t *testing.T) {
 			pluginType: "emptyType",
 			publicKey:  "emptyKey",
 			mockSetup: func(db *database.MockDB) {
-				db.On("GetAllPluginPolicies", ctx, "emptyType", "emptyKey").
+				db.On("GetAllPluginPolicies", ctx, "emptyType", "emptyKey", 10, 0).
 					Return([]types.PluginPolicy{}, nil)
 			},
 			expectErr:   false,
@@ -484,7 +484,7 @@ func TestGetPluginPolicies(t *testing.T) {
 			pluginType: "errorType",
 			publicKey:  "errorKey",
 			mockSetup: func(db *database.MockDB) {
-				db.On("GetAllPluginPolicies", ctx, "errorType", "errorKey").
+				db.On("GetAllPluginPolicies", ctx, "errorType", "errorKey", 10, 0).
 					Return([]types.PluginPolicy{}, fmt.Errorf("database error"))
 			},
 			expectErr:    true,
