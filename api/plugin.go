@@ -235,7 +235,7 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		take = 999
 	}
 
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, pluginType, take, skip)
+	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), pluginType, publicKey, take, skip)
 	if err != nil {
 		message := map[string]interface{}{
 			"message": fmt.Sprintf("failed to get policies for public_key: %s", publicKey),
