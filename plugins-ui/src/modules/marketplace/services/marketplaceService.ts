@@ -8,8 +8,8 @@ import {
 } from "../models/marketplace";
 import { Plugin } from "@/modules/plugin/models/plugin";
 import {
-  PluginPolicy,
-  PolicyTransactionHistory,
+  PluginPoliciesMap,
+  TransactionHistory,
 } from "@/modules/policy/models/policy";
 
 const getPublicKey = () => localStorage.getItem("publicKey");
@@ -104,9 +104,13 @@ const MarketplaceService = {
    * Get policies from the API.
    * @returns {Promise<Object>} A promise that resolves to the fetched policies.
    */
-  getPolicies: async (pluginType: string): Promise<PluginPolicy[]> => {
+  getPolicies: async (
+    pluginType: string,
+    skip: number,
+    take: number
+  ): Promise<PluginPoliciesMap> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/policies`;
+      const endpoint = `${getMarketplaceUrl()}/plugins/policies?skip=${skip}&take=${take}`;
       const newPolicy = await get(endpoint, {
         headers: {
           plugin_type: pluginType,
@@ -131,10 +135,12 @@ const MarketplaceService = {
    * @returns {Promise<Object>} A promise that resolves to the fetched policies.
    */
   getPolicyTransactionHistory: async (
-    policyId: string
-  ): Promise<PolicyTransactionHistory[]> => {
+    policyId: string,
+    skip: number,
+    take: number
+  ): Promise<TransactionHistory> => {
     try {
-      const endpoint = `${getMarketplaceUrl()}/plugins/policies/${policyId}/history`;
+      const endpoint = `${getMarketplaceUrl()}/plugins/policies/${policyId}/history?skip=${skip}&take=${take}`;
       const history = await get(endpoint, {
         headers: {
           public_key: getPublicKey(),

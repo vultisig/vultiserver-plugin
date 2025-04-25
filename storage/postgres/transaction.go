@@ -84,9 +84,9 @@ func (p *PostgresBackend) UpdateTransactionStatus(ctx context.Context, txID uuid
 
 }
 
-func (p *PostgresBackend) GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) ([]types.TransactionHistory, error) {
+func (p *PostgresBackend) GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) (types.TransactionHistoryPaginatedList, error) {
 	query := `
-        SELECT id, policy_id, tx_body, tx_hash, status, created_at, updated_at, metadata, error_message
+        SELECT id, policy_id, tx_body, tx_hash, status, created_at, updated_at, metadata, error_message, COUNT(*) OVER() AS total_count
         FROM transaction_history
         WHERE policy_id = $1
         AND metadata->>'transaction_type' = $2
@@ -96,11 +96,13 @@ func (p *PostgresBackend) GetTransactionHistory(ctx context.Context, policyID uu
 
 	rows, err := p.pool.Query(ctx, query, policyID, transactionType, take, skip)
 	if err != nil {
-		return nil, err
+		return types.TransactionHistoryPaginatedList{}, err
 	}
 	defer rows.Close()
 
 	var history []types.TransactionHistory
+	var totalCount int
+
 	for rows.Next() {
 		var tx types.TransactionHistory
 		err := rows.Scan(
@@ -113,14 +115,20 @@ func (p *PostgresBackend) GetTransactionHistory(ctx context.Context, policyID uu
 			&tx.UpdatedAt,
 			&tx.Metadata,
 			&tx.ErrorMessage,
+			&totalCount,
 		)
 		if err != nil {
-			return nil, err
+			return types.TransactionHistoryPaginatedList{}, err
 		}
 		history = append(history, tx)
 	}
 
-	return history, nil
+	dto := types.TransactionHistoryPaginatedList{
+		History:    history,
+		TotalCount: totalCount,
+	}
+
+	return dto, nil
 }
 
 func (p *PostgresBackend) GetTransactionByHash(ctx context.Context, txHash string) (*types.TransactionHistory, error) {

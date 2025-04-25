@@ -21,3 +21,8 @@ type PluginPolicy struct {
 	Active        bool            `json:"active" validate:"required"`
 	Progress      string          `json:"progress" validate:"required"`
 }
+
+type PluginPolicyPaginatedList struct {
+	Policies   []PluginPolicy `json:"policies" validate:"required"`
+	TotalCount int            `json:"total_count" validate:"required"`
+}

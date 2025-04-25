@@ -22,6 +22,16 @@ export type PluginPolicy = {
   progress: string;
 };
 
+export type PluginPoliciesMap = {
+  policies: PluginPolicy[];
+  total_count: number;
+};
+
+export type TransactionHistory = {
+  history: PolicyTransactionHistory[];
+  total_count: number;
+};
+
 export type PolicyTransactionHistory = {
   id: string;
   updated_at: string;
