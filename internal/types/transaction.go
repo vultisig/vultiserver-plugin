@@ -18,6 +18,11 @@ const (
 	StatusRejected          TransactionStatus = "REJECTED"
 )
 
+type TransactionHistoryPaginatedList struct {
+	History    []TransactionHistory `json:"history"`
+	TotalCount int                  `json:"total_count"`
+}
+
 type TransactionHistory struct {
 	ID           uuid.UUID              `json:"id"`
 	PolicyID     uuid.UUID              `json:"policy_id"`

@@ -1,8 +1,14 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import {
   PluginPolicy,
   PolicySchema,
-  PolicyTransactionHistory,
+  TransactionHistory,
 } from "../models/policy";
 import PolicyService from "../services/policyService";
 import {
@@ -16,14 +22,23 @@ import { useParams } from "react-router-dom";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import { sortObjectAlphabetically } from "../utils/policy.util";
 
+export const POLICY_ITEMS_PER_PAGE = 15;
+
 export interface PolicyContextType {
   pluginType: string;
   policyMap: Map<string, PluginPolicy>;
   policySchemaMap: Map<string, PolicySchema>;
+  policiesTotalCount: number;
   addPolicy: (policy: PluginPolicy) => Promise<boolean>;
   updatePolicy: (policy: PluginPolicy) => Promise<boolean>;
   removePolicy: (policyId: string) => Promise<void>;
-  getPolicyHistory: (policyId: string) => Promise<PolicyTransactionHistory[]>;
+  getPolicyHistory: (
+    policyId: string,
+    skip: number,
+    take: number
+  ) => Promise<TransactionHistory | null>;
+  currentPage: number;
+  setCurrentPage: (page: number) => void;
 }
 
 export const PolicyContext = createContext<PolicyContextType | undefined>(
@@ -34,6 +49,8 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [policyMap, setPolicyMap] = useState(new Map<string, PluginPolicy>());
+  const [currentPage, setCurrentPage] = useState(0);
+  const [policiesTotalCount, setPoliciesTotalCount] = useState(0);
   const [policySchemaMap, setPolicySchemaMap] = useState(
     new Map<string, any>()
   );
@@ -49,6 +66,23 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   const [authToken, setAuthToken] = useState(
     localStorage.getItem("authToken") || ""
   );
+
+  const fetchPolicies = useCallback(async (): Promise<void> => {
+    if (pluginType) {
+      const fetchedPolicies = await MarketplaceService.getPolicies(
+        pluginType,
+        currentPage > 1 ? (currentPage - 1) * POLICY_ITEMS_PER_PAGE : 0,
+        POLICY_ITEMS_PER_PAGE
+      );
+
+      const constructPolicyMap: Map<string, PluginPolicy> = new Map(
+        fetchedPolicies?.policies?.map((p: PluginPolicy) => [p.id, p]) // Convert the array into [key, value] pairs
+      );
+
+      setPoliciesTotalCount(fetchedPolicies.total_count);
+      setPolicyMap(constructPolicyMap);
+    }
+  }, [pluginType, currentPage]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -67,28 +101,6 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
         if (fetchedPlugin) {
           setPluginType(fetchedPlugin.type);
           setServerEndpoint(fetchedPlugin.server_endpoint);
-          const fetchPolicies = async (): Promise<void> => {
-            try {
-              const fetchedPolicies = await MarketplaceService.getPolicies(
-                fetchedPlugin.type
-              );
-
-              const constructPolicyMap: Map<string, PluginPolicy> = new Map(
-                fetchedPolicies?.map((p: PluginPolicy) => [p.id, p]) // Convert the array into [key, value] pairs
-              );
-
-              setPolicyMap(constructPolicyMap);
-            } catch (error: any) {
-              console.error("Failed to get policies:", error.message);
-              setToast({
-                message: error.message || "Failed to get policies",
-                error: error.error,
-                type: "error",
-              });
-            }
-          };
-
-          fetchPolicies();
 
           const fetchPolicySchema = async (
             pluginType: string
@@ -140,6 +152,17 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
       window.removeEventListener("storage", handleStorageChange);
     };
   }, [authToken]);
+
+  useEffect(() => {
+    fetchPolicies().catch((error: any) => {
+      console.error("Failed to get policies:", error.message);
+      setToast({
+        message: error.message || "Failed to get policies",
+        error: error.error,
+        type: "error",
+      });
+    });
+  }, [fetchPolicies]);
 
   const addPolicy = async (policy: PluginPolicy): Promise<boolean> => {
     try {
@@ -276,11 +299,16 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const getPolicyHistory = async (
-    policyId: string
-  ): Promise<PolicyTransactionHistory[]> => {
+    policyId: string,
+    skip: number,
+    take: number
+  ): Promise<TransactionHistory | null> => {
     try {
-      const history =
-        await MarketplaceService.getPolicyTransactionHistory(policyId);
+      const history = await MarketplaceService.getPolicyTransactionHistory(
+        policyId,
+        skip,
+        take
+      );
       return history;
     } catch (error: any) {
       console.error("Failed to get policy history:", error);
@@ -290,7 +318,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
         type: "error",
       });
 
-      return [];
+      return null;
     }
   };
 
@@ -300,10 +328,13 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
         pluginType,
         policyMap,
         policySchemaMap,
+        policiesTotalCount,
         addPolicy,
         updatePolicy,
         removePolicy,
         getPolicyHistory,
+        currentPage,
+        setCurrentPage,
       }}
     >
       {children}

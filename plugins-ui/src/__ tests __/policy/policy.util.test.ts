@@ -49,6 +49,7 @@ describe("generatePolicy", () => {
       policy_version: "0.0.1",
       public_key: "",
       signature: "",
+      progress: "",
     });
   });
 });
