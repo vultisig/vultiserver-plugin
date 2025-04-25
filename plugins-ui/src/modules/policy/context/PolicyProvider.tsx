@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
+  PluginProgress,
   PluginPolicy,
   PolicySchema,
   PolicyTransactionHistory,
@@ -255,7 +256,6 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
       policy.public_key_ecdsa = vault.publicKeyEcdsa;
       policy.public_key_eddsa = vault.publicKeyEddsa;
       policy.signature = "";
-      policy.progress = "";
       policy.is_ecdsa = isEcdsaChain(chainId);
       policy.chain_code_hex = vault.hexChainCode;
       policy.derive_path = derivePathMap[chain];

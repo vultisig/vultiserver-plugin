@@ -1,5 +1,5 @@
 import { networks } from "@/modules/core/constants/networks"
-import { PluginPolicy, Policy } from "../models/policy";
+import { PluginProgress, PluginPolicy, Policy } from "../models/policy";
 
 export const generatePolicy = (
   plugin_version: string,
@@ -19,7 +19,7 @@ export const generatePolicy = (
     chain_code_hex: "",
     derive_path: "",
     active: true,
-    progress: "",
+    progress: PluginProgress.InProgress,
     signature: "",
     policy: convertToStrings(policy),
   };

@@ -1,5 +1,10 @@
 import { RJSFSchema } from "@rjsf/utils";
 
+export enum PluginProgress {
+  InProgress = 'IN PROGRESS',
+  Done = 'DONE',
+}
+
 export type Policy<T = string | number | boolean | null | undefined> = {
   [key: string]: T | Policy<T>;
 };
@@ -15,7 +20,7 @@ export type PluginPolicy = {
   chain_code_hex: string;
   derive_path: string;
   active: boolean;
-  progress: string;
+  progress: PluginProgress;
   signature: string;
   policy: Policy;
 };

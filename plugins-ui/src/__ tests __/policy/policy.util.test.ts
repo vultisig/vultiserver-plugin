@@ -1,4 +1,4 @@
-import { Policy } from "@/modules/policy/models/policy";
+import { PluginProgress, Policy } from "@/modules/policy/models/policy";
 import { generatePolicy } from "@/modules/policy/utils/policy.util";
 import { describe, expect, it } from "vitest";
 
@@ -36,6 +36,7 @@ describe("generatePolicy", () => {
       chain_code_hex: "",
       derive_path: "",
       active: true,
+      progress: PluginProgress.InProgress,
       signature: "",
       policy: {
         someNumberInput: "5",
