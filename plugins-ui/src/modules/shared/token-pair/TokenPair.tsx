@@ -15,7 +15,7 @@ const TokenPair = ({ data }: TokenPairProps) => {
         <TokenImage data={source_token_id} />
       </div>
       <div className="token-icon-right">
-        <TokenImage data={source_token_id} />
+        <TokenImage data={destination_token_id} />
       </div>
       {supportedTokens[source_token_id]?.name ||
         `Unknown token address: ${source_token_id}`}
