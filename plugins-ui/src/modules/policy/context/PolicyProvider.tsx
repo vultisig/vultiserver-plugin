@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  PluginProgress,
   PluginPolicy,
   PolicySchema,
   PolicyTransactionHistory,
@@ -145,9 +144,8 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const addPolicy = async (policy: PluginPolicy): Promise<boolean> => {
     try {
-      const signature = await signPolicy(policy);
-      if (signature && typeof signature === "string") {
-        policy.signature = signature;
+      policy = await signPolicy(policy);
+      if (policy.signature) {
         const newPolicy = await PolicyService.createPolicy(
           serverEndpoint,
           policy
@@ -172,10 +170,9 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updatePolicy = async (policy: PluginPolicy): Promise<boolean> => {
     try {
-      const signature = await signPolicy(policy);
+      policy = await signPolicy(policy);
 
-      if (signature && typeof signature === "string") {
-        policy.signature = signature;
+      if (policy.signature) {
         const updatedPolicy = await PolicyService.updatePolicy(
           serverEndpoint,
           policy
@@ -203,14 +200,14 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const removePolicy = async (policyId: string): Promise<void> => {
-    const policy = policyMap.get(policyId);
+    let policy = policyMap.get(policyId);
 
     if (!policy) return;
 
     try {
-      const signature = await signPolicy(policy);
-      if (signature && typeof signature === "string") {
-        await PolicyService.deletePolicy(serverEndpoint, policyId, signature);
+      policy = await signPolicy(policy);
+      if (policy.signature) {
+        await PolicyService.deletePolicy(serverEndpoint, policyId, policy.signature);
 
         setPolicyMap((prev) => {
           const updatedPolicyMap = new Map(prev);
@@ -234,52 +231,60 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const signPolicy = async (policy: PluginPolicy): Promise<string> => {
+  const signPolicy = async (policy: PluginPolicy): Promise<PluginPolicy> => {
     const chain = localStorage.getItem("chain") as string;
-
-    if (isSupportedChainType(chain)) {
-      let accounts = [];
-      if (chain === "ethereum") {
-        accounts = await VulticonnectWalletService.getConnectedEthAccounts();
-      }
-
-      if (!accounts || accounts.length === 0) {
-        throw new Error("Need to connect to wallet");
-      }
-
-      const vaults = await VulticonnectWalletService.getVaults();
-      const [vault] = vaults
-
-      // TODO: Only Ethereum currently supported
-      const chainId = policy.policy.chain_id as string
-
-      policy.public_key_ecdsa = vault.publicKeyEcdsa;
-      policy.public_key_eddsa = vault.publicKeyEddsa;
-      policy.signature = "";
-      policy.is_ecdsa = isEcdsaChain(chainId);
-      policy.chain_code_hex = vault.hexChainCode;
-      policy.derive_path = derivePathMap[chain];
-      const policyWithSortedProperties = sortObjectAlphabetically(policy);
-
-      const serializedPolicy = JSON.stringify(policyWithSortedProperties);
-      const hexMessage = toHex(serializedPolicy);
-
-      const signature = await VulticonnectWalletService.signCustomMessage(
-        hexMessage,
-        accounts[0]
-      );
-
-      console.log("Public key ecdsa: ", policy.public_key_ecdsa);
-      console.log("Public key eddsa: ", policy.public_key_eddsa);
-      console.log("Chain code hex: ", policy.chain_code_hex);
-      console.log("Derive path: ", policy.derive_path);
-      console.log("Hex message: ", hexMessage);
-      console.log("Account[0]: ", accounts[0]);
-      console.log("Signature: ", signature);
-
-      return signature;
+    if (!isSupportedChainType(chain)) {
+      // fail silently
+      return policy
     }
-    return "";
+
+    let accounts = [];
+    if (chain === "ethereum") {
+      accounts = await VulticonnectWalletService.getConnectedEthAccounts();
+    }
+
+    if (!accounts || accounts.length === 0) {
+      throw new Error("Need to connect to wallet");
+    }
+
+    const vaults = await VulticonnectWalletService.getVaults();
+    const [vault] = vaults
+
+    // TODO: Only Ethereum currently supported
+    const chainId = policy.policy.chain_id as string
+
+    policy.public_key_ecdsa = vault.publicKeyEcdsa;
+    policy.public_key_eddsa = vault.publicKeyEddsa;
+    policy.is_ecdsa = isEcdsaChain(chainId);
+    policy.chain_code_hex = vault.hexChainCode;
+    policy.derive_path = derivePathMap[chain];
+
+    const excludedFromSignature = {
+      signature: "",
+      progress: ""
+    };
+    const signPolicy = Object.assign({}, policy, excludedFromSignature);
+
+    const policyWithSortedProperties = sortObjectAlphabetically(signPolicy);
+    const serializedPolicy = JSON.stringify(policyWithSortedProperties);
+    const hexMessage = toHex(serializedPolicy);
+
+    const signature = await VulticonnectWalletService.signCustomMessage(
+      hexMessage,
+      accounts[0]
+    );
+
+    policy.signature = signature;
+
+    console.log("Public key ecdsa: ", policy.public_key_ecdsa);
+    console.log("Public key eddsa: ", policy.public_key_eddsa);
+    console.log("Chain code hex: ", policy.chain_code_hex);
+    console.log("Derive path: ", policy.derive_path);
+    console.log("Hex message: ", hexMessage);
+    console.log("Account[0]: ", accounts[0]);
+    console.log("Signature: ", signature);
+
+    return policy;
   };
 
   const getPolicyHistory = async (
