@@ -132,7 +132,9 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
           readonly={!!policyId}
           formContext={{
             editing: !!policyId,
-            sourceTokenId: formData.source_token_id as string, // sourceTokenId is needed in WeiConverter/TitleFieldTemplate and probably on most of the existing plugins to get the rigth decimal places based on token address
+            sourceTokenId:
+              (formData.source_token_id as string) ||
+              (formData.token_id as string[])?.at(0), // sourceTokenId is needed in WeiConverter/TitleFieldTemplate and probably on most of the existing plugins to get the rigth decimal places based on token address
             destinationTokenId: formData.destination_token_id as string, // destinationTokenId is needed in TitleFieldTemplate
           }}
         />
