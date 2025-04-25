@@ -82,7 +82,7 @@ describe("TokenSelector Component", () => {
   });
 
   it("should show message when no matches to the filter are found", () => {
-    render(<TokenSelector {...widgetProps} />);
+    render(<TokenSelector {...widgetProps} value={undefined} />);
 
     const openButton = screen.getByRole("button", { name: "Open modal" });
     fireEvent.click(openButton);
