@@ -24,6 +24,11 @@ type PluginPolicy struct {
 	Policy         json.RawMessage `json:"policy" validate:"required"`
 }
 
+type PluginPolicyPaginatedList struct {
+	Policies   []PluginPolicy `json:"policies" validate:"required"`
+	TotalCount int            `json:"total_count" validate:"required"`
+}
+
 type PayrollPolicy struct {
 	ChainID    []string           `json:"chain_id"`
 	TokenID    []string           `json:"token_id"`

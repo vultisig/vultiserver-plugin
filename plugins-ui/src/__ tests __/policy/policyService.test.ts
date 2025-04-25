@@ -49,6 +49,7 @@ describe("PolicyService", () => {
         active: true,
         signature: "signature",
         policy: {},
+        progress: "IN PROGRESS",
       };
 
       (post as Mock).mockResolvedValue(mockResponse);
@@ -113,6 +114,7 @@ describe("PolicyService", () => {
         active: true,
         signature: "signature",
         policy: {},
+        progress: "IN PROGRESS",
       };
 
       (put as Mock).mockResolvedValue(mockResponse);
@@ -179,15 +181,16 @@ describe("PolicyService", () => {
           policy_version: "0.0.1",
           signature: "signature",
           policy: {},
+          progress: "IN PROGRESS",
         },
       ];
 
       (get as Mock).mockResolvedValue(mockResponse);
 
-      const result = await MarketplaceService.getPolicies("pluginType");
+      const result = await MarketplaceService.getPolicies("pluginType", 0, 10);
 
       expect(get).toHaveBeenCalledWith(
-        "https://mock-api.com/plugins/policies",
+        "https://mock-api.com/plugins/policies?skip=0&take=10",
         mockRequest
       );
       expect(result).toEqual(mockResponse);
@@ -202,7 +205,7 @@ describe("PolicyService", () => {
         .mockImplementation(() => {});
 
       await expect(
-        MarketplaceService.getPolicies("pluginType")
+        MarketplaceService.getPolicies("pluginType", 0, 10)
       ).rejects.toThrow("API Error");
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -232,11 +235,14 @@ describe("PolicyService", () => {
 
       (get as Mock).mockResolvedValue(mockResponse);
 
-      const result =
-        await MarketplaceService.getPolicyTransactionHistory("policyId");
+      const result = await MarketplaceService.getPolicyTransactionHistory(
+        "policyId",
+        0,
+        10
+      );
 
       expect(get).toHaveBeenCalledWith(
-        "https://mock-api.com/plugins/policies/policyId/history",
+        "https://mock-api.com/plugins/policies/policyId/history?skip=0&take=10",
         mockRequest
       );
       expect(result).toEqual(mockResponse);
@@ -251,7 +257,7 @@ describe("PolicyService", () => {
         .mockImplementation(() => {});
 
       await expect(
-        MarketplaceService.getPolicyTransactionHistory("policyId")
+        MarketplaceService.getPolicyTransactionHistory("policyId", 0, 10)
       ).rejects.toThrow("API Error");
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(

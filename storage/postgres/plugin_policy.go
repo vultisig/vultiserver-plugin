@@ -52,23 +52,27 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types
 	return policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKeyEcdsa string, pluginType string) ([]types.PluginPolicy, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKeyEcdsa string, pluginType string, take int, skip int) (types.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
-		return []types.PluginPolicy{}, fmt.Errorf("database pool is nil")
+		return types.PluginPolicyPaginatedList{}, fmt.Errorf("database pool is nil")
 	}
 
 	query := `
-  	SELECT id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, progress, signature, policy
+  	SELECT id, public_key_ecdsa, public_key_eddsa, plugin_version, policy_version, plugin_type, is_ecdsa, chain_code_hex, derive_path, active, progress, signature, policy, COUNT(*) OVER() AS total_count
 		FROM plugin_policies
 		WHERE public_key_ecdsa = $1
-		AND plugin_type = $2`
+		AND plugin_type = $2
+		LIMIT $3 OFFSET $4`
 
-	rows, err := p.pool.Query(ctx, query, publicKeyEcdsa, pluginType)
+	rows, err := p.pool.Query(ctx, query, publicKeyEcdsa, pluginType, take, skip)
+
 	if err != nil {
-		return nil, err
+		return types.PluginPolicyPaginatedList{}, err
 	}
 	defer rows.Close()
+
 	var policies []types.PluginPolicy
+	var totalCount int
 	for rows.Next() {
 		var policy types.PluginPolicy
 		err := rows.Scan(
@@ -85,14 +89,20 @@ func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKeyEcd
 			&policy.Progress,
 			&policy.Signature,
 			&policy.Policy,
+			&totalCount,
 		)
 		if err != nil {
-			return nil, err
+			return types.PluginPolicyPaginatedList{}, err
 		}
 		policies = append(policies, policy)
 	}
 
-	return policies, nil
+	dto := types.PluginPolicyPaginatedList{
+		Policies:   policies,
+		TotalCount: totalCount,
+	}
+
+	return dto, nil
 }
 
 func (p *PostgresBackend) InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error) {

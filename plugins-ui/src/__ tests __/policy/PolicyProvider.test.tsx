@@ -7,36 +7,44 @@ import {
 } from "@/modules/policy/context/PolicyProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
+import { PluginProgress, PluginPoliciesMap } from "@/modules/policy/models/policy";
 import { useParams } from "react-router-dom";
 
-const mockPolicies = [
-  {
-    id: "1",
-    public_key_ecdsa: "public_key_1_ecdsa",
-    public_key_eddsa: "public_key_1_eddsa",
-    plugin_type: "plugin_type",
-    active: true,
-    signature: "signature",
-    policy: {},
-    is_ecdsa: true,
-    chain_code_hex: "chain_code_hex",
-    derive_path: "derive_path",
-    plugin_id: "plugin_id",
-  },
-  {
-    id: "2",
-    public_key_ecdsa: "public_key_2_ecdsa",
-    public_key_eddsa: "public_key_2_eddsa",
-    plugin_type: "plugin_type",
-    active: false,
-    signature: "signature",
-    policy: {},
-    is_ecdsa: true,
-    chain_code_hex: "chain_code_hex",
-    derive_path: "derive_path",
-    plugin_id: "plugin_id",
-  },
-];
+const mockPolicies: PluginPoliciesMap = {
+  policies: [
+    {
+      id: "1",
+      public_key_ecdsa: "public_key_1_ecdsa",
+      public_key_eddsa: "public_key_1_eddsa",
+      plugin_type: "plugin_type",
+      active: true,
+      signature: "signature",
+      policy: {},
+      is_ecdsa: true,
+      chain_code_hex: "chain_code_hex",
+      derive_path: "derive_path",
+      progress: PluginProgress.InProgress,
+      plugin_version: "0.01",
+      policy_version: "0.01",
+    },
+    {
+      id: "2",
+      public_key_ecdsa: "public_key_2_ecdsa",
+      public_key_eddsa: "public_key_2_eddsa",
+      plugin_type: "plugin_type",
+      active: false,
+      signature: "signature",
+      policy: {},
+      is_ecdsa: true,
+      chain_code_hex: "chain_code_hex",
+      derive_path: "derive_path",
+      progress: PluginProgress.InProgress,
+      plugin_version: "0.01",
+      policy_version: "0.01",
+    },
+  ],
+  total_count: 2,
+};
 
 const mockPlugin = {
   id: "1",
@@ -97,6 +105,7 @@ const TestComponent = () => {
             active: true,
             signature: "signature",
             policy: {},
+            progress: PluginProgress.InProgress,
           })
         }
       >
@@ -118,6 +127,7 @@ const TestComponent = () => {
             active: true,
             signature: "signature",
             policy: {},
+            progress: PluginProgress.InProgress,
           })
         }
       >

@@ -223,7 +223,19 @@ func (s *Server) GetAllPluginPolicies(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, pluginType)
+	skip, err := strconv.Atoi(c.QueryParam("skip"))
+
+	if err != nil {
+		skip = 0
+	}
+
+	take, err := strconv.Atoi(c.QueryParam("take"))
+
+	if err != nil {
+		take = 999
+	}
+
+	policies, err := s.policyService.GetPluginPolicies(c.Request().Context(), publicKey, pluginType, take, skip)
 	if err != nil {
 		message := map[string]interface{}{
 			"message": fmt.Sprintf("failed to get policies for public_key: %s", publicKey),
@@ -496,7 +508,19 @@ func (s *Server) GetPluginPolicyTransactionHistory(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	policyHistory, err := s.policyService.GetPluginPolicyTransactionHistory(c.Request().Context(), policyID)
+	skip, err := strconv.Atoi(c.QueryParam("skip"))
+
+	if err != nil {
+		skip = 0
+	}
+
+	take, err := strconv.Atoi(c.QueryParam("take"))
+
+	if err != nil {
+		take = 999
+	}
+
+	policyHistory, err := s.policyService.GetPluginPolicyTransactionHistory(c.Request().Context(), policyID, take, skip)
 	if err != nil {
 		err = fmt.Errorf("failed to get policy history: %w", err)
 		message := map[string]interface{}{
