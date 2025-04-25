@@ -54,7 +54,7 @@ func (m *MockDB) DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id strin
 	return args.Error(0)
 }
 
-func (m *MockDB) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string, take int, skip int) (types.PluginPolicyPaginatedList, error) {
+func (m *MockDB) GetAllPluginPolicies(ctx context.Context, pluginType string, publicKey string, take int, skip int) (types.PluginPolicyPaginatedList, error) {
 	args := m.Called(ctx, pluginType, publicKey)
 	return args.Get(0).(types.PluginPolicyPaginatedList), args.Error(1)
 }
