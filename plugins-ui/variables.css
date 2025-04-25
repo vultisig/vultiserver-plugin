@@ -21,12 +21,13 @@
   --border-light-color: #11284a;
   --border-normal-color: #1b3f73;
 
-  /* text colors */
-  --text-primary-color: #f0f4fc;
+   /* text colors */
+  --text-primary-color: #F0F4FC;
   --text-disabled-color: #718096;
-  --text-light-color: #c9d6e8;
-  --text-extra-light-color: #8295ae;
-  --text-dark-color: #02122b;
+  --text-light-color: #C9D6E8;
+  --text-extra-light-color: #8295AE;
+  --text-dark-color: #02122B;
+  --text-disabled-color: #718096;
 
   /* alert colors */
   --alert-success-color: #13c89d;

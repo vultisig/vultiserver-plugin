@@ -1,6 +1,11 @@
 import { get, post } from "@/modules/core/services/httpService";
-import { PluginMap } from "../models/marketplace";
 import { Category } from "../models/category";
+import {
+  CreateReview,
+  PluginMap,
+  Review,
+  ReviewMap,
+} from "../models/marketplace";
 import { Plugin } from "@/modules/plugin/models/plugin";
 import {
   PluginPolicy,
@@ -24,14 +29,12 @@ const MarketplaceService = {
     take: number
   ): Promise<PluginMap> => {
     try {
-      const sort = sortOrder === "DESC" ? `-${sortBy}` : sortBy
-      const endpoint = `${getMarketplaceUrl()}/plugins?term=${
-        encodeURIComponent(term)
-      }&category_id=${
-        encodeURIComponent(categoryId)
-      }&sort=${
-        encodeURIComponent(sort)
-      }&skip=${skip}&take=${take}`;
+      const sort = sortOrder === "DESC" ? `-${sortBy}` : sortBy;
+      const endpoint = `${getMarketplaceUrl()}/plugins?term=${encodeURIComponent(
+        term
+      )}&category_id=${encodeURIComponent(
+        categoryId
+      )}&sort=${encodeURIComponent(sort)}&skip=${skip}&take=${take}`;
       const plugins = await get(endpoint);
       return plugins;
     } catch (error) {
@@ -142,6 +145,49 @@ const MarketplaceService = {
     } catch (error) {
       console.error("Error getting policy history:", error);
 
+      throw error;
+    }
+  },
+
+  /**
+   * Get review for specific pluginId from the API.
+   * @returns {Promise<Object>} A promise that resolves to the fetched review for specific plugin.
+   */
+  getReviews: async (
+    pluginId: string,
+    skip: number,
+    take: number,
+    sort = "-created_at"
+  ): Promise<ReviewMap> => {
+    try {
+      const endpoint = `${getMarketplaceUrl()}/plugins/${pluginId}/reviews?skip=${skip}&take=${take}&sort=${sort}`;
+      const reviews = await get(endpoint);
+      return reviews;
+    } catch (error: any) {
+      console.error("Error getting reviews:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Post review for specific pluginId from the API.
+   * @returns {Promise<Object>} A promise that resolves to the fetched review for specific plugin.
+   */
+  createReview: async (
+    pluginId: string,
+    review: CreateReview
+  ): Promise<Review> => {
+    try {
+      const endpoint = `${getMarketplaceUrl()}/plugins/${pluginId}/reviews`;
+      const newReview = await post(endpoint, review, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      return newReview;
+    } catch (error: any) {
+      console.error("Error create review:", error);
       throw error;
     }
   },

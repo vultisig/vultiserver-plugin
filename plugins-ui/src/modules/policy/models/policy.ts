@@ -19,6 +19,7 @@ export type PluginPolicy = {
   signature: string;
   policy: Policy;
   active: boolean;
+  progress: string;
 };
 
 export type PolicyTransactionHistory = {
