@@ -5,18 +5,13 @@ import logo from "../../../../assets/DCA-image.png"; // todo hardcoded until thi
 import "./PluginDetail.css";
 import { useEffect, useState } from "react";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
-import Toast from "@/modules/core/components/ui/toast/Toast";
 import { Plugin } from "../../models/plugin";
 import Reviews from "@/modules/review/components/reviews/Reviews";
+import { publish } from "@/utils/eventBus";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
   const [plugin, setPlugin] = useState<Plugin | null>(null);
-  const [toast, setToast] = useState<{
-    message: string;
-    error?: string;
-    type: "success" | "error";
-  } | null>(null);
 
   const { pluginId } = useParams();
 
@@ -27,13 +22,14 @@ const PluginDetail = () => {
       try {
         const fetchedPlugin = await MarketplaceService.getPlugin(pluginId);
         setPlugin(fetchedPlugin);
-      } catch (error: any) {
-        console.error("Failed to get plugin:", error.message);
-        setToast({
-          message: "Failed to get plugin",
-          error: error.error,
-          type: "error",
-        });
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error("Failed to get plugin:", error.message);
+          publish("onToast", {
+            message: "Failed to get plugin",
+            type: "error",
+          });
+        }
       }
     };
 
@@ -79,14 +75,6 @@ const PluginDetail = () => {
           </>
         )}
       </div>
-
-      {toast && (
-        <Toast
-          title={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
     </>
   );
 };

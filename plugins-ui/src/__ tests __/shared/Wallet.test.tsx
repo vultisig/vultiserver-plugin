@@ -5,6 +5,16 @@ import Wallet from "@/modules/shared/wallet/Wallet";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 
+const hoisted = vi.hoisted(() => ({
+  mockEventBus: {
+    publish: vi.fn(),
+  },
+}));
+
+vi.mock("@/utils/eventBus", () => ({
+  publish: hoisted.mockEventBus.publish,
+}));
+
 describe("Wallet", () => {
   afterEach(() => {
     localStorage.clear();
@@ -105,9 +115,10 @@ describe("Wallet", () => {
     fireEvent.click(button);
 
     await waitFor(() => {
-      expect(alertSpy).toBeCalledWith(
-        "Chain thorchain is currently not supported."
-      );
+      expect(hoisted.mockEventBus.publish).toBeCalledWith("onToast", {
+        message: "Chain thorchain is currently not supported.",
+        type: "error",
+      });
     });
 
     alertSpy.mockRestore();
