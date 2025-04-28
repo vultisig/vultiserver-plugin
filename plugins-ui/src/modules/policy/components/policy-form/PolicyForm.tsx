@@ -101,10 +101,6 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
   };
 
   const transformPatternError = (error: RJSFValidationError) => {
-    const isMinutely =
-      typeof formData.schedule == "object" &&
-      (formData.schedule as { frequency: "minutely" })?.frequency ===
-        "minutely";
     const value: unknown = extractValueFromValidationError(
       error.property?.split(".").filter((v) => !!v) || [],
       formData
@@ -125,10 +121,9 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
     // Note: We check if the current selected field for Time is "minutely"
     if (
       error.params?.pattern === numberPatterns[1] &&
-      isMinutely &&
-      parseInt(`${value}`) < 15
+      parseInt(`${value}`) <= 15
     ) {
-      return "should be a positive number above 15";
+      return "should be a number equal or above 15";
     }
 
     // Note: We check if the matched pattern is validating positive numbers
