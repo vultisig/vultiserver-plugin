@@ -48,13 +48,14 @@ const Marketplace = () => {
       try {
         const fetchedCategories = await MarketplaceService.getCategories();
         setCategories(fetchedCategories);
-      } catch (error: any) {
-        console.error("Failed to get categories:", error.message);
-        setToast({
-          message: "Failed to get categories",
-          error: error.error,
-          type: "error",
-        });
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error("Failed to get categories:", error.message);
+          publish("onToast", {
+            message: error.message || "Failed to get categories",
+            type: "error",
+          });
+        }
       }
     };
 
