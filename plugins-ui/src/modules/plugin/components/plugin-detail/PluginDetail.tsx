@@ -8,6 +8,7 @@ import MarketplaceService from "@/modules/marketplace/services/marketplaceServic
 import Toast from "@/modules/core/components/ui/toast/Toast";
 import { Plugin } from "../../models/plugin";
 import Reviews from "@/modules/review/components/reviews/Reviews";
+import ApproveFeeButton from "./ApproveFeeButton";
 
 const PluginDetail = () => {
   const navigate = useNavigate();
@@ -62,6 +63,7 @@ const PluginDetail = () => {
                 <h2 className="plugin-title">{plugin.title}</h2>
                 <p className="plugin-description">{plugin.description}</p>
                 <section className="plugin-installaion">
+                  {plugin && <ApproveFeeButton pluginUrl={plugin.server_endpoint} pluginType={plugin.type} />}
                   <Button
                     size="small"
                     type="button"
