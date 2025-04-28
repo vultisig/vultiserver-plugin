@@ -123,7 +123,11 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
       return "should not use forbidden symbols ,{}!#'\"~";
     }
     // Note: We check if the current selected field for Time is "minutely"
-    if (isMinutely && parseInt(`${value}`) < 15) {
+    if (
+      error.params?.pattern === numberPatterns[1] &&
+      isMinutely &&
+      parseInt(`${value}`) < 15
+    ) {
       return "should be a positive number above 15";
     }
 
