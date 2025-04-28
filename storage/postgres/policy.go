@@ -52,7 +52,7 @@ func (p *PostgresBackend) GetPluginPolicy(ctx context.Context, id string) (types
 	return policy, nil
 }
 
-func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, pluginType string, publicKey string, take int, skip int) (types.PluginPolicyPaginatedList, error) {
+func (p *PostgresBackend) GetAllPluginPolicies(ctx context.Context, publicKey string, pluginType string, take int, skip int) (types.PluginPolicyPaginatedList, error) {
 	if p.pool == nil {
 		return types.PluginPolicyPaginatedList{}, fmt.Errorf("database pool is nil")
 	}
