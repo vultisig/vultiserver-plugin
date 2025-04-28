@@ -443,6 +443,8 @@ func TestDeletePolicyWithSync(t *testing.T) {
 
 func TestGetPluginPolicies(t *testing.T) {
 	ctx := context.Background()
+	take := 10
+	skip := 0
 
 	testCases := []struct {
 		name         string
@@ -458,11 +460,14 @@ func TestGetPluginPolicies(t *testing.T) {
 			pluginType: "testType",
 			publicKey:  "testKey",
 			mockSetup: func(db *database.MockDB) {
-				policies := []types.PluginPolicy{
-					createSamplePolicy("policy1"),
-					createSamplePolicy("policy2"),
+				policies := types.PluginPolicyPaginatedList{
+					Policies: []types.PluginPolicy{
+						createSamplePolicy("policy1"),
+						createSamplePolicy("policy2"),
+					},
+					TotalCount: 2,
 				}
-				db.On("GetAllPluginPolicies", ctx, "testType", "testKey", 10, 0).
+				db.On("GetAllPluginPolicies", ctx, "testType", "testKey", take, skip).
 					Return(policies, nil)
 			},
 			expectErr:   false,
@@ -473,8 +478,11 @@ func TestGetPluginPolicies(t *testing.T) {
 			pluginType: "emptyType",
 			publicKey:  "emptyKey",
 			mockSetup: func(db *database.MockDB) {
-				db.On("GetAllPluginPolicies", ctx, "emptyType", "emptyKey", 10, 0).
-					Return([]types.PluginPolicy{}, nil)
+				db.On("GetAllPluginPolicies", ctx, "emptyType", "emptyKey", take, skip).
+					Return(types.PluginPolicyPaginatedList{
+						Policies:   []types.PluginPolicy{},
+						TotalCount: 0,
+					}, nil)
 			},
 			expectErr:   false,
 			expectedLen: 0,
@@ -484,8 +492,8 @@ func TestGetPluginPolicies(t *testing.T) {
 			pluginType: "errorType",
 			publicKey:  "errorKey",
 			mockSetup: func(db *database.MockDB) {
-				db.On("GetAllPluginPolicies", ctx, "errorType", "errorKey", 10, 0).
-					Return([]types.PluginPolicy{}, fmt.Errorf("database error"))
+				db.On("GetAllPluginPolicies", ctx, "errorType", "errorKey", take, skip).
+					Return(types.PluginPolicyPaginatedList{}, fmt.Errorf("database error"))
 			},
 			expectErr:    true,
 			errorMessage: "failed to get policies",
@@ -510,7 +518,7 @@ func TestGetPluginPolicies(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, err)
-				require.Len(t, policies, tc.expectedLen)
+				require.Len(t, policies.Policies, tc.expectedLen)
 			}
 
 			mockDB.AssertExpectations(t)
@@ -582,6 +590,8 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 	policyID := "23cc1630-227e-4887-9d13-238eb8c6fa02"
 	policyUUID, err := uuid.Parse(policyID)
 	require.NoError(t, err)
+	take := 30
+	skip := 0
 
 	testCases := []struct {
 		name         string
@@ -595,19 +605,22 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 			name:     "successful get transaction history",
 			policyID: policyID,
 			mockSetup: func(db *database.MockDB) {
-				transactionHistory := []types.TransactionHistory{
-					{
-						TxHash: "txHash",
-						TxBody: "txBody",
+				transactionHistoryList := types.TransactionHistoryPaginatedList{
+					History: []types.TransactionHistory{
+						{
+							TxHash: "txHash",
+							TxBody: "txBody",
+						},
+						{
+							TxHash: "txHash2",
+							TxBody: "txBody2",
+						},
 					},
-					{
-						TxHash: "txHash2",
-						TxBody: "txBody2",
-					},
+					TotalCount: 2,
 				}
 
-				db.On("GetTransactionHistory", ctx, policyUUID, "SWAP", 30, 0).
-					Return(transactionHistory, nil)
+				db.On("GetTransactionHistory", ctx, policyUUID, "SWAP", take, skip).
+					Return(transactionHistoryList, nil)
 			},
 			expectErr:   false,
 			expectedLen: 2,
@@ -624,8 +637,8 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 			name:     "database error",
 			policyID: policyID,
 			mockSetup: func(db *database.MockDB) {
-				db.On("GetTransactionHistory", ctx, policyUUID, "SWAP", 30, 0).
-					Return([]types.TransactionHistory{}, fmt.Errorf("database error"))
+				db.On("GetTransactionHistory", ctx, policyUUID, "SWAP", take, skip).
+					Return(types.TransactionHistoryPaginatedList{}, fmt.Errorf("database error"))
 			},
 			expectErr:    true,
 			errorMessage: "failed to get policy history",
@@ -641,7 +654,7 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 			policyService, err := NewPolicyService(mockDB, nil, nil, logrus.StandardLogger())
 			require.NoError(t, err)
 
-			policies, err := policyService.GetPluginPolicyTransactionHistory(ctx, tc.policyID, 10, 0)
+			policies, err := policyService.GetPluginPolicyTransactionHistory(ctx, tc.policyID, take, skip)
 
 			if tc.expectErr {
 				require.Error(t, err)
@@ -650,7 +663,7 @@ func TestGetPluginPolicyTransactionHistory(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, err)
-				require.Len(t, policies, tc.expectedLen)
+				require.Len(t, policies.History, tc.expectedLen)
 			}
 
 			mockDB.AssertExpectations(t)
