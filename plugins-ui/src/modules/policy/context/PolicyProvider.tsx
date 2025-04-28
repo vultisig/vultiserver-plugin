@@ -16,11 +16,11 @@ import {
   isSupportedChainType,
   toHex,
 } from "@/modules/shared/wallet/wallet.utils";
-import Toast from "@/modules/core/components/ui/toast/Toast";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import { useParams } from "react-router-dom";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import { sortObjectAlphabetically } from "../utils/policy.util";
+import { publish } from "@/utils/eventBus";
 
 export const POLICY_ITEMS_PER_PAGE = 15;
 
@@ -52,13 +52,8 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [policiesTotalCount, setPoliciesTotalCount] = useState(0);
   const [policySchemaMap, setPolicySchemaMap] = useState(
-    new Map<string, any>()
+    new Map<string, PolicySchema>()
   );
-  const [toast, setToast] = useState<{
-    message: string;
-    error?: string;
-    type: "success" | "error";
-  } | null>(null);
 
   const { pluginId } = useParams();
   const [pluginType, setPluginType] = useState("");
@@ -104,7 +99,7 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
           const fetchPolicySchema = async (
             pluginType: string
-          ): Promise<any> => {
+          ): Promise<unknown> => {
             if (policySchemaMap.has(pluginType)) {
               return Promise.resolve(policySchemaMap.get(pluginType));
             }
@@ -120,13 +115,14 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
               );
 
               return Promise.resolve(fetchedSchemas);
-            } catch (error: any) {
-              console.error("Failed to fetch policy schema:", error.message);
-              setToast({
-                message: error.message || "Failed to fetch policy schema",
-                error: error.error,
-                type: "error",
-              });
+            } catch (error) {
+              if (error instanceof Error) {
+                console.error("Failed to fetch policy schema:", error.message);
+                publish("onToast", {
+                  message: error.message || "Failed to fetch policy schema",
+                  type: "error",
+                });
+              }
 
               return Promise.resolve(null);
             }
@@ -134,13 +130,14 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
           fetchPolicySchema(fetchedPlugin.type);
         }
-      } catch (error: any) {
-        console.error("Plugin not found:", error.message);
-        setToast({
-          message: "Plugin not found",
-          error: error.error,
-          type: "error",
-        });
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error("Plugin not found:", error.message);
+          publish("onToast", {
+            message: "Plugin not found",
+            type: "error",
+          });
+        }
 
         return;
       }
@@ -156,9 +153,8 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     fetchPolicies().catch((error: any) => {
       console.error("Failed to get policies:", error.message);
-      setToast({
+      publish("onToast", {
         message: error.message || "Failed to get policies",
-        error: error.error,
         type: "error",
       });
     });
@@ -174,19 +170,21 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
           policy
         );
         setPolicyMap((prev) => new Map(prev).set(newPolicy.id, newPolicy));
-        setToast({ message: "Policy created successfully!", type: "success" });
-
+        publish("onToast", {
+          message: "Policy created successfully!",
+          type: "success",
+        });
         return Promise.resolve(true);
       }
       return Promise.resolve(false);
-    } catch (error: any) {
-      console.error("Failed to create policy:", error.message);
-      setToast({
-        message: error.message || "Failed to create policy",
-        error: error.error,
-        type: "error",
-      });
-
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Failed to create policy:", error.message);
+        publish("onToast", {
+          message: error.message || "Failed to create policy",
+          type: "error",
+        });
+      }
       return Promise.resolve(false);
     }
   };
@@ -205,19 +203,22 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
         setPolicyMap((prev) =>
           new Map(prev).set(updatedPolicy.id, updatedPolicy)
         );
-        setToast({ message: "Policy updated successfully!", type: "success" });
-
+        publish("onToast", {
+          message: "Policy updated successfully!",
+          type: "success",
+        });
         return Promise.resolve(true);
       }
 
       return Promise.resolve(false);
-    } catch (error: any) {
-      console.error("Failed to update policy:", error.message, error);
-      setToast({
-        message: error.message || "Failed to update policy",
-        error: error.error,
-        type: "error",
-      });
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Failed to update policy:", error.message, error);
+        publish("onToast", {
+          message: error.message || "Failed to update policy",
+          type: "error",
+        });
+      }
 
       return Promise.resolve(false);
     }
@@ -239,19 +240,19 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
 
           return updatedPolicyMap;
         });
-
-        setToast({
+        publish("onToast", {
           message: "Policy deleted successfully!",
           type: "success",
         });
       }
-    } catch (error: any) {
-      console.error("Failed to delete policy:", error);
-      setToast({
-        message: error.message || "Failed to delete policy",
-        error: error.error,
-        type: "error",
-      });
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Failed to delete policy:", error);
+        publish("onToast", {
+          message: error.message,
+          type: "error",
+        });
+      }
     }
   };
 
@@ -310,13 +311,14 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
         take
       );
       return history;
-    } catch (error: any) {
-      console.error("Failed to get policy history:", error);
-      setToast({
-        message: error.message,
-        error: error.error,
-        type: "error",
-      });
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Failed to get policy history:", error);
+        publish("onToast", {
+          message: error.message,
+          type: "error",
+        });
+      }
 
       return null;
     }
@@ -338,13 +340,6 @@ export const PolicyProvider: React.FC<{ children: React.ReactNode }> = ({
       }}
     >
       {children}
-      {toast && (
-        <Toast
-          title={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
     </PolicyContext.Provider>
   );
 };

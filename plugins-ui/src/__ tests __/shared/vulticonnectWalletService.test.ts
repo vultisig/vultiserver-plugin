@@ -1,6 +1,16 @@
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import { describe, it, expect, vi, afterEach } from "vitest";
 
+const hoisted = vi.hoisted(() => ({
+  mockEventBus: {
+    publish: vi.fn(),
+  },
+}));
+
+vi.mock("@/utils/eventBus", () => ({
+  publish: hoisted.mockEventBus.publish,
+}));
+
 describe("VulticonnectWalletService", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -13,9 +23,10 @@ describe("VulticonnectWalletService", () => {
 
       await VulticonnectWalletService.connectToVultiConnect();
 
-      expect(window.alert).toHaveBeenCalledWith(
-        "No ethereum provider found. Please install VultiConnect."
-      );
+      expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
     });
 
     it("should return accounts if provider exists", async () => {
@@ -63,9 +74,10 @@ describe("VulticonnectWalletService", () => {
 
       await VulticonnectWalletService.getConnectedEthAccounts();
 
-      expect(window.alert).toHaveBeenCalledWith(
-        "No ethereum provider found. Please install VultiConnect."
-      );
+      expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
     });
 
     it("should return accounts if provider exists", async () => {
@@ -117,9 +129,10 @@ describe("VulticonnectWalletService", () => {
         "walletAddress"
       );
 
-      expect(window.alert).toHaveBeenCalledWith(
-        "No ethereum provider found. Please install VultiConnect."
-      );
+      expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
     });
 
     it("should return signature if provider exists", async () => {
