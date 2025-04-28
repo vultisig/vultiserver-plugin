@@ -1,7 +1,7 @@
 import { describe, expect, it, Mock, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import LeaveReview from "@/modules/shared/review/LeaveReview";
 import { useReviews } from "@/modules/review/context/ReviewProvider";
+import LeaveReview from "@/modules/review/components/leave-review/LeaveReview";
 
 vi.mock("@/modules/review/context/ReviewProvider", () => ({
   useReviews: vi.fn(),
