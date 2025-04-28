@@ -25,18 +25,27 @@ export const generatePolicy = (
   };
 };
 
-function convertToStrings<T extends Record<string, any>>(
-  obj: T
+function convertToStrings(
+  obj: Record<string, unknown>
 ): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [
-      key,
-      typeof value === "object" && value !== null
-        ? convertToStrings(value)
-        : String(value),
-    ])
-  ) as Record<string, string>;
-};
+  Object.keys(obj).forEach((k) => {
+    if (typeof obj[k] === "object") {
+      return convertToStrings(obj[k] as Record<string, unknown>);
+    }
+    if (Array.isArray(obj[k])) {
+      return obj[k].map((item) => {
+        if (typeof item === "object") {
+          return convertToStrings(item);
+        }
+        return `${item}`;
+      });
+    }
+
+    obj[k] = "" + obj[k];
+  });
+
+  return obj as Record<string, string>;
+}
 
 const getValueByPath = (obj: Record<string, any>, path: string) =>
   path.split(".").reduce((acc, part) => acc?.[part], obj);

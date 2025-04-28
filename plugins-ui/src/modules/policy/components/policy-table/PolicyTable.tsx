@@ -19,6 +19,8 @@ import TokenName from "@/modules/shared/token-name/TokenName";
 import TokenAmount from "@/modules/shared/token-amount/TokenAmount";
 import { mapTableColumnData } from "../../utils/policy.util";
 import ActiveStatus from "@/modules/shared/active-status/ActiveStatus";
+import DateColumn from "@/modules/shared/date-column/DateColumn";
+import TokenImage from "@/modules/shared/token-image/TokenImage";
 import { PolicySchema } from "../../models/policy";
 import Pagination from "@/modules/core/components/ui/pagination/Pagination";
 
@@ -27,6 +29,8 @@ const componentMap: Record<string, React.FC<any>> = {
   TokenName,
   TokenAmount,
   ActiveStatus,
+  DateColumn,
+  TokenImage,
 };
 
 const getTableColumns = (schema: PolicySchema) => {

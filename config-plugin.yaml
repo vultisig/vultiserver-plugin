@@ -2,15 +2,15 @@
 mode: plugin
 
 # when "plugin" mode is selected, choose which package to run: "dca", "payroll", etc.
-plugin_type: dca
+plugin_type: payroll
 
 # plugin package specific configuration
 plugin_package:
   payroll:
-    rpc_url: https://eth.llamarpc.com
+    rpc_url: http://127.0.0.1:8545
   dca:
     # use private mempool https://rpc.mevblocker.io
-    rpc_url: https://eth.llamarpc.com
+    rpc_url: http://127.0.0.1:8545
     uniswap:
       v2_router: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
       slippage: 1

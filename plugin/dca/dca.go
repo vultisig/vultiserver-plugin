@@ -40,12 +40,6 @@ const (
 	PolicyVersion = "0.0.1"
 )
 
-// TODO: remove once the plugin installation is implemented (resharding)
-const (
-	vaultPassword    = "888717"
-	hexEncryptionKey = "539440138236b389cb0355aa1e81d11e51e9ad7c94b09bb45704635913604a73"
-)
-
 var (
 	//go:embed dcaPluginUiSchema.json
 	embeddedFileDCASchema embed.FS
@@ -405,10 +399,10 @@ func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginK
 				PublicKey:        policy.GetPublicKey(),
 				Messages:         []string{hex.EncodeToString(data.TxHash)},
 				SessionID:        uuid.New().String(),
-				HexEncryptionKey: hexEncryptionKey,
+				HexEncryptionKey: common.HexEncryptionKey,
 				DerivePath:       policy.DerivePath,
 				IsECDSA:          policy.IsEcdsa,
-				VaultPassword:    vaultPassword,
+				VaultPassword:    common.VaultPassword,
 				Parties:          []string{common.PluginPartyID, common.VerifierPartyID},
 			},
 			Transaction:     hex.EncodeToString(data.RlpTxBytes),

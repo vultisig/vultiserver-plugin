@@ -3,9 +3,11 @@ import { RJSFSchema } from "@rjsf/utils";
 export enum PluginProgress {
   InProgress = 'IN PROGRESS',
   Done = 'DONE',
-}
+};
 
-export type Policy<T = string | number | boolean | null | undefined> = {
+export type Policy<
+  T = string | number | boolean | string[] | null | undefined,
+> = {
   [key: string]: T | Policy<T>;
 };
 
