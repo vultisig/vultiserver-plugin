@@ -27,6 +27,7 @@ type DatabaseStorage interface {
 	UserRepository
 	PricingRepository
 	PluginRepository
+	PluginPricingRepository
 	CategoryRepository
 	TagRepository
 	ReviewRepository
@@ -77,6 +78,7 @@ type PricingRepository interface {
 type PluginRepository interface {
 	FindPlugins(ctx context.Context, filters types.PluginFilters, skip int, take int, sort string) (types.PluginsPaginatedList, error)
 	FindPluginById(ctx context.Context, dbTx pgx.Tx, id string) (*types.Plugin, error)
+	FindPluginByType(ctx context.Context, pluginType string) (*types.PluginPlain, error)
 	CreatePlugin(ctx context.Context, dbTx pgx.Tx, pluginDto types.PluginCreateDto) (string, error)
 	UpdatePlugin(ctx context.Context, id string, updates types.PluginUpdateDto) (*types.Plugin, error)
 	DeletePluginById(ctx context.Context, id string) error
@@ -84,6 +86,11 @@ type PluginRepository interface {
 	DetachTagFromPlugin(ctx context.Context, pluginId string, tagId string) (*types.Plugin, error)
 
 	Pool() *pgxpool.Pool
+}
+
+type PluginPricingRepository interface {
+	FindPluginPricingsBy(ctx context.Context, filters map[string]interface{}) ([]types.PluginPricing, error)
+	CreatePluginPricing(ctx context.Context, pluginPricingDto types.PluginPricingCreateDto) (*types.PluginPricing, error)
 }
 
 type CategoryRepository interface {

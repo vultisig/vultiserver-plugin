@@ -996,6 +996,169 @@ func (s *Server) GetReviews(c echo.Context) error {
 	return c.JSON(http.StatusOK, reviews)
 }
 
+func (s *Server) GetPluginPricingPolicy(c echo.Context) error {
+	publicKey := c.Request().Header.Get("public_key")
+	if publicKey == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "public key is invalid",
+			"error":   "public key is required",
+		})
+	}
+
+	pluginType := c.Request().Header.Get("plugin_type")
+	pluginTypeParam := c.Param("pluginType")
+	if pluginTypeParam == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "plugin type is invalid",
+			"error":   "plugin type is required",
+		})
+	}
+	if pluginType != pluginTypeParam {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "plugin type is invalid",
+			"error":   "plugin type header does not match path param",
+		})
+	}
+
+	pricings, err := s.db.FindPluginPricingsBy(c.Request().Context(), map[string]interface{}{
+		"public_key_ecdsa": publicKey,
+		"plugin_type":      pluginType,
+	})
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to fetch plugin pricings",
+		})
+	}
+	if len(pricings) == 0 {
+		return c.JSON(http.StatusOK, nil)
+	}
+
+	// should be one per plugin type for each user
+	pricing := pricings[0]
+
+	return c.JSON(http.StatusOK, pricing)
+}
+
+func (s *Server) CreatePluginPricingPolicy(c echo.Context) error {
+	// parse input
+	pluginType := c.Param("pluginType")
+	if pluginType == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to create plugin pricing policy",
+			"error":   "plugin id is required",
+		})
+	}
+
+	var pluginPricing types.PluginPricingCreateDto
+	if err := c.Bind(&pluginPricing); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to parse request body",
+		})
+	}
+	if err := c.Validate(&pluginPricing); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": err.Error(),
+		})
+	}
+	if pluginType != pluginPricing.PluginType {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "plugin type does not match payload",
+		})
+	}
+
+	// validate signature
+	if !s.verifyPluginPricingSignature(pluginPricing) {
+		s.logger.Error("invalid plugin pricing signature")
+		message := echo.Map{
+			"message": "Authorization failed",
+			"error":   "Invalid plugin pricing signature",
+		}
+		return c.JSON(http.StatusForbidden, message)
+	}
+
+	// check if alredy exists
+	pricings, err := s.db.FindPluginPricingsBy(c.Request().Context(), map[string]interface{}{
+		"public_key_ecdsa": pluginPricing.PublicKeyEcdsa,
+		"plugin_type":      pluginPricing.PluginType,
+	})
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "failed to fetch plugin pricings",
+		})
+	}
+	if len(pricings) > 0 {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "user already signed pricing policy for this plugin",
+		})
+	}
+
+	// validate signed pricing policy comply with plugin pricing policy
+	if s.mode == "verifier" {
+		// only verifier have access to pricing definition for a given plugin
+		// this validation will trigger during tx create sync (as the same endpoint gets hit on verifier side)
+		plugin, err := s.db.FindPluginByType(c.Request().Context(), pluginPricing.PluginType)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, echo.Map{
+				"message": "plugin not found",
+			})
+		}
+
+		pricing, err := s.db.FindPricingById(c.Request().Context(), plugin.PricingID)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, echo.Map{
+				"message": "pricing not found",
+			})
+		}
+
+		var deserialized types.PricingPolicy
+		err = json.Unmarshal(pluginPricing.Policy, &deserialized)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, echo.Map{
+				"message": "failed to parse pricing policy",
+			})
+		}
+
+		if pricing.Type != deserialized.Type ||
+			pricing.Metric != deserialized.Metric ||
+			pricing.Amount != deserialized.Amount {
+			return c.JSON(http.StatusBadRequest, echo.Map{
+				"message": "signed fee policy does not comply with plugin fee policy",
+			})
+		}
+	}
+
+	// create
+	created, err := s.policyService.CreatePricingPolicyWithSync(
+		c.Request().Context(),
+		pluginPricing,
+	)
+	if err != nil {
+		message := echo.Map{
+			"message": "failed to create plugin pricing",
+		}
+		s.logger.Error(err)
+		return c.JSON(http.StatusInternalServerError, message)
+	}
+
+	return c.JSON(http.StatusOK, created)
+}
+
+func (s *Server) verifyPluginPricingSignature(pricing types.PluginPricingCreateDto) bool {
+	msgHex, err := pluginPricingToMessageHex(pricing)
+	if err != nil {
+		s.logger.Error(fmt.Errorf("failed to convert plugin pricing to message hex: %w", err))
+		return false
+	}
+
+	return s.verifySignature(
+		pricing.PublicKeyEcdsa,
+		pricing.ChainCodeHex,
+		pricing.DerivePath,
+		pricing.Signature,
+		msgHex,
+	)
+}
+
 func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
 	msgHex, err := policyToMessageHex(policy)
 	if err != nil {
@@ -1003,19 +1166,35 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
 		return false
 	}
 
+	return s.verifySignature(
+		policy.PublicKeyEcdsa,
+		policy.ChainCodeHex,
+		policy.DerivePath,
+		policy.Signature,
+		msgHex,
+	)
+}
+
+func (s *Server) verifySignature(
+	publicKeyEcdsa string,
+	chainCodeHex string,
+	derivePath string,
+	signature string,
+	msgHex string,
+) bool {
 	msgBytes, err := hex.DecodeString(strings.TrimPrefix(msgHex, "0x"))
 	if err != nil {
 		s.logger.Error(fmt.Errorf("failed to decode message bytes: %w", err))
 		return false
 	}
 
-	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(policy.Signature, "0x"))
+	signatureBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
 	if err != nil {
 		s.logger.Error(fmt.Errorf("failed to decode signature bytes: %w", err))
 		return false
 	}
 
-	isVerified, err := sigutil.VerifySignature(policy.PublicKeyEcdsa, policy.ChainCodeHex, policy.DerivePath, msgBytes, signatureBytes)
+	isVerified, err := sigutil.VerifySignature(publicKeyEcdsa, chainCodeHex, derivePath, msgBytes, signatureBytes)
 	if err != nil {
 		s.logger.Error(fmt.Errorf("failed to verify signature: %w", err))
 		return false
@@ -1033,6 +1212,22 @@ func policyToMessageHex(policy types.PluginPolicy) (string, error) {
 		return "", fmt.Errorf("failed to serialize policy")
 	}
 	return hex.EncodeToString(serializedPolicy), nil
+}
+
+func pluginPricingToMessageHex(pluginPricing types.PluginPricingCreateDto) (string, error) {
+	// deserialize and serialize back to validate signed message structure matches the policy model structure
+	var deserialized types.PricingPolicy
+	err := json.Unmarshal(pluginPricing.Policy, &deserialized)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse pricing policy")
+	}
+
+	serialized, err := json.Marshal(deserialized)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize pricing policy")
+	}
+
+	return hex.EncodeToString(serialized), nil
 }
 
 func calculateTransactionHash(txData string) (string, error) {

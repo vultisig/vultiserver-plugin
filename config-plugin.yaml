@@ -15,6 +15,7 @@ plugin_package:
       v2_router: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
       slippage: 1
       deadline: 2 # minutes
+    fee_wallet: 0x82877569353461499C8F4087736C35bce676A832
 
 # "plugin" or "verifier" server configuration
 plugin:

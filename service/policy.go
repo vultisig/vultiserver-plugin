@@ -19,6 +19,7 @@ type Policy interface {
 	GetPluginPolicies(ctx context.Context, pluginType, publicKey string, take int, skip int) (types.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, policyID string) (types.PluginPolicy, error)
 	GetPluginPolicyTransactionHistory(ctx context.Context, policyID string, take int, skip int) (types.TransactionHistoryPaginatedList, error)
+	CreatePricingPolicyWithSync(ctx context.Context, pluginPricingDto types.PluginPricingCreateDto) (*types.PluginPricing, error)
 }
 
 type PolicyServiceStorage interface {
@@ -30,6 +31,7 @@ type PolicyServiceStorage interface {
 	GetAllPluginPolicies(ctx context.Context, pluginType string, publicKey string, take int, skip int) (types.PluginPolicyPaginatedList, error)
 	GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error)
 	GetTransactionHistory(ctx context.Context, policyID uuid.UUID, transactionType string, take int, skip int) (types.TransactionHistoryPaginatedList, error)
+	CreatePluginPricing(ctx context.Context, pluginPricingDto types.PluginPricingCreateDto) (*types.PluginPricing, error)
 }
 
 type SchedulerService interface {
@@ -171,4 +173,24 @@ func (s *PolicyService) GetPluginPolicyTransactionHistory(ctx context.Context, p
 	}
 
 	return history, nil
+}
+
+func (s *PolicyService) CreatePricingPolicyWithSync(
+	ctx context.Context, pluginPricingDto types.PluginPricingCreateDto,
+) (*types.PluginPricing, error) {
+	pluginPricing, err := s.db.CreatePluginPricing(ctx, pluginPricingDto)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plugin pricing: %w", err)
+	}
+
+	// syncer should exist only on plugin instance
+	if s.syncer != nil {
+		err := s.syncer.CreatePricingPolicySync(pluginPricingDto)
+		if err != nil {
+			// Note: previous result is not rolled back here
+			return nil, fmt.Errorf("failed to sync create pricing policy with verifier: %w", err)
+		}
+	}
+
+	return pluginPricing, nil
 }
