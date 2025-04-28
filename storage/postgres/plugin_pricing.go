@@ -65,13 +65,13 @@ func (p *PostgresBackend) CreatePluginPricing(
 	pluginPricingDto types.PluginPricingCreateDto,
 ) (*types.PluginPricing, error) {
 	query := fmt.Sprintf(`INSERT INTO %s (
-		public_key_ecdsa
-		public_key_eddsa
-		plugin_type
-		is_ecdsa
-		chain_code_hex
-		derive_path
-		signature
+		public_key_ecdsa,
+		public_key_eddsa,
+		plugin_type,
+		is_ecdsa,
+		chain_code_hex,
+		derive_path,
+		signature,
 		policy
 	) VALUES (
 		@PublicKeyEcdsa,
