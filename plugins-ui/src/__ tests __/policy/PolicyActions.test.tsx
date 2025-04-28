@@ -16,10 +16,13 @@ const customRender = (ui: ReactNode, policyMap: Map<string, PluginPolicy>) => {
     pluginType: "pluginType",
     policyMap: policyMap,
     policySchemaMap: new Map(),
+    policiesTotalCount: 5,
     addPolicy: vi.fn(),
     updatePolicy: vi.fn().mockResolvedValue(true),
     removePolicy: vi.fn(),
     getPolicyHistory: vi.fn(),
+    currentPage: 1,
+    setCurrentPage: vi.fn(),
   };
 
   return render(
