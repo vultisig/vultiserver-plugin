@@ -352,7 +352,7 @@ func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginK
 	}
 	pricing := &pricings[0]
 
-	if err = common.ValidatePluginPricingPolicy(pricing, "dca"); err != nil {
+	if err = common.ValidatePluginPricingPolicy(pricing, policy.PluginType); err != nil {
 		return txs, fmt.Errorf("fail to validate plugin pricing policy: %w", err)
 	}
 
