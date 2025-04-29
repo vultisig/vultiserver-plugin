@@ -194,6 +194,10 @@
   "table": {
     "columns": [
       {
+        "accessorKey": "progress",
+        "header": "Progress"
+      },
+      {
         "accessorKey": "chainId",
         "header": "Chain ID"
       },
@@ -236,7 +240,8 @@
       "paymentToken": "policy.token_id.0",
       "payrollInterval": "policy.schedule.interval, policy.schedule.frequency",
       "subRows": "policy.recipients",
-      "status": "active"
+      "status": "active",
+      "progress": "progress"
     }
   }
 }
