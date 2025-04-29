@@ -40,7 +40,6 @@ import { PolicySchema, PolicyTableColumn } from "../../models/policy";
 import ExpandableRows, {
   type ExpandableRowsProps,
 } from "@/modules/shared/expandable-rows/ExpandableRows";
-import { formatEther } from "ethers";
 import Pagination from "@/modules/core/components/ui/pagination/Pagination";
 
 const componentMap: Record<
@@ -157,17 +156,8 @@ const PolicyTable = () => {
 
   if (columns.length === 0) return;
 
-  const parseValue = (value: string, key: string) => {
-    switch (key) {
-      case "amount":
-        return formatEther(value);
-      default:
-        return value;
-    }
-  };
-
-  const generateExpandableRows = (row: Row<unknown>) => {
-    const expandableRowData = row.getValue("subRows") as Record<
+  const generateExpandableRows = (tableRow: Row<unknown>) => {
+    const expandableRowData = tableRow.getValue("subRows") as Record<
       string,
       unknown
     >[];
@@ -179,7 +169,7 @@ const PolicyTable = () => {
             return (
               <Fragment key={j}>
                 <span className="expandable-row-key">{key}:</span>
-                <span>{parseValue(`${row[key]}`, key)}, </span>
+                <span>{`${row[key]}`} </span>
               </Fragment>
             );
           })}
