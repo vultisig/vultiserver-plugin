@@ -88,6 +88,7 @@
               "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
             },
             "max": {
+              "title": "Price Range (optional)",
               "type": "string",
               "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
             }
@@ -182,24 +183,13 @@
           "ui:options": {
             "classNames": "input-background stacked-input",
             "placeholder": "Min Price"
-          },
-          "ui:style": {
-            "display": "flex",
-            "flexDirection": "column",
-            "justifyContent": "flex-end"
           }
         },
         "max": {
           "ui:readonly": false,
           "ui:options": {
-            "classNames": "input-background stacked-input",
-            "label": false,
+            "classNames": "input-background stacked-input hidden-label",
             "placeholder": "Max Price"
-          },
-          "ui:style": {
-            "display": "flex",
-            "flexDirection": "column",
-            "justifyContent": "flex-end"
           }
         }
       }

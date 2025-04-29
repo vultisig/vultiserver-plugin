@@ -145,7 +145,6 @@ fieldset {
 
 .control-label {
   margin-bottom: 8px;
-
   .required {
     display: none;
   }
@@ -153,7 +152,6 @@ fieldset {
 
 .input-background {
   flex: 1;
-
   .form-control {
     background-color: var(--background-secondary-color);
     border: 1px solid var(--border-light-color);
@@ -191,4 +189,11 @@ input:read-only {
 
 .error-detail {
   padding: 0;
+}
+
+.hidden-label {
+  label {
+    opacity: 0;
+    pointer-events: none;
+  }
 }

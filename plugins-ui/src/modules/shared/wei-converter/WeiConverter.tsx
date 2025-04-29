@@ -6,13 +6,9 @@ import "./WeiConverter.css";
 
 const DEBOUNCE_DELAY = 500;
 
-const WeiConverter: React.FC<WidgetProps> = ({
-  value,
-  readonly,
-  onChange,
-  formContext,
-  schema,
-}) => {
+const WeiConverter = (props: WidgetProps) => {
+  const { value, readonly, onChange, formContext, schema } = props;
+
   const selectedToken = formContext?.sourceTokenId;
   const [inputValue, setInputValue] = useState("");
 
@@ -21,15 +17,15 @@ const WeiConverter: React.FC<WidgetProps> = ({
       setInputValue("");
       return;
     }
-
-    let decimals = supportedTokens[selectedToken]?.decimals;
+    if (!readonly) return;
     try {
+      const decimals = supportedTokens[selectedToken]?.decimals;
       const formattedValue = ethers.formatUnits(value, decimals);
       setInputValue(formattedValue);
     } catch (error) {
       console.error(error);
     }
-  }, [value, selectedToken]);
+  }, [value, selectedToken, readonly]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -38,8 +34,8 @@ const WeiConverter: React.FC<WidgetProps> = ({
         return;
       }
 
-      let decimals = supportedTokens[selectedToken]?.decimals;
       try {
+        const decimals = supportedTokens[selectedToken]?.decimals;
         const convertedValue = ethers
           .parseUnits(inputValue, decimals)
           .toString();
