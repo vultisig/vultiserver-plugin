@@ -44,6 +44,16 @@ func (m *MockDB) UpdatePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy t
 	return args.Get(0).(*types.PluginPolicy), args.Error(1)
 }
 
+func (m *MockDB) FindPluginPricingsBy(ctx context.Context, filters map[string]interface{}) ([]types.PluginPricing, error) {
+	args := m.Called(ctx, filters)
+	return args.Get(0).([]types.PluginPricing), args.Error(1)
+}
+
+func (m *MockDB) CreatePluginPricing(ctx context.Context, pluginPricingDto types.PluginPricingCreateDto) (*types.PluginPricing, error) {
+	args := m.Called(ctx, pluginPricingDto)
+	return args.Get(0).(*types.PluginPricing), args.Error(1)
+}
+
 func (m *MockDB) UpdateTimeTriggerTx(ctx context.Context, policyID string, trigger types.TimeTrigger, dbTx pgx.Tx) error {
 	args := m.Called(ctx, policyID, trigger, dbTx)
 	return args.Error(0)

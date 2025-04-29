@@ -2,7 +2,7 @@
 mode: plugin
 
 # when "plugin" mode is selected, choose which package to run: "dca", "payroll", etc.
-plugin_type: payroll
+plugin_type: dca
 
 # plugin package specific configuration
 plugin_package:

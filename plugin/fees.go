@@ -30,7 +30,7 @@ func CalculateFeeAmount(pricingPolicy *types.PricingPolicy, taxBase *big.Int) (*
 			new(big.Int).Mul(big.NewInt(AMOUNT_DENOMINATOR), big.NewInt(PERCENTAGE_DENOMINATOR)),
 		)
 	} else {
-		return nil, fmt.Errorf("fee pricing policy metric not supported: ", pricingPolicy.Metric)
+		return nil, fmt.Errorf("fee pricing policy metric not supported: %s", pricingPolicy.Metric)
 	}
 
 	return amount, nil

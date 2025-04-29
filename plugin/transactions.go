@@ -38,9 +38,9 @@ func GenerateFeeTransactions(
 	case pricingPolicy.Type == "RECURRING":
 	case pricingPolicy.Type == "SINGLE":
 	case pricingPolicy.Type == "FREE":
-		return rawTxsData, fmt.Errorf("fee pricing policy type not implemented: ", pricingPolicy.Type)
+		return rawTxsData, fmt.Errorf("fee pricing policy type not implemented: %s", pricingPolicy.Type)
 	default:
-		return rawTxsData, fmt.Errorf("fee pricing policy type not supported: ", pricingPolicy.Type)
+		return rawTxsData, fmt.Errorf("fee pricing policy type not supported: %s", pricingPolicy.Type)
 	}
 
 	txHash, rawTx, err := uniswapClient.ERC20Transfer(

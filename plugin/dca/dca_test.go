@@ -65,6 +65,27 @@ func createValidPolicy() types.PluginPolicy {
 	}
 }
 
+func createValidPluginPricing() types.PluginPricing {
+	pricingPolicy := types.PricingPolicy{
+		Type:   "PER_TX",
+		Amount: 1,
+		Metric: "PERCENTAGE",
+	}
+
+	policyBytes, _ := json.Marshal(pricingPolicy)
+
+	return types.PluginPricing{
+		ID:             "test-pricing-policy-id",
+		PublicKeyEcdsa: "02e23a52d46f02064f60305a5397ed808f4e2dcc4210a3ddc1c4ca9a6ac6d02fb3",
+		PublicKeyEddsa: "cbe9f33d38054defe561b9189f0f78721bb4ba836678030ca9db319a11a590ac",
+		PluginType:     PluginType,
+		IsEcdsa:        true,
+		ChainCodeHex:   "8769353fa9b5baaf9ceef4c0c747c57d67933ed9865612ce5d8b771708bfaa1d",
+		DerivePath:     common.DerivePathMap["0x1"],
+		Policy:         policyBytes,
+	}
+}
+
 func rlpUnsignedTxAndHash(tx *gtypes.Transaction, chainID *big.Int) ([]byte, []byte, error) {
 	// post EIP-155 transaction
 	V := new(big.Int).Set(chainID)
@@ -123,6 +144,22 @@ func createApproveTransaction(t *testing.T, chainID *big.Int, spender gcommon.Ad
 	require.NoError(t, err)
 	return hash, rawTx, nil
 }
+func createFeeTransaction(t *testing.T, chainID *big.Int, to gcommon.Address, amount *big.Int, tokenAddress gcommon.Address) ([]byte, []byte, error) {
+	plugin := Plugin{}
+	parsedABI, err := plugin.getTransferABI()
+	require.NoError(t, err)
+	data, err := parsedABI.Pack("transfer", to, amount)
+	require.NoError(t, err)
+
+	gasPrice := big.NewInt(2000000000) // 2 Gwei
+	gasLimit := uint64(60000)
+
+	tx := gtypes.NewTransaction(0, tokenAddress, big.NewInt(0), gasLimit, gasPrice, data)
+
+	hash, rawTx, err := rlpUnsignedTxAndHash(tx, chainID)
+	require.NoError(t, err)
+	return hash, rawTx, nil
+}
 func createInvalidTransaction(t *testing.T, chainID *big.Int, invalidCase string) ([]byte, []byte, error) {
 	gasPrice := big.NewInt(2000000000) // 2 Gwei
 	gasLimit := uint64(60000)
@@ -149,7 +186,7 @@ func createInvalidTransaction(t *testing.T, chainID *big.Int, invalidCase string
 	require.NoError(t, err)
 	return txHash, rawTx, nil
 }
-func createKeysignRequest(txHash []byte, rlpTxBytes []byte, policyID string) types.PluginKeysignRequest {
+func createKeysignRequest(txHash []byte, rlpTxBytes []byte, policyID string, transactionType string) types.PluginKeysignRequest {
 	return types.PluginKeysignRequest{
 		KeysignRequest: types.KeysignRequest{
 			PublicKey:        "02e23a52d46f02064f60305a5397ed808f4e2dcc4210a3ddc1c4ca9a6ac6d02fb3",
@@ -165,7 +202,7 @@ func createKeysignRequest(txHash []byte, rlpTxBytes []byte, policyID string) typ
 		Transaction:     hex.EncodeToString(rlpTxBytes),
 		PluginType:      "dca",
 		PolicyID:        policyID,
-		TransactionType: "SWAP",
+		TransactionType: transactionType,
 	}
 }
 
@@ -524,6 +561,8 @@ func TestProposeTransactions(t *testing.T) {
 	require.NoError(t, err)
 	policy := createValidPolicy()
 	policy.ID = validPolicyID
+	pluginPricing := createValidPluginPricing()
+	feeAmount := big.NewInt(1) // 1% of a 100 spend on every order
 
 	testCases := []struct {
 		name         string
@@ -543,6 +582,7 @@ func TestProposeTransactions(t *testing.T) {
 
 				totalOrders, _ := new(big.Int).SetString(dcaPolicy.TotalOrders, 10)
 
+				db.On("FindPluginPricingsBy", ctx, mock.Anything).Return([]types.PluginPricing{pluginPricing}, nil)
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").Return(totalOrders.Int64(), nil)
 				db.On("WithTransaction", ctx, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
 					Return(true, nil)
@@ -557,6 +597,7 @@ func TestProposeTransactions(t *testing.T) {
 			name:   "Propose approve and swap",
 			policy: policy,
 			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
+				db.On("FindPluginPricingsBy", ctx, mock.Anything).Return([]types.PluginPricing{pluginPricing}, nil)
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), nil)
 
@@ -565,11 +606,44 @@ func TestProposeTransactions(t *testing.T) {
 
 				sourceAddr := gcommon.HexToAddress("0x1111111111111111111111111111111111111111")
 
+				uniswap.On("ERC20Transfer", mock.Anything, mock.Anything, mock.Anything, mock.Anything, feeAmount, uint64(0)).
+					Return([]byte("txhash1"), []byte("rawtx1"), nil)
+
 				uniswap.On("GetAllowance", mock.Anything, sourceAddr).
 					Return(big.NewInt(0), nil)
 
-				uniswap.On("ApproveERC20Token", mock.Anything, mock.Anything, sourceAddr, routerAddr, mock.Anything, uint64(0)).
+				uniswap.
+					On("ApproveERC20Token", mock.Anything, mock.Anything, sourceAddr, routerAddr, mock.Anything, uint64(1)).
+					Return([]byte("txhash2"), []byte("rawtx2"), nil)
+
+				uniswap.On("GetExpectedAmountOut", mock.Anything, mock.Anything).
+					Return(big.NewInt(90), nil)
+
+				uniswap.On("CalculateAmountOutMin", big.NewInt(90)).
+					Return(big.NewInt(89))
+
+				uniswap.On("SwapTokens",
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, uint64(2)).
+					Return([]byte("txhash3"), []byte("rawtx3"), nil)
+			},
+			expected: 3,
+			wantErr:  false,
+		},
+		{
+			name:   "Propose only SWAP (sufficient allowance case)",
+			policy: policy,
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
+				db.On("FindPluginPricingsBy", ctx, mock.Anything).Return([]types.PluginPricing{pluginPricing}, nil)
+				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").
+					Return(int64(0), nil)
+
+				sourceAddr := gcommon.HexToAddress("0x1111111111111111111111111111111111111111")
+
+				uniswap.On("ERC20Transfer", mock.Anything, mock.Anything, mock.Anything, mock.Anything, feeAmount, uint64(0)).
 					Return([]byte("txhash1"), []byte("rawtx1"), nil)
+
+				uniswap.On("GetAllowance", mock.Anything, sourceAddr).
+					Return(big.NewInt(10000), nil)
 
 				uniswap.On("GetExpectedAmountOut", mock.Anything, mock.Anything).
 					Return(big.NewInt(90), nil)
@@ -585,45 +659,39 @@ func TestProposeTransactions(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:   "Propose only SWAP (sufficient allowance case)",
-			policy: policy,
-			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
-				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").
-					Return(int64(0), nil)
-
-				sourceAddr := gcommon.HexToAddress("0x1111111111111111111111111111111111111111")
-
-				uniswap.On("GetAllowance", mock.Anything, sourceAddr).
-					Return(big.NewInt(10000), nil)
-
-				uniswap.On("GetExpectedAmountOut", mock.Anything, mock.Anything).
-					Return(big.NewInt(90), nil)
-
-				uniswap.On("CalculateAmountOutMin", big.NewInt(90)).
-					Return(big.NewInt(89))
-
-				uniswap.On("SwapTokens",
-					mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, uint64(0)).
-					Return([]byte("txhash2"), []byte("rawtx2"), nil)
-			},
-			expected: 1,
-			wantErr:  false,
-		},
-		{
 			name:   "Error getting allowance",
 			policy: policy,
 			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
+				db.On("FindPluginPricingsBy", ctx, mock.Anything).Return([]types.PluginPricing{pluginPricing}, nil)
 				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), nil)
 
 				sourceAddr := gcommon.HexToAddress("0x1111111111111111111111111111111111111111")
+
+				uniswap.On("ERC20Transfer", mock.Anything, mock.Anything, mock.Anything, mock.Anything, feeAmount, uint64(0)).
+					Return([]byte("txhash1"), []byte("rawtx1"), nil)
 
 				uniswap.On("GetAllowance", mock.Anything, sourceAddr).
 					Return(nil, errors.New("failed to get allowance"))
 			},
-			expected:     0,
+			expected:     1,
 			wantErr:      true,
 			errorMessage: `failed to get allowance`,
+		},
+		{
+			name:   "Error making fee transfer",
+			policy: policy,
+			mockSetup: func(db *database.MockDB, uniswap *uniswapclient.MockUniswapClient) {
+				db.On("FindPluginPricingsBy", ctx, mock.Anything).Return([]types.PluginPricing{pluginPricing}, nil)
+				db.On("CountTransactions", ctx, policyUUID, types.StatusMined, "SWAP").
+					Return(int64(0), nil)
+
+				uniswap.On("ERC20Transfer", mock.Anything, mock.Anything, mock.Anything, mock.Anything, feeAmount, uint64(0)).
+					Return([]byte{}, []byte{}, errors.New("failed to make transfer"))
+			},
+			expected:     0,
+			wantErr:      true,
+			errorMessage: `failed to make transfer`,
 		},
 	}
 
@@ -790,9 +858,9 @@ func TestValidateProposedTransactions(t *testing.T) {
 	approveHash, approveRawTx, _ := createApproveTransaction(t, chainID, routerAddr, swapAmount, sourceAddr)
 	invalidTxHash, invalidRawTx, _ := createInvalidTransaction(t, chainID, "empty_data")
 
-	validSwapRequest := createKeysignRequest(swapHash, swapRawTx, validPolicyID)
-	validApproveRequest := createKeysignRequest(approveHash, approveRawTx, validPolicyID)
-	invalidRequest := createKeysignRequest(invalidTxHash, invalidRawTx, validPolicyID)
+	validSwapRequest := createKeysignRequest(swapHash, swapRawTx, validPolicyID, "SWAP")
+	validApproveRequest := createKeysignRequest(approveHash, approveRawTx, validPolicyID, "APPROVE")
+	invalidRequest := createKeysignRequest(invalidTxHash, invalidRawTx, validPolicyID, "SWAP")
 
 	testCases := []struct {
 		name         string
@@ -847,10 +915,6 @@ func TestValidateProposedTransactions(t *testing.T) {
 				// No completed swaps yet
 				db.On("CountTransactions", mock.Anything, policyUUID, types.StatusMined, "SWAP").
 					Return(int64(0), nil)
-
-				// Router address for router calls
-				routerAddr := gcommon.HexToAddress("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
-				uniswap.On("GetRouterAddress").Return(routerAddr).Times(1)
 			},
 			wantErr: false,
 		},
@@ -864,7 +928,7 @@ func TestValidateProposedTransactions(t *testing.T) {
 					Return(int64(0), nil)
 
 				routerAddr := gcommon.HexToAddress("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
-				uniswap.On("GetRouterAddress").Return(routerAddr).Times(2)
+				uniswap.On("GetRouterAddress").Return(routerAddr).Times(1)
 			},
 			wantErr: false,
 		},
@@ -933,7 +997,7 @@ func TestValidateTransaction(t *testing.T) {
 	destAddr := gcommon.HexToAddress("0x2222222222222222222222222222222222222222")
 	routerAddr := gcommon.HexToAddress("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
 	signerAddr := gcommon.HexToAddress("0x7238f7c96DB71bf2bEda4909f023DAE40DEf3248")
-	wrongAddr := gcommon.HexToAddress("0x4444444444444444444444444444444444444444")
+	feeWalletAddr := gcommon.HexToAddress("0x82877569353461499C8F4087736C35bce676A832")
 
 	path := []gcommon.Address{sourceAddr, destAddr}
 	swapAmount := big.NewInt(100)
@@ -941,6 +1005,7 @@ func TestValidateTransaction(t *testing.T) {
 
 	swapHash, swapRawBytesTx, _ := createSwapTransaction(t, chainID, swapAmount, amountOutMin, path, signerAddr, routerAddr)
 	approveHash, approveRawBytesTx, _ := createApproveTransaction(t, chainID, routerAddr, swapAmount, sourceAddr)
+	feeHash, feeRawBytesTx, _ := createFeeTransaction(t, chainID, feeWalletAddr, swapAmount, sourceAddr)
 	invalidTxHash, invalidTxRawBytes, _ := createInvalidTransaction(t, chainID, "empty_data")
 
 	wrongChainIDTxHex, wrongChainIDTxRaw, _ := createInvalidTransaction(t, chainID, "wrong_chain_id")
@@ -953,6 +1018,7 @@ func TestValidateTransaction(t *testing.T) {
 		name              string
 		txHex             []byte
 		txRlpBytes        []byte
+		txType            string
 		completedSwaps    int64
 		policyTotalAmount *big.Int
 		policyTotalOrders *big.Int
@@ -968,6 +1034,7 @@ func TestValidateTransaction(t *testing.T) {
 			name:              "Valid swap transaction",
 			txHex:             swapHash,
 			txRlpBytes:        swapRawBytesTx,
+			txType:            "SWAP",
 			completedSwaps:    0,
 			policyTotalAmount: big.NewInt(1000),
 			policyTotalOrders: big.NewInt(10),
@@ -975,15 +1042,14 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup: func(uniswap *uniswapclient.MockUniswapClient) {
-				uniswap.On("GetRouterAddress").Return(routerAddr)
-			},
-			wantError: false,
+			mockSetup:         func(uniswap *uniswapclient.MockUniswapClient) {},
+			wantError:         false,
 		},
 		{
 			name:              "Valid approve transaction",
 			txHex:             approveHash,
 			txRlpBytes:        approveRawBytesTx,
+			txType:            "APPROVE",
 			completedSwaps:    0,
 			policyTotalAmount: big.NewInt(1000),
 			policyTotalOrders: big.NewInt(10),
@@ -997,9 +1063,25 @@ func TestValidateTransaction(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name:              "Valid fee transaction",
+			txHex:             feeHash,
+			txRlpBytes:        feeRawBytesTx,
+			txType:            "FEE",
+			completedSwaps:    0,
+			policyTotalAmount: big.NewInt(1000),
+			policyTotalOrders: big.NewInt(10),
+			policyChainID:     chainID,
+			sourceAddr:        &sourceAddr,
+			destAddr:          &destAddr,
+			signerAddr:        &signerAddr,
+			mockSetup:         func(uniswap *uniswapclient.MockUniswapClient) {},
+			wantError:         false,
+		},
+		{
 			name:              "Invalid transaction RLP",
 			txHex:             swapHash,
 			txRlpBytes:        []byte{1, 2, 34, 35, 36},
+			txType:            "SWAP",
 			completedSwaps:    0,
 			policyTotalAmount: big.NewInt(1000),
 			policyTotalOrders: big.NewInt(10),
@@ -1015,6 +1097,7 @@ func TestValidateTransaction(t *testing.T) {
 			name:              "Wrong chain ID",
 			txHex:             wrongChainIDTxHex,
 			txRlpBytes:        wrongChainIDTxRaw,
+			txType:            "SWAP",
 			completedSwaps:    0,
 			policyTotalAmount: big.NewInt(1000),
 			policyTotalOrders: big.NewInt(10),
@@ -1030,6 +1113,7 @@ func TestValidateTransaction(t *testing.T) {
 			name:              "Zero gas limit",
 			txHex:             zeroGasLimitTxHex,
 			txRlpBytes:        zeroGasLimitTxRaw,
+			txType:            "SWAP",
 			completedSwaps:    0,
 			policyTotalAmount: big.NewInt(1000),
 			policyTotalOrders: big.NewInt(10),
@@ -1045,6 +1129,7 @@ func TestValidateTransaction(t *testing.T) {
 			name:              "Zero gas price",
 			txHex:             zeroGasPriceTxHex,
 			txRlpBytes:        zeroGasPriceTxRaw,
+			txType:            "SWAP",
 			completedSwaps:    0,
 			policyTotalAmount: big.NewInt(1000),
 			policyTotalOrders: big.NewInt(10),
@@ -1060,6 +1145,7 @@ func TestValidateTransaction(t *testing.T) {
 			name:              "Empty transaction data",
 			txHex:             invalidTxHash,
 			txRlpBytes:        invalidTxRawBytes,
+			txType:            "SWAP",
 			completedSwaps:    0,
 			policyTotalAmount: big.NewInt(1000),
 			policyTotalOrders: big.NewInt(10),
@@ -1072,9 +1158,10 @@ func TestValidateTransaction(t *testing.T) {
 			errorMsg:          "transaction contains empty payload",
 		},
 		{
-			name:              "Unsupported destination",
+			name:              "Unsupported transaction type",
 			txHex:             swapHash,
 			txRlpBytes:        swapRawBytesTx,
+			txType:            "BURN",
 			completedSwaps:    0,
 			policyTotalAmount: big.NewInt(1000),
 			policyTotalOrders: big.NewInt(10),
@@ -1082,11 +1169,9 @@ func TestValidateTransaction(t *testing.T) {
 			sourceAddr:        &sourceAddr,
 			destAddr:          &destAddr,
 			signerAddr:        &signerAddr,
-			mockSetup: func(uniswap *uniswapclient.MockUniswapClient) {
-				uniswap.On("GetRouterAddress").Return(wrongAddr) // Different from tx destination
-			},
-			wantError: true,
-			errorMsg:  "unsupported transaction",
+			mockSetup:         func(uniswap *uniswapclient.MockUniswapClient) {},
+			wantError:         true,
+			errorMsg:          "unsupported transaction",
 		},
 	}
 
@@ -1104,9 +1189,10 @@ func TestValidateTransaction(t *testing.T) {
 				logger:        logger,
 				db:            mockDB,
 				rpcClient:     mockEth,
+				feeWallet:     feeWalletAddr.String(),
 			}
 
-			keysignRequest := createKeysignRequest(tc.txHex, tc.txRlpBytes, "policyID")
+			keysignRequest := createKeysignRequest(tc.txHex, tc.txRlpBytes, "policyID", tc.txType)
 
 			err := plugin.validateTransaction(
 				keysignRequest,
@@ -1179,7 +1265,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID", "SWAP")
 				return signRequest
 			}(),
 			wantError: false,
@@ -1197,7 +1283,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID", "SWAP")
 				signRequest.Messages[0] = ""
 				return signRequest
 			}(),
@@ -1217,7 +1303,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID", "SWAP")
 				return signRequest
 			}(),
 			signLegacyTx: func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error) {
@@ -1242,7 +1328,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID", "SWAP")
 				return signRequest
 			}(),
 			signLegacyTx: func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error) {
@@ -1267,7 +1353,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID", "SWAP")
 				return signRequest
 			}(),
 			signLegacyTx: func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error) {
@@ -1295,7 +1381,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID", "SWAP")
 				return signRequest
 			}(),
 			signLegacyTx: func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error) {

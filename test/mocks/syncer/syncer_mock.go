@@ -30,3 +30,8 @@ func (m *MockSyncer) DeletePolicySync(policyID string, signature string) error {
 	args := m.Called(policyID, signature)
 	return args.Error(0)
 }
+
+func (m *MockSyncer) CreatePricingPolicySync(pricingPolicy types.PluginPricingCreateDto) error {
+	args := m.Called(pricingPolicy)
+	return args.Error(0)
+}
