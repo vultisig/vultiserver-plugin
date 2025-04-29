@@ -24,7 +24,7 @@
           "properties": {
             "interval": {
               "title": "Every",
-              "type": "number"
+              "type": "string"
             },
             "frequency": {
               "type": "string",
@@ -52,7 +52,7 @@
                       "enum": ["minutely"]
                     },
                     "interval": {
-                      "type": "number",
+                      "type": "string",
                       "pattern": "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$"
                     }
                   }
@@ -63,7 +63,7 @@
                       "enum": ["hourly", "daily", "weekly", "monthly"]
                     },
                     "interval": {
-                      "type": "number",
+                      "type": "string",
                       "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
                     }
                   }
@@ -97,7 +97,7 @@
               },
               "amount": {
                 "title": "Amount",
-                "type": "number",
+                "type": "string",
                 "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
               }
             }
@@ -143,7 +143,6 @@
           "ui:classNames": "input-background stacked-input"
         },
         "start_time": {
-          "ui:readonly": false,
           "ui:hideError": false,
           "ui:classNames": "input-background stacked-input",
           "ui:style": {
@@ -151,7 +150,6 @@
           }
         },
         "end_time": {
-          "ui:readonly": false,
           "ui:hideError": false,
           "ui:classNames": "input-background stacked-input",
           "ui:style": {
