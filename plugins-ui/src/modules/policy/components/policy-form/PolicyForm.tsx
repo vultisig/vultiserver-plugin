@@ -68,8 +68,10 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
               onSubmitCallback(policy);
             }
           });
-        } catch (error: any) {
-          console.error("Failed to update policy:", error.message);
+        } catch (error) {
+          if (error instanceof Error) {
+            console.error("Failed to update policy:", error.message);
+          }
         }
 
         return;
@@ -86,21 +88,66 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
             onSubmitCallback(policy);
           }
         });
-      } catch (error: any) {
-        console.error("Failed to create policy:", error.message);
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error("Failed to create policy:", error.message);
+        }
       }
+    }
+  };
+
+  const extractValueFromValidationError = (
+    validationFieldPath: string[],
+    object: Record<string, unknown>
+  ) => {
+    const currentField = validationFieldPath.shift();
+    if (!currentField) return;
+    if (validationFieldPath.length > 0) {
+      return extractValueFromValidationError(
+        validationFieldPath,
+        object[currentField] as Record<string, unknown>
+      );
+    } else {
+      return object[currentField];
+    }
+  };
+
+  const transformPatternError = (error: RJSFValidationError) => {
+    const value: unknown = extractValueFromValidationError(
+      error.property?.split(".").filter((v) => !!v) || [],
+      formData
+    );
+    const forbiddenSymbols = /,|{|}|!|#|'|"|~/;
+    const numberPatterns = [
+      // Note: Positive number pattern
+      "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$",
+      "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$",
+    ];
+    // Note: We check if the matched pattern is validating Numbers
+    if (
+      forbiddenSymbols.test(`${value}`) &&
+      numberPatterns.includes(error.params.pattern)
+    ) {
+      return "should not use forbidden symbols ,{}!#'\"~";
+    }
+    // Note: We check if the current selected field for Time is "minutely"
+    if (
+      error.params?.pattern === numberPatterns[1] &&
+      parseInt(`${value}`) <= 15
+    ) {
+      return "should be a number equal or above 15";
+    }
+
+    // Note: We check if the matched pattern is validating positive numbers
+    if (error.params.pattern === numberPatterns[0]) {
+      return "should be a positive number";
     }
   };
 
   const transformErrors = (errors: RJSFValidationError[]) => {
     return errors.map((error) => {
       if (error.name === "pattern") {
-        if (error.params.pattern === "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$") {
-          error.message = "should be a positive number above 15";
-        }
-        if (error.params.pattern === "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$") {
-          error.message = "should be a positive number";
-        }
+        error.message = transformPatternError(error);
       }
       if (error.name === "required") {
         error.message = "required";

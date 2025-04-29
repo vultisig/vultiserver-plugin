@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { usePolicies } from "../../context/PolicyProvider";
 import { PolicyTransactionHistory } from "../../models/policy";
 import "./TransactionHistory.css";
-import Toast from "@/modules/core/components/ui/toast/Toast";
+import { publish } from "@/utils/eventBus";
 import Pagination from "@/modules/core/components/ui/pagination/Pagination";
 
 const ITEMS_PER_PAGE = 25;
@@ -33,12 +33,6 @@ const TransactionHistory = ({ policyId }: TransactionHistoryProps) => {
     []
   );
 
-  const [toast, setToast] = useState<{
-    message: string;
-    error?: string;
-    type: "success" | "warning" | "error";
-  } | null>(null);
-
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
@@ -64,9 +58,8 @@ const TransactionHistory = ({ policyId }: TransactionHistoryProps) => {
         }
       } catch (error: any) {
         console.error("Failed to get policy history:", error.message);
-        setToast({
+        publish("onToast", {
           message: error.message || "Failed to get policy history",
-          error: error.error,
           type: "error",
         });
       }
@@ -106,13 +99,6 @@ const TransactionHistory = ({ policyId }: TransactionHistoryProps) => {
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={onCurrentPageChange}
-        />
-      )}
-      {toast && (
-        <Toast
-          title={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
         />
       )}
     </div>

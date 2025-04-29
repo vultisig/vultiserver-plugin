@@ -29,6 +29,7 @@ describe("WeiConverter", () => {
         uiSchema={uiSchema}
         validator={validator}
         formData={{ customInput: "1000000000000000000" }}
+        readonly={true}
         formContext={{
           sourceTokenId: WETH_TOKEN,
         }}
@@ -105,6 +106,7 @@ describe("WeiConverter", () => {
         schema={schema}
         uiSchema={uiSchema}
         validator={validator}
+        readonly={true}
         formData={{ customInput: "1000000000000000000a" }}
         formContext={{
           sourceTokenId: WETH_TOKEN,
@@ -123,6 +125,7 @@ describe("WeiConverter", () => {
         schema={schema}
         uiSchema={uiSchema}
         validator={validator}
+        readonly={true}
         formData={{ customInput: "1000000000000000000" }}
         formContext={{
           sourceTokenId: "missing_token", // this won't throw error, the defualt is to turn it into 18 decimalsa

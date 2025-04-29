@@ -5,13 +5,13 @@ import {
   useEffect,
   useState,
 } from "react";
-import Toast from "@/modules/core/components/ui/toast/Toast";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import {
   CreateReview,
   ReviewMap,
 } from "@/modules/marketplace/models/marketplace";
 import { PluginRatings } from "@/modules/plugin/models/plugin";
+import { publish } from "@/utils/eventBus";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -45,12 +45,6 @@ export const ReviewProvider = ({
   const [pluginRatings, setPluginRatings] = useState(ratings);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [toast, setToast] = useState<{
-    message: string;
-    error?: string;
-    type: "success" | "error";
-  } | null>(null);
-
   useEffect(() => {
     if (!pluginId) return;
     const skip = (page - 1) * ITEMS_PER_PAGE;
@@ -66,13 +60,14 @@ export const ReviewProvider = ({
         setTotalPages(Math.ceil(fetchedReviews.total_count / ITEMS_PER_PAGE));
 
         setReviewsMap(fetchedReviews);
-      } catch (error: any) {
-        console.error("Failed to get reviews:", error.message);
-        setToast({
-          message: error.message || "Failed to get reviews",
-          error: error.error,
-          type: "error",
-        });
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error("Failed to get reviews:", error.message);
+          publish("onToast", {
+            message: error.message || "Failed to get reviews",
+            type: "error",
+          });
+        }
       }
     };
 
@@ -105,16 +100,19 @@ export const ReviewProvider = ({
           total_count: newTotalCount,
         };
       });
-      setToast({ message: "Review created successfully!", type: "success" });
-
-      return Promise.resolve(true);
-    } catch (error: any) {
-      console.error("Failed to create review:", error.message);
-      setToast({
-        message: error.message || "Failed to create review",
-        error: error.error,
-        type: "error",
+      publish("onToast", {
+        message: "Review created successfully!",
+        type: "success",
       });
+      return Promise.resolve(true);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Failed to create review:", error.message);
+        publish("onToast", {
+          message: error.message || "Failed to create review",
+          type: "error",
+        });
+      }
 
       return Promise.resolve(false);
     }
@@ -133,13 +131,6 @@ export const ReviewProvider = ({
       }}
     >
       {children}
-      {toast && (
-        <Toast
-          title={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
     </ReviewContext.Provider>
   );
 };
