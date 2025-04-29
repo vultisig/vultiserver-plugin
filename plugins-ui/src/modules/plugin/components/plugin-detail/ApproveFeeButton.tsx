@@ -83,7 +83,6 @@ const ApproveFeeButton = ({
     });
 
     if (pricing.id) {
-      console.log('plugin pricing created', pricing);
       setDcaIsApproved(true);
     }
   };
