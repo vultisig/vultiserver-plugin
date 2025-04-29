@@ -85,7 +85,7 @@ func (p *PostgresBackend) CreatePluginPricing(
 	) RETURNING id;`, PLUGIN_PRICINGS_TABLE)
 	args := pgx.NamedArgs{
 		"PublicKeyEcdsa": pluginPricingDto.PublicKeyEcdsa,
-		"PublicKeyEddsa": pluginPricingDto.PublicKeyEcdsa,
+		"PublicKeyEddsa": pluginPricingDto.PublicKeyEddsa,
 		"PluginType":     pluginPricingDto.PluginType,
 		"IsEcdsa":        pluginPricingDto.IsEcdsa,
 		"ChainCodeHex":   pluginPricingDto.ChainCodeHex,
