@@ -12,6 +12,8 @@ const plugin: Plugin = {
   metadata: {},
   server_endpoint: "endpoint",
   pricing_id: "pricingId",
+  tags: [],
+  category_id: "categoryId",
   ratings: [
     { rating: 1, count: 0 },
     { rating: 2, count: 0 },

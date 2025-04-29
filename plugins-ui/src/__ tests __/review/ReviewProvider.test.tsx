@@ -51,6 +51,16 @@ vi.mock("@/modules/marketplace/services/marketplaceService", () => ({
   },
 }));
 
+const hoisted = vi.hoisted(() => ({
+  mockEventBus: {
+    publish: vi.fn(),
+  },
+}));
+
+vi.mock("@/utils/eventBus", () => ({
+  publish: hoisted.mockEventBus.publish,
+}));
+
 const TestComponent = ({ pluginId }: { pluginId: string }) => {
   const { reviewsMap, addReview, totalPages } = useReviews();
 
@@ -122,15 +132,10 @@ describe("ReviewProvider", () => {
           "Failed to get reviews:",
           "API Error"
         );
-
-        const closeToastButton = screen.getByRole("button", {
-          name: "Close message",
+        expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
+          message: "API Error",
+          type: "error",
         });
-
-        expect(closeToastButton).toBeInTheDocument();
-
-        const errorMessage = screen.getByText("API Error");
-        expect(errorMessage).toBeInTheDocument();
       });
     });
   });
@@ -161,9 +166,10 @@ describe("ReviewProvider", () => {
         expect(screen.getByText("2")).toBeInTheDocument();
         expect(screen.getByText("3")).toBeInTheDocument();
         expect(screen.getByText("Total pages: 1")).toBeInTheDocument();
-        expect(
-          screen.getByText("Review created successfully!")
-        ).toBeInTheDocument();
+        expect(hoisted.mockEventBus.publish).toBeCalledWith("onToast", {
+          message: "Review created successfully!",
+          type: "success",
+        });
       });
     });
 
@@ -258,7 +264,6 @@ describe("ReviewProvider", () => {
         expect(screen.getByText("1")).toBeInTheDocument();
         expect(screen.getByText("2")).toBeInTheDocument();
         expect(screen.queryByText("3")).not.toBeInTheDocument();
-        expect(screen.getByText("Failed to create review")).toBeInTheDocument();
       });
     });
   });

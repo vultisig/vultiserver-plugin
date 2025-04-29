@@ -29,19 +29,22 @@ function convertToStrings(
   obj: Record<string, unknown>
 ): Record<string, string> {
   Object.keys(obj).forEach((k) => {
-    if (typeof obj[k] === "object") {
+    if (obj[k] === null || obj[k] === undefined) {
+      obj[k] = `${obj[k]}`;
+    }
+    if (typeof obj[k] === "object" && obj !== null) {
       return convertToStrings(obj[k] as Record<string, unknown>);
     }
     if (Array.isArray(obj[k])) {
       return obj[k].map((item) => {
-        if (typeof item === "object") {
+        if (typeof item === "object" && item !== null) {
           return convertToStrings(item);
         }
         return `${item}`;
       });
     }
 
-    obj[k] = "" + obj[k];
+    obj[k] = `${obj[k]}`;
   });
 
   return obj as Record<string, string>;

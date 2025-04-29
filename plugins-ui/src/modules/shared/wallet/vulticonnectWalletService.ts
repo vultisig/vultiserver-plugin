@@ -1,5 +1,7 @@
 // more on the exposed methods here: https://github.com/vultisig/vultisig-windows/blob/main/clients/extension/docs/integration-guide.md
 
+import { publish } from "@/utils/eventBus";
+
 interface ProviderError {
   code: number;
   message: string;
@@ -18,7 +20,10 @@ export interface IVulticonnectVault {
 const VulticonnectWalletService = {
   connectToVultiConnect: async () => {
     if (!window.vultisig?.ethereum) {
-      alert(`No ethereum provider found. Please install VultiConnect.`);
+      publish("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
       return;
     }
 
@@ -37,7 +42,10 @@ const VulticonnectWalletService = {
 
   getConnectedEthAccounts: async () => {
     if (!window.vultisig?.ethereum) {
-      alert(`No ethereum provider found. Please install VultiConnect.`);
+      publish("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
       return;
     }
 
@@ -58,7 +66,10 @@ const VulticonnectWalletService = {
 
   signCustomMessage: async (hexMessage: string, walletAddress: string) => {
     if (!window.vultisig?.ethereum) {
-      alert(`No ethereum provider found. Please install VultiConnect.`);
+      publish("onToast", {
+        message: "No ethereum provider found. Please install VultiConnect.",
+        type: "error",
+      });
       return;
     }
 
@@ -80,7 +91,10 @@ const VulticonnectWalletService = {
 
   getVaults: async () => {
     if (!window.vultisig) {
-      alert(`No wallet found. Please install VultiConnect.`);
+      publish("onToast", {
+        message: "No wallet found. Please install VultiConnect.",
+        type: "error",
+      });
       return;
     }
 
