@@ -46,29 +46,98 @@
               "default": "minutely"
             }
           },
-          "if": {
-            "properties": {
-              "frequency": {
-                "const": "minutely"
+          "scope": "every",
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "frequency": {
+                    "const": "minutely"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "interval": {
+                    "type": "string",
+                    "format": "minutes-validation"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "frequency": {
+                    "const": "hourly"
+                  }
+                },
+                "required": ["frequency"]
+              },
+              "then": {
+                "properties": {
+                  "interval": {
+                    "type": "string",
+                    "format": "hours-validation"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "frequency": {
+                    "const": "daily"
+                  }
+                },
+                "required": ["frequency"]
+              },
+              "then": {
+                "properties": {
+                  "interval": {
+                    "type": "string",
+                    "format": "days-validation"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "frequency": {
+                    "const": "weekly"
+                  }
+                },
+                "required": ["frequency"]
+              },
+              "then": {
+                "properties": {
+                  "interval": {
+                    "type": "string",
+                    "format": "weeks-validation"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "frequency": {
+                    "const": "monthly"
+                  }
+                },
+                "required": ["frequency"]
+              },
+              "then": {
+                "properties": {
+                  "interval": {
+                    "type": "string",
+                    "format": "months-validation"
+                  }
+                }
               }
             }
-          },
-          "then": {
-            "properties": {
-              "interval": {
-                "type": "string",
-                "pattern": "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$"
-              }
-            }
-          },
-          "else": {
-            "properties": {
-              "interval": {
-                "type": "string",
-                "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
-              }
-            }
-          }
+          ]
         },
         "total_orders": {
           "title": "Over (orders)",
