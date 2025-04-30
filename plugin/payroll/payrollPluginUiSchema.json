@@ -43,32 +43,27 @@
               "format": "date-time"
             }
           },
-          "dependencies": {
-            "frequency": {
-              "oneOf": [
-                {
-                  "properties": {
-                    "frequency": {
-                      "enum": ["minutely"]
-                    },
-                    "interval": {
-                      "type": "string",
-                      "pattern": "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$"
-                    }
-                  }
-                },
-                {
-                  "properties": {
-                    "frequency": {
-                      "enum": ["hourly", "daily", "weekly", "monthly"]
-                    },
-                    "interval": {
-                      "type": "string",
-                      "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
-                    }
-                  }
-                }
-              ]
+          "if": {
+            "properties": {
+              "frequency": {
+                "const": "minutely"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "interval": {
+                "type": "string",
+                "pattern": "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "interval": {
+                "type": "string",
+                "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
+              }
             }
           }
         },
@@ -210,9 +205,9 @@
         "cellComponent": "DateColumn"
       },
       {
-        "accessorKey": "paymentToken",
+        "accessorKey": "token",
         "header": "Payment Token",
-        "cellComponent": "TokenImage"
+        "cellComponent": "TokenPair"
       },
       {
         "accessorKey": "payrollInterval",
@@ -235,7 +230,7 @@
       "chainId": "policy.chain_id.0",
       "startDate": "policy.schedule.start_time",
       "endDate": "policy.schedule.end_time",
-      "paymentToken": "policy.token_id.0",
+      "token": "policy.token_id",
       "payrollInterval": "policy.schedule.interval, policy.schedule.frequency",
       "subRows": "policy.recipients",
       "status": "active",

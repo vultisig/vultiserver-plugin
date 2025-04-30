@@ -1,27 +1,41 @@
 import { supportedTokens } from "@/modules/shared/data/tokens";
+import { cloneElement } from "react";
+
 import "./TokenPair.css";
-import TokenImage from "../token-image/TokenImage";
 
 export type TokenPairProps = {
   data: [string, string];
 };
 
 const TokenPair = ({ data }: TokenPairProps) => {
-  const [source_token_id, destination_token_id] = data;
+  const [token, secondToken] = data;
 
   return (
     <div className="pair">
       <div className="token-icon">
-        <TokenImage data={source_token_id} />
+        {supportedTokens[token] &&
+          cloneElement(supportedTokens[token].image, {
+            width: 24,
+            height: 24,
+          })}
+        <span>
+          {supportedTokens[token]?.name || `Unknown token address: ${token}`}
+        </span>
       </div>
-      <div className="token-icon-right">
-        <TokenImage data={destination_token_id} />
-      </div>
-      {supportedTokens[source_token_id]?.name ||
-        `Unknown token address: ${source_token_id}`}
-      /
-      {supportedTokens[destination_token_id]?.name ||
-        `Unknown token address: ${destination_token_id}`}
+
+      {secondToken && (
+        <div className="token-icon token-icon-bottom">
+          {supportedTokens[secondToken] &&
+            cloneElement(supportedTokens[secondToken].image, {
+              width: 24,
+              height: 24,
+            })}
+          <span>
+            {supportedTokens[secondToken]?.name ||
+              `Unknown token address: ${secondToken}`}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

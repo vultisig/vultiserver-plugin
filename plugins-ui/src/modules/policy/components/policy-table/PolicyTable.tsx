@@ -33,9 +33,6 @@ import ActiveStatus, {
 import DateColumn, {
   type DateColumnProps,
 } from "@/modules/shared/date-column/DateColumn";
-import TokenImage, {
-  type TokenImageProps,
-} from "@/modules/shared/token-image/TokenImage";
 import { PolicySchema, PolicyTableColumn } from "../../models/policy";
 import ExpandableRows, {
   type ExpandableRowsProps,
@@ -51,7 +48,6 @@ const componentMap: Record<
   TokenAmount: (props) => <TokenAmount {...(props as TokenAmountProps)} />,
   ActiveStatus: (props) => <ActiveStatus {...(props as ActiveStatusProps)} />,
   DateColumn: (props) => <DateColumn {...(props as DateColumnProps)} />,
-  TokenImage: (props) => <TokenImage {...(props as TokenImageProps)} />,
   ExpandableRows: (props) => (
     <ExpandableRows {...(props as ExpandableRowsProps)} />
   ),
