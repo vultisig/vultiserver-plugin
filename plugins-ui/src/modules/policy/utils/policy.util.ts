@@ -29,7 +29,8 @@ function convertToStrings(
 ): Record<string, string> {
   Object.keys(obj).forEach((k) => {
     if (obj[k] === null || obj[k] === undefined) {
-      obj[k] = `${obj[k]}`;
+      delete obj[k];
+      return;
     }
     if (typeof obj[k] === "object" && obj !== null) {
       return convertToStrings(obj[k] as Record<string, unknown>);

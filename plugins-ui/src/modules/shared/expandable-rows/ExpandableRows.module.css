@@ -1,0 +1,29 @@
+.expandButton {
+  background: transparent;
+  border: 0;
+  color: white;
+  cursor: pointer;
+}
+
+.expandButtonContainer {
+  display: flex;
+  gap: 10px;
+  text-wrap: nowrap;
+}
+
+.expandButtonChevron {
+  position: relative;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 0.7;
+  transform: rotate(0deg);
+  transition: transform 0.1s linear;
+}
+
+.expandButtonChevron::after {
+  content: "\203A";
+}
+
+.expandButtonChevronRotated {
+  transform: rotateZ(90deg) translateX(25%);
+}

@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { supportedTokens } from "../data/tokens";
 
-type TokenAmountProps = {
+export type TokenAmountProps = {
   data: [string, string];
 };
 
