@@ -9,12 +9,17 @@
     transition: background-color 0.3s, color 0.3s;
 }
 
+.button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .primary {
     background-color: var(--button-tertiary-color);
     color: var(--text-primary-color);
 }
 
-.primary:hover {
+.primary:hover:not(:disabled) {
     background-color: var(--button-tertiary-hover-color);
 }
 
@@ -23,7 +28,7 @@
     color: var(--text-primary-color);
 }
 
-.secondary:hover {
+.secondary:hover:not(:disabled) {
     background-color: var(--button-secondary-hover-color);
 }
 

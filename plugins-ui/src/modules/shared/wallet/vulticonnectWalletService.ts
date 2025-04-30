@@ -13,10 +13,11 @@ const VulticonnectWalletService = {
     }
 
     try {
+      console.log("connectToVultiConnect");
       const accounts = await window.vultisig.ethereum.request({
         method: "eth_requestAccounts",
       });
-
+      console.log("connectToVultiConnect :: accounts", accounts);
       return accounts;
     } catch (error) {
       const { code, message } = error as ProviderError;

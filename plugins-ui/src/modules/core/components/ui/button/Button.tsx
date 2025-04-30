@@ -10,6 +10,7 @@ type ButtonProps = {
   style?: {};
   ariaLabel?: string;
   onClick?: () => any;
+  disabled?: boolean;
 };
 
 const Button = ({
@@ -17,10 +18,11 @@ const Button = ({
   styleType,
   size,
   children,
-  className,
+  className = "",
   style,
   ariaLabel,
   onClick,
+  disabled = false,
 }: ButtonProps) => {
   return (
     <button
@@ -29,6 +31,7 @@ const Button = ({
       className={`button ${styleType} ${size} ${className}`}
       style={style}
       aria-label={ariaLabel}
+      disabled={disabled}
     >
       {children}
     </button>
