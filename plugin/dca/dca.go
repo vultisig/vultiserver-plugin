@@ -153,6 +153,7 @@ func (p *Plugin) SigningComplete(
 	err = p.completePolicyIfAllSwapsDone(ctx, policy, signRequest.TransactionType)
 	if err != nil {
 		p.logger.Errorf("complete policy failed: %v", err)
+		return fmt.Errorf("complete policy failed: %s", policy.ID)
 	}
 
 	return nil
