@@ -87,8 +87,8 @@ func main() {
 		Signature:      "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
-	payrollPolicy := dca.Policy{
-		ChainID:            "1",
+	dcaPolicy := dca.Policy{
+		ChainID:            "0x1",
 		SourceTokenID:      sourceTokenContract,
 		DestinationTokenID: destinationTokenContract,
 		TotalAmount:        swapAmountIn,
@@ -100,7 +100,7 @@ func main() {
 		},
 	}
 
-	policyBytes, err := json.Marshal(payrollPolicy)
+	policyBytes, err := json.Marshal(dcaPolicy)
 	if err != nil {
 		panic(err)
 	}

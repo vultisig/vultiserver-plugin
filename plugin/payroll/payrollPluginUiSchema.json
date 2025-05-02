@@ -11,7 +11,7 @@
           "items": [
             {
               "type": "string",
-              "default": "1"
+              "default": "0x1"
             }
           ]
         },
@@ -24,7 +24,7 @@
           "properties": {
             "interval": {
               "title": "Every",
-              "type": "number"
+              "type": "string"
             },
             "frequency": {
               "type": "string",
@@ -43,32 +43,27 @@
               "format": "date-time"
             }
           },
-          "dependencies": {
-            "frequency": {
-              "oneOf": [
-                {
-                  "properties": {
-                    "frequency": {
-                      "enum": ["minutely"]
-                    },
-                    "interval": {
-                      "type": "number",
-                      "pattern": "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$"
-                    }
-                  }
-                },
-                {
-                  "properties": {
-                    "frequency": {
-                      "enum": ["hourly", "daily", "weekly", "monthly"]
-                    },
-                    "interval": {
-                      "type": "number",
-                      "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
-                    }
-                  }
-                }
-              ]
+          "if": {
+            "properties": {
+              "frequency": {
+                "const": "minutely"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "interval": {
+                "type": "string",
+                "pattern": "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "interval": {
+                "type": "string",
+                "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
+              }
             }
           }
         },
@@ -97,7 +92,7 @@
               },
               "amount": {
                 "title": "Amount",
-                "type": "number",
+                "type": "string",
                 "pattern": "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$"
               }
             }
@@ -143,7 +138,6 @@
           "ui:classNames": "input-background stacked-input"
         },
         "start_time": {
-          "ui:readonly": false,
           "ui:hideError": false,
           "ui:classNames": "input-background stacked-input",
           "ui:style": {
@@ -151,7 +145,6 @@
           }
         },
         "end_time": {
-          "ui:readonly": false,
           "ui:hideError": false,
           "ui:classNames": "input-background stacked-input",
           "ui:style": {
@@ -194,6 +187,10 @@
   "table": {
     "columns": [
       {
+        "accessorKey": "progress",
+        "header": "Progress"
+      },
+      {
         "accessorKey": "chainId",
         "header": "Chain ID"
       },
@@ -208,9 +205,24 @@
         "cellComponent": "DateColumn"
       },
       {
-        "accessorKey": "paymentToken",
+        "accessorKey": "token",
         "header": "Payment Token",
-        "cellComponent": "TokenImage"
+        "cellComponent": "TokenPair"
+      },
+      {
+        "accessorKey": "payrollInterval",
+        "header": "Payroll interval"
+      },
+      {
+        "accessorKey": "subRows",
+        "header": "Recipients",
+        "cellComponent": "ExpandableRows",
+        "expandable": true
+      },
+      {
+        "accessorKey": "status",
+        "header": "Active",
+        "cellComponent": "ActiveStatus"
       }
     ],
     "mapping": {
@@ -218,7 +230,11 @@
       "chainId": "policy.chain_id.0",
       "startDate": "policy.schedule.start_time",
       "endDate": "policy.schedule.end_time",
-      "paymentToken": "policy.token_id.0"
+      "token": "policy.token_id",
+      "payrollInterval": "policy.schedule.interval, policy.schedule.frequency",
+      "subRows": "policy.recipients",
+      "status": "active",
+      "progress": "progress"
     }
   }
 }

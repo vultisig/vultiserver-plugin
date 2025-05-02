@@ -47,8 +47,6 @@ describe("generatePolicy", () => {
           someBooleanInput: "false",
           someStringInput: "text",
         },
-        someNullInput: "null",
-        someUndefinedInput: "undefined",
       },
     });
   });

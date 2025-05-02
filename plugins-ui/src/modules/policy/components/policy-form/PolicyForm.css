@@ -197,3 +197,11 @@ input:read-only {
     pointer-events: none;
   }
 }
+input[type="date"],
+input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
