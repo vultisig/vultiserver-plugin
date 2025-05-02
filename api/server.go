@@ -189,6 +189,9 @@ func (s *Server) StartServer() error {
 	pluginGroup.GET("/policy/schema", s.GetPolicySchema)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 
+	pluginGroup.GET("/:pluginType/pricing-policy", s.GetPluginPricingPolicy, s.AuthMiddleware)
+	pluginGroup.POST("/:pluginType/pricing-policy", s.CreatePluginPricingPolicy)
+
 	if s.mode == "verifier" {
 		e.POST("/login", s.UserLogin)
 		e.GET("/users/me", s.GetLoggedUser, s.userAuthMiddleware)

@@ -1,9 +1,10 @@
 package uniswapclient
 
 import (
+	"math/big"
+
 	gcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
-	"math/big"
 )
 
 type MockUniswapClient struct {
@@ -52,5 +53,10 @@ func (m *MockUniswapClient) ApproveERC20Token(chainID *big.Int, from *gcommon.Ad
 
 func (m *MockUniswapClient) SwapTokens(chainID *big.Int, from *gcommon.Address, amountIn *big.Int, amountOutMin *big.Int, path []gcommon.Address, nonce uint64) ([]byte, []byte, error) {
 	args := m.Called(chainID, from, amountIn, amountOutMin, path, nonce)
+	return args.Get(0).([]byte), args.Get(1).([]byte), args.Error(2)
+}
+
+func (m *MockUniswapClient) ERC20Transfer(chainID *big.Int, tokenAddress, from, to *gcommon.Address, amount *big.Int, nonceOffset uint64) ([]byte, []byte, error) {
+	args := m.Called(chainID, tokenAddress, from, to, amount, nonceOffset)
 	return args.Get(0).([]byte), args.Get(1).([]byte), args.Error(2)
 }

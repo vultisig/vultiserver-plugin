@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import { Plugin } from "../../models/plugin";
 import Reviews from "@/modules/review/components/reviews/Reviews";
+import ApproveFeeButton from "./ApproveFeeButton";
 import { publish } from "@/utils/eventBus";
 
 const PluginDetail = () => {
@@ -58,6 +59,7 @@ const PluginDetail = () => {
                 <h2 className="plugin-title">{plugin.title}</h2>
                 <p className="plugin-description">{plugin.description}</p>
                 <section className="plugin-installaion">
+                  {plugin && <ApproveFeeButton pluginUrl={plugin.server_endpoint} pluginType={plugin.type} />}
                   <Button
                     size="small"
                     type="button"

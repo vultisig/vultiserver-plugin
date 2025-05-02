@@ -7,6 +7,16 @@ interface ProviderError {
   message: string;
 }
 
+export interface IVulticonnectVault {
+  chains: unknown[];
+  hexChainCode: string;
+  name: string;
+  publicKeyEcdsa: string;
+  publicKeyEddsa: string;
+  transactions: unknown[];
+  uid: string;
+}
+
 const VulticonnectWalletService = {
   connectToVultiConnect: async () => {
     if (!window.vultisig?.ethereum) {

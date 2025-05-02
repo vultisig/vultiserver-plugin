@@ -33,6 +33,7 @@ type PolicySyncer interface {
 	CreatePolicySync(policy types.PluginPolicy) error
 	UpdatePolicySync(policy types.PluginPolicy) error
 	DeletePolicySync(policyID, signature string) error
+	CreatePricingPolicySync(pricingPolicy types.PluginPricingCreateDto) error
 	SyncTransaction(action Action, jwtToken string, tx types.TransactionHistory) error
 }
 
@@ -191,6 +192,47 @@ func (s *Syncer) DeletePolicySync(policyID, signature string) error {
 		s.logger.WithFields(logrus.Fields{
 			"policy_id": policyID,
 		}).Info("Successfully sync deleted policy")
+
+		return nil
+	})
+}
+
+func (s *Syncer) CreatePricingPolicySync(pricingPolicy types.PluginPricingCreateDto) error {
+	s.logger.WithFields(logrus.Fields{
+		"plugin_type":      pricingPolicy.PluginType,
+		"public_key_ecdsa": pricingPolicy.PublicKeyEcdsa,
+	}).Info("Starting pricing policy creation sync")
+
+	return s.retryWithBackoff("CreatePricingPolicySync", func() error {
+		policyBytes, err := json.Marshal(pricingPolicy)
+		if err != nil {
+			return fmt.Errorf("fail to marshal policy: %w", err)
+		}
+
+		url := fmt.Sprintf("%s/plugin/%s/pricing-policy", s.serverAddr, pricingPolicy.PluginType)
+
+		resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(policyBytes))
+		if err != nil {
+			return fmt.Errorf("fail to sync pricing policy with verifier server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read response body: %w", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			s.logger.WithFields(logrus.Fields{
+				"status_code": resp.StatusCode,
+				"body":        string(body),
+			}).Error("Failed to sync create pricing policy")
+			return fmt.Errorf("fail to sync pricing policy with verifier server: status: %d", resp.StatusCode)
+		}
+
+		s.logger.WithFields(logrus.Fields{
+			"plugin_type": pricingPolicy.PluginType,
+		}).Info("Successfully sync created pricing policy")
 
 		return nil
 	})

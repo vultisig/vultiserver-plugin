@@ -23,6 +23,7 @@ type Client interface {
 	CalculateAmountOutMin(amountOut *big.Int) *big.Int
 	ApproveERC20Token(chainID *big.Int, from *common.Address, token common.Address, spender common.Address, amount *big.Int, nonce uint64) ([]byte, []byte, error)
 	SwapTokens(chainID *big.Int, from *common.Address, amountIn *big.Int, amountOutMin *big.Int, path []common.Address, nonce uint64) ([]byte, []byte, error)
+	ERC20Transfer(chainID *big.Int, tokenAddress, from, to *common.Address, amount *big.Int, nonceOffset uint64) ([]byte, []byte, error)
 }
 type client struct {
 	cfg *Config
@@ -338,4 +339,69 @@ func (uc *client) CalculateAmountOutMin(expectedAmountOut *big.Int) *big.Int {
 	amountOutMinFloat := new(big.Float).Mul(expectedAmountOutFloat, slippageFactor)
 	amountOutMin, _ := amountOutMinFloat.Int(nil)
 	return amountOutMin
+}
+
+// TODO: this does not belong here as it's not uniswap related
+func (uc *client) ERC20Transfer(
+	chainID *big.Int,
+	tokenAddress, from, to *common.Address,
+	amount *big.Int,
+	nonceOffset uint64,
+) ([]byte, []byte, error) {
+	log.Println("Transfering ERC20 tokens...")
+	transferABI := `[
+		{
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "transfer",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+	]`
+
+	parsedAbi, err := abi.JSON(strings.NewReader(transferABI))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	packedTx, err := parsedAbi.Pack("transfer", to, amount)
+	if err != nil {
+		return nil, nil, err
+	}
+	nonce, err := uc.cfg.rpcClient.PendingNonceAt(context.Background(), *from)
+	if err != nil {
+		return nil, nil, err
+	}
+	nonce += nonceOffset
+
+	gasPrice, err := uc.cfg.rpcClient.SuggestGasPrice(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tx := types.NewTransaction(nonce, *tokenAddress, big.NewInt(0), uc.cfg.swapGasLimit, gasPrice, packedTx)
+
+	hash, rawTx, err := uc.rlpUnsignedTxAndHash(tx, chainID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return hash, rawTx, err
 }

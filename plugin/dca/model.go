@@ -30,4 +30,5 @@ type PluginConfig struct {
 		Deadline int64   `mapstructure:"deadline" json:"deadline"`
 		Slippage float64 `mapstructure:"slippage" json:"slippage"`
 	} `mapstructure:"uniswap" json:"uniswap"`
+	FeeWallet string `mapstructure:"fee_wallet" json:"fee_wallet,omitempty"`
 }
