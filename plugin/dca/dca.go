@@ -738,7 +738,6 @@ func (p *Plugin) completePolicyIfAllSwapsDone(ctx context.Context, policy types.
 		if err := p.completePolicy(context.Background(), policy); err != nil {
 			return fmt.Errorf("fail to complete policy: %w", err)
 		}
-		return ErrCompletedPolicy
 	}
 
 	return nil
@@ -747,7 +746,7 @@ func (p *Plugin) completePolicyIfAllSwapsDone(ctx context.Context, policy types.
 func (p *Plugin) completePolicy(ctx context.Context, policy types.PluginPolicy) error {
 	p.logger.WithFields(logrus.Fields{
 		"policy_id": policy.ID,
-	}).Info("DCA: All orders completed, no transactions to propose")
+	}).Info("DCA: All orders completed")
 
 	err := p.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		policy.Progress = "DONE"
