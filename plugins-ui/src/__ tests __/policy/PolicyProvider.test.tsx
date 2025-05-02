@@ -6,66 +6,88 @@ import {
   usePolicies,
 } from "@/modules/policy/context/PolicyProvider";
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
+import { PluginProgress, PluginPoliciesMap } from "@/modules/policy/models/policy";
+import { useParams } from "react-router-dom";
 
-const mockPolicies = [
-  {
-    id: "1",
-    public_key: "public_key_1",
-    plugin_type: "plugin_type",
-    active: true,
-    signature: "signature",
-    policy: {},
-    is_ecdsa: true,
-    chain_code_hex: "chain_code_hex",
-    derive_path: "derive_path",
-    plugin_id: "plugin_id",
+const mockPolicies: PluginPoliciesMap = {
+  policies: [
+    {
+      id: "1",
+      public_key_ecdsa: "public_key_1_ecdsa",
+      public_key_eddsa: "public_key_1_eddsa",
+      plugin_type: "plugin_type",
+      active: true,
+      signature: "signature",
+      policy: {},
+      is_ecdsa: true,
+      chain_code_hex: "chain_code_hex",
+      derive_path: "derive_path",
+      progress: PluginProgress.InProgress,
+      plugin_version: "0.01",
+      policy_version: "0.01",
+    },
+    {
+      id: "2",
+      public_key_ecdsa: "public_key_2_ecdsa",
+      public_key_eddsa: "public_key_2_eddsa",
+      plugin_type: "plugin_type",
+      active: false,
+      signature: "signature",
+      policy: {},
+      is_ecdsa: true,
+      chain_code_hex: "chain_code_hex",
+      derive_path: "derive_path",
+      progress: PluginProgress.InProgress,
+      plugin_version: "0.01",
+      policy_version: "0.01",
+    },
+  ],
+  total_count: 2,
+};
+
+const mockPlugin = {
+  id: "1",
+  type: "type",
+  title: "Plugin title",
+  description: "Plugin description",
+  metadata: {},
+  server_endpoint: "endpoint",
+  pricing_id: "pricingId",
+};
+
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = (await importOriginal()) as {};
+  return {
+    ...actual,
+    useParams: vi.fn(),
+  };
+});
+
+vi.mock("@/modules/marketplace/services/marketplaceService", () => ({
+  default: {
+    getPlugin: vi.fn(),
+    getPolicies: vi.fn(),
   },
-  {
-    id: "2",
-    public_key: "public_key_2",
-    plugin_type: "plugin_type",
-    active: false,
-    signature: "signature",
-    policy: {},
-    is_ecdsa: true,
-    chain_code_hex: "chain_code_hex",
-    derive_path: "derive_path",
-    plugin_id: "plugin_id",
-  },
-];
+}));
 
 vi.mock("@/modules/policy/services/policyService", () => ({
   default: {
-    getPolicies: vi.fn().mockResolvedValue([
-      {
-        id: "1",
-        public_key: "public_key_1",
-        plugin_type: "plugin_type",
-        active: true,
-        signature: "signature",
-        policy: {},
-        is_ecdsa: true,
-        chain_code_hex: "chain_code_hex",
-        derive_path: "derive_path",
-        plugin_id: "plugin_id",
-      },
-      {
-        id: "2",
-        public_key: "public_key_2",
-        plugin_type: "plugin_type",
-        active: false,
-        signature: "signature",
-        policy: {},
-        is_ecdsa: true,
-        chain_code_hex: "chain_code_hex",
-        derive_path: "derive_path",
-        plugin_id: "plugin_id",
-      },
-    ]),
     createPolicy: vi.fn(),
     updatePolicy: vi.fn(),
     deletePolicy: vi.fn(),
+    getPolicySchema: vi.fn(),
   },
+}));
+
+const hoisted = vi.hoisted(() => ({
+  mockEventBus: {
+    publish: vi.fn(),
+  },
+}));
+
+vi.mock("@/utils/eventBus", () => ({
+  publish: hoisted.mockEventBus.publish,
 }));
 
 const TestComponent = () => {
@@ -83,17 +105,18 @@ const TestComponent = () => {
         onClick={() =>
           addPolicy({
             id: "3",
-            public_key: "public_key_1",
+            public_key_ecdsa: "public_key_1_ecdsa",
+            public_key_eddsa: "public_key_1_eddsa",
             is_ecdsa: true,
             chain_code_hex: "",
             derive_path: "",
-            plugin_id: "",
             plugin_version: "0.0.1",
             policy_version: "0.0.1",
             plugin_type: "plugin_type",
             active: true,
             signature: "signature",
             policy: {},
+            progress: PluginProgress.InProgress,
           })
         }
       >
@@ -104,17 +127,18 @@ const TestComponent = () => {
         onClick={() =>
           updatePolicy({
             id: "2",
-            public_key: "public_key_1",
+            public_key_ecdsa: "public_key_1_ecdsa",
+            public_key_eddsa: "public_key_1_eddsa",
             is_ecdsa: true,
             chain_code_hex: "",
             derive_path: "",
-            plugin_id: "",
             plugin_version: "0.0.1",
             policy_version: "0.0.1",
             plugin_type: "plugin_type",
             active: true,
             signature: "signature",
             policy: {},
+            progress: PluginProgress.InProgress,
           })
         }
       >
@@ -158,7 +182,10 @@ describe("PolicyProvider", () => {
 
   describe("getPolicies", () => {
     it("should fetch & store policies in context", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
       renderWithProvider();
 
       await waitFor(() => {
@@ -167,10 +194,13 @@ describe("PolicyProvider", () => {
       });
     });
 
-    it("should handle API failure and set toast error", async () => {
+    it("should handle API failure and set toast error when getPolicies request fails", async () => {
       const mockError = new Error("API Error");
 
-      (PolicyService.getPolicies as Mock).mockRejectedValue(mockError);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockRejectedValue(mockError);
 
       const consoleErrorSpy = vi
         .spyOn(console, "error")
@@ -184,21 +214,19 @@ describe("PolicyProvider", () => {
           "API Error"
         );
 
-        const closeToastButton = screen.getByRole("button", {
-          name: "Close message",
+        expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
+          message: "API Error",
+          type: "error",
         });
-
-        expect(closeToastButton).toBeInTheDocument();
-
-        const errorMessage = screen.getByText("API Error");
-        expect(errorMessage).toBeInTheDocument();
       });
     });
   });
 
   describe("addPolicy", () => {
     it("should add policy in context", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
 
       (PolicyService.createPolicy as Mock).mockResolvedValue({
         id: "3",
@@ -219,22 +247,28 @@ describe("PolicyProvider", () => {
         name: "Add Policy",
       });
 
-      await fireEvent.click(newPolicyButton);
+      fireEvent.click(newPolicyButton);
 
       await waitFor(() => {
         expect(screen.getByText("1")).toBeInTheDocument();
         expect(screen.getByText("2")).toBeInTheDocument();
         expect(screen.getByText("3")).toBeInTheDocument();
-        expect(
-          screen.getByText("Policy created successfully!")
-        ).toBeInTheDocument();
+        expect(hoisted.mockEventBus.publish).toBeCalledWith("onToast", {
+          message: "Policy created successfully!",
+          type: "success",
+        });
       });
     });
 
     it("should set error message if request fails", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
 
-      (PolicyService.createPolicy as Mock).mockRejectedValue("API Error");
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+
+      (PolicyService.createPolicy as Mock).mockRejectedValue(
+        new Error("API Error")
+      );
 
       renderWithProvider();
 
@@ -242,20 +276,26 @@ describe("PolicyProvider", () => {
         name: "Add Policy",
       });
 
-      await fireEvent.click(newPolicyButton);
+      fireEvent.click(newPolicyButton);
 
       await waitFor(() => {
         expect(screen.getByText("1")).toBeInTheDocument();
         expect(screen.getByText("2")).toBeInTheDocument();
         expect(screen.queryByText("3")).not.toBeInTheDocument();
-        expect(screen.getByText("Failed to create policy")).toBeInTheDocument();
+        expect(hoisted.mockEventBus.publish).toBeCalledWith("onToast", {
+          message: "API Error",
+          type: "error",
+        });
       });
     });
   });
 
   describe("updatePolicy", () => {
     it("should update policy in context", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
 
       (PolicyService.updatePolicy as Mock).mockResolvedValue({
         id: "2",
@@ -276,21 +316,27 @@ describe("PolicyProvider", () => {
         name: "Update Policy",
       });
 
-      await fireEvent.click(updatePolicyButton);
+      fireEvent.click(updatePolicyButton);
 
       await waitFor(() => {
         expect(screen.getByText("1")).toBeInTheDocument();
         expect(screen.getByText("2")).toBeInTheDocument();
-        expect(
-          screen.getByText("Policy updated successfully!")
-        ).toBeInTheDocument();
+        expect(hoisted.mockEventBus.publish).toBeCalledWith("onToast", {
+          message: "Policy updated successfully!",
+          type: "success",
+        });
       });
     });
 
     it("should set error message if request fails", async () => {
-      (PolicyService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
 
-      (PolicyService.updatePolicy as Mock).mockRejectedValue("API Error");
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+
+      (PolicyService.updatePolicy as Mock).mockRejectedValue(
+        new Error("API Error")
+      );
 
       renderWithProvider();
 
@@ -298,12 +344,81 @@ describe("PolicyProvider", () => {
         name: "Update Policy",
       });
 
-      await fireEvent.click(updatePolicyButton);
+      fireEvent.click(updatePolicyButton);
 
       await waitFor(() => {
         expect(screen.getByText("1")).toBeInTheDocument();
         expect(screen.getByText("2")).toBeInTheDocument();
-        expect(screen.getByText("Failed to update policy")).toBeInTheDocument();
+        expect(hoisted.mockEventBus.publish).toBeCalledWith("onToast", {
+          message: "API Error",
+          type: "error",
+        });
+      });
+    });
+  });
+
+  describe("removePolicy", () => {
+    it("should delete policy from context", async () => {
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+
+      (PolicyService.deletePolicy as Mock).mockResolvedValue({});
+
+      await renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+      });
+
+      const deletePolicyButton = screen.getByRole("button", {
+        name: "Delete Policy",
+      });
+
+      fireEvent.click(deletePolicyButton);
+
+      await waitFor(() => {
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.queryByText("2")).not.toBeInTheDocument();
+        expect(hoisted.mockEventBus.publish).toBeCalledWith("onToast", {
+          message: "Policy deleted successfully!",
+          type: "success",
+        });
+      });
+    });
+
+    it("should set error message if request fails", async () => {
+      (useParams as Mock).mockReturnValue({ pluginId: "1" });
+
+      (MarketplaceService.getPlugin as Mock).mockResolvedValue(mockPlugin);
+      (MarketplaceService.getPolicies as Mock).mockResolvedValue(mockPolicies);
+
+      (PolicyService.deletePolicy as Mock).mockRejectedValue(
+        new Error("API Error")
+      );
+
+      renderWithProvider();
+
+      await waitFor(() => {
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+      });
+
+      const deletePolicyButton = screen.getByRole("button", {
+        name: "Delete Policy",
+      });
+
+      fireEvent.click(deletePolicyButton);
+
+      await waitFor(() => {
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+        expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
+          message: "API Error",
+          type: "error",
+        });
       });
     });
   });

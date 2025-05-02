@@ -1,5 +1,5 @@
 import Form, { IChangeEvent } from "@rjsf/core";
-import validator from "@rjsf/validator-ajv8";
+import { customizeValidator } from "@rjsf/validator-ajv8";
 import "./PolicyForm.css";
 import { generatePolicy } from "../../utils/policy.util";
 import { PluginPolicy, PolicySchema } from "../../models/policy";
@@ -7,8 +7,10 @@ import { useEffect, useState } from "react";
 import { usePolicies } from "../../context/PolicyProvider";
 import { TitleFieldTemplate } from "../policy-title/PolicyTitle";
 import TokenSelector from "@/modules/shared/token-selector/TokenSelector";
+import TokenSelectorArray from "@/modules/shared/token-selector-array/TokenSelectorArray.tsx";
 import WeiConverter from "@/modules/shared/wei-converter/WeiConverter";
 import { RJSFValidationError } from "@rjsf/utils";
+import { v4 as uuidv4 } from "uuid";
 
 type PolicyFormProps = {
   data?: PluginPolicy;
@@ -37,6 +39,17 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
     setFormData(e.formData);
   };
 
+  const customFormats = {
+    "evm-address": (value: string) => {
+      const regex = /^0x[a-fA-F0-9]{40}$/g;
+      return regex.test(value);
+    },
+  };
+
+  const customValidator = customizeValidator({
+    customFormats,
+  });
+
   const onSubmit = async (submitData: IChangeEvent) => {
     if (schema?.form) {
       const policy: PluginPolicy = generatePolicy(
@@ -55,14 +68,17 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
               onSubmitCallback(policy);
             }
           });
-        } catch (error: any) {
-          console.error("Failed to update policy:", error.message);
+        } catch (error) {
+          if (error instanceof Error) {
+            console.error("Failed to update policy:", error.message);
+          }
         }
 
         return;
       }
 
       try {
+        policy.id = uuidv4();
         addPolicy(policy).then((addedSuccessfully) => {
           if (!addedSuccessfully) return;
 
@@ -72,24 +88,74 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
             onSubmitCallback(policy);
           }
         });
-      } catch (error: any) {
-        console.error("Failed to create policy:", error.message);
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error("Failed to create policy:", error.message);
+        }
       }
+    }
+  };
+
+  const extractValueFromValidationError = (
+    validationFieldPath: string[],
+    object: Record<string, unknown>
+  ) => {
+    const currentField = validationFieldPath.shift();
+    if (!currentField) return;
+    if (validationFieldPath.length > 0) {
+      return extractValueFromValidationError(
+        validationFieldPath,
+        object[currentField] as Record<string, unknown>
+      );
+    } else {
+      return object[currentField];
+    }
+  };
+
+  const transformPatternError = (error: RJSFValidationError) => {
+    const value: unknown = extractValueFromValidationError(
+      error.property?.split(".").filter((v) => !!v) || [],
+      formData
+    );
+    const forbiddenSymbols = /,|{|}|!|#|'|"|~/;
+    const numberPatterns = [
+      // Note: Positive number pattern
+      "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$",
+      "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$",
+    ];
+    // Note: We check if the matched pattern is validating Numbers
+    if (
+      forbiddenSymbols.test(`${value}`) &&
+      numberPatterns.includes(error.params.pattern)
+    ) {
+      return "should not use forbidden symbols ,{}!#'\"~";
+    }
+    // Note: We check if the current selected field for Time is "minutely"
+    if (
+      error.params?.pattern === numberPatterns[1] &&
+      parseInt(`${value}`) <= 15
+    ) {
+      return "should be a number equal or above 15";
+    }
+
+    // Note: We check if the matched pattern is validating positive numbers
+    if (error.params.pattern === numberPatterns[0]) {
+      return "should be a positive number";
     }
   };
 
   const transformErrors = (errors: RJSFValidationError[]) => {
     return errors.map((error) => {
       if (error.name === "pattern") {
-        if (error.params.pattern === "^(1[5-9]|[2-9][0-9]+)(\\.[0-9]+)?$") {
-          error.message = "should be a positive number above 15";
-        }
-        if (error.params.pattern === "^(?!0$)(?!0+\\.0*$)[0-9]+(\\.[0-9]+)?$") {
-          error.message = "should be a positive number";
-        }
+        error.message = transformPatternError(error);
       }
       if (error.name === "required") {
         error.message = "required";
+      }
+      if (error.name === "format") {
+        if (error.params.format === "evm-address") {
+          error.message = "should be valid EVM address";
+        }
       }
       return error;
     });
@@ -103,19 +169,21 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
           idPrefix={pluginType}
           schema={schema.form.schema}
           uiSchema={schema.form.uiSchema}
-          validator={validator}
+          validator={customValidator}
           formData={formData}
           onSubmit={onSubmit}
           onChange={onChange}
           showErrorList={false}
           templates={{ TitleFieldTemplate }}
-          widgets={{ TokenSelector, WeiConverter }}
+          widgets={{ TokenSelector, WeiConverter, TokenSelectorArray }}
           transformErrors={transformErrors}
           liveValidate={!!policyId}
           readonly={!!policyId}
           formContext={{
             editing: !!policyId,
-            sourceTokenId: formData.source_token_id as string, // sourceTokenId is needed in WeiConverter/TitleFieldTemplate and probably on most of the existing plugins to get the rigth decimal places based on token address
+            sourceTokenId:
+              (formData.source_token_id as string) ||
+              (formData.token_id as string[])?.at(0), // sourceTokenId is needed in WeiConverter/TitleFieldTemplate and probably on most of the existing plugins to get the rigth decimal places based on token address
             destinationTokenId: formData.destination_token_id as string, // destinationTokenId is needed in TitleFieldTemplate
           }}
         />

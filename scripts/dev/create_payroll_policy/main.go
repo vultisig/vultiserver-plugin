@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/vultisig/vultiserver-plugin/config"
 	"github.com/vultisig/vultiserver-plugin/internal/types"
+	"github.com/vultisig/vultiserver-plugin/plugin"
+	"github.com/vultisig/vultiserver-plugin/plugin/payroll"
 )
 
 var vaultName string
@@ -104,28 +106,27 @@ func main() {
 
 	policyId := uuid.New().String()
 	policy := types.PluginPolicy{
-		ID:            policyId,
-		PublicKey:     key,
-		PluginID:      "payroll",
-		PluginVersion: "1.0.0",
-		PolicyVersion: "1.0.0",
-		PluginType:    "payroll",
-		Active:        true,
-		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
+		ID:             policyId,
+		PublicKeyEcdsa: key,
+		PluginVersion:  "1.0.0",
+		PolicyVersion:  "1.0.0",
+		PluginType:     "payroll",
+		Active:         true,
+		Signature:      "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
-	payrollPolicy := types.PayrollPolicy{
+	payrollPolicy := payroll.Policy{
 		ChainID:    chainIDs, // Todo : move this elsewhere, or the frontend deals with this?
 		TokenID:    tokenContracts,
-		Recipients: []types.PayrollRecipient{},
-		Schedule: types.Schedule{
+		Recipients: []payroll.Recipient{},
+		Schedule: plugin.Schedule{
 			Frequency: frequency,
 			StartTime: time.Now().UTC().Add(20 * time.Second).Format(time.RFC3339),
 		},
 	}
 
 	for i, recipient := range recipientAddresses {
-		payrollPolicy.Recipients = append(payrollPolicy.Recipients, types.PayrollRecipient{
+		payrollPolicy.Recipients = append(payrollPolicy.Recipients, payroll.Recipient{
 			Address: recipient,
 			Amount:  recipientAmounts[i],
 		})
@@ -139,8 +140,8 @@ func main() {
 	fmt.Println("Payroll policy", string(policyBytes))
 	policy.Policy = policyBytes
 
-	serverHost := fmt.Sprintf("http://%s:%d", serverConfig.Server.Host, serverConfig.Server.Port)
-	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Server.Host, pluginConfig.Server.Port)
+	serverHost := fmt.Sprintf("http://%s:%d", serverConfig.Verifier.Host, serverConfig.Verifier.Port)
+	pluginHost := fmt.Sprintf("http://%s:%d", pluginConfig.Plugin.Host, pluginConfig.Plugin.Port)
 
 	fmt.Printf("Creating policy on verifier server: %s\n", serverHost)
 	reqBytes, err := json.Marshal(policy)

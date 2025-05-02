@@ -49,6 +49,7 @@ type Server struct {
 	sdClient      *statsd.Client
 	scheduler     *scheduler.SchedulerService
 	policyService service.Policy
+	pluginService service.Plugin
 	authService   *service.AuthService
 	syncer        syncer.PolicySyncer
 	plugin        plugin.Plugin
@@ -68,35 +69,36 @@ func NewServer(
 	client *asynq.Client,
 	inspector *asynq.Inspector,
 	sdClient *statsd.Client,
-	vaultFilePath string,
 	mode string,
-	jwtSecret string,
 	pluginType string,
-	rpcURL string,
 	pluginConfigs map[string]map[string]interface{},
+	vaultFilePath string,
+	jwtSecret string,
 	logger *logrus.Logger,
 ) *Server {
 	logger.Infof("Server mode: %s, plugin type: %s", mode, pluginType)
 
 	var plugin plugin.Plugin
-	var schedulerService *scheduler.SchedulerService
-	var syncerService syncer.PolicySyncer
+	var schedulerService *scheduler.SchedulerService = nil
+	var syncerService syncer.PolicySyncer = nil
 	var err error
+
 	if mode == "plugin" {
 		switch pluginType {
-		case "payroll":
-			plugin, err = payroll.NewPayrollPlugin(db, logrus.WithField("service", "plugin").Logger, pluginConfigs["payroll"])
+		case payroll.PluginType:
+			plugin, err = payroll.NewPlugin(db, logrus.WithField("service", "plugin").Logger, pluginConfigs[payroll.PluginType])
 			if err != nil {
 				logger.Fatal("failed to initialize payroll plugin", err)
 			}
-		case "dca":
-			plugin, err = dca.NewDCAPlugin(db, logger, pluginConfigs["dca"])
+		case dca.PluginType:
+			plugin, err = dca.NewPlugin(db, syncerService, logger, pluginConfigs[dca.PluginType])
 			if err != nil {
 				logger.Fatal("fail to initialize DCA plugin: ", err)
 			}
 		default:
 			logger.Fatalf("Invalid plugin type: %s", pluginType)
 		}
+
 		schedulerService = scheduler.NewSchedulerService(
 			db,
 			logger.WithField("service", "scheduler").Logger,
@@ -107,13 +109,17 @@ func NewServer(
 		logger.Info("Scheduler service started")
 
 		logger.Info("Creating Syncer")
-
-		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Server.Host, cfg.Server.Port)
+		syncerService = syncer.NewPolicySyncer(logger.WithField("service", "syncer").Logger, cfg.Verifier.Host, cfg.Verifier.Port)
 	}
 
 	policyService, err := service.NewPolicyService(db, syncerService, schedulerService, logger.WithField("service", "policy").Logger)
 	if err != nil {
 		logger.Fatalf("Failed to initialize policy service: %v", err)
+	}
+
+	pluginService, err := service.NewPluginService(db, logger.WithField("service", "plugin").Logger)
+	if err != nil {
+		logger.Fatalf("Failed to initialize plugin service: %v", err)
 	}
 
 	authService := service.NewAuthService(jwtSecret)
@@ -133,6 +139,7 @@ func NewServer(
 		logger:        logger,
 		syncer:        syncerService,
 		policyService: policyService,
+		pluginService: pluginService,
 		authService:   authService,
 		pluginConfigs: pluginConfigs,
 	}
@@ -176,39 +183,37 @@ func (s *Server) StartServer() error {
 	grp.GET("/sign/response/:taskId", s.GetKeysignResult) // Get keysign result
 
 	pluginGroup := e.Group("/plugin")
-
-	// Only enable plugin signing routes if the server is running in plugin mode
-	if s.mode == "plugin" {
-		configGroup := pluginGroup.Group("/configure")
-
-		configGroup.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-			Root:       "frontend",
-			Index:      "index.html",
-			Browse:     false,
-			HTML5:      true,
-			Filesystem: http.FS(s.plugin.FrontendSchema()),
-		}))
-	}
-
 	// policy mode is always available since it is used by both verifier server and plugin server
 	pluginGroup.POST("/policy", s.CreatePluginPolicy)
 	pluginGroup.PUT("/policy", s.UpdatePluginPolicyById)
-	pluginGroup.GET("/policy", s.GetAllPluginPolicies, s.AuthMiddleware)
-	pluginGroup.GET("/policy/history/:policyId", s.GetPluginPolicyTransactionHistory, s.AuthMiddleware)
 	pluginGroup.GET("/policy/schema", s.GetPolicySchema)
-	pluginGroup.GET("/policy/:policyId", s.GetPluginPolicyById, s.AuthMiddleware)
 	pluginGroup.DELETE("/policy/:policyId", s.DeletePluginPolicyById)
 
 	if s.mode == "verifier" {
 		e.POST("/login", s.UserLogin)
 		e.GET("/users/me", s.GetLoggedUser, s.userAuthMiddleware)
 
+		categoriesGroup := e.Group("/categories")
+		categoriesGroup.GET("", s.GetCategories)
+
+		tagsGroup := e.Group("/tags")
+		tagsGroup.GET("", s.GetTags)
+
 		pluginsGroup := e.Group("/plugins")
 		pluginsGroup.GET("", s.GetPlugins)
+		pluginsGroup.GET("/my", s.GetPlugins, s.AuthMiddleware) // TODO get only my installed policies
+		pluginsGroup.GET("/policies", s.GetAllPluginPolicies, s.AuthMiddleware)
+		pluginsGroup.GET("/policies/:policyId/history", s.GetPluginPolicyTransactionHistory, s.AuthMiddleware)
+
 		pluginsGroup.GET("/:pluginId", s.GetPlugin)
 		pluginsGroup.POST("", s.CreatePlugin, s.userAuthMiddleware)
 		pluginsGroup.PATCH("/:pluginId", s.UpdatePlugin, s.userAuthMiddleware)
 		pluginsGroup.DELETE("/:pluginId", s.DeletePlugin, s.userAuthMiddleware)
+		pluginsGroup.POST("/:pluginId/tags", s.AttachPluginTag, s.userAuthMiddleware)
+		pluginsGroup.DELETE("/:pluginId/tags/:tagId", s.DetachPluginTag, s.userAuthMiddleware)
+
+		pluginsGroup.GET("/:pluginId/reviews", s.GetReviews)
+		pluginsGroup.POST("/:pluginId/reviews", s.CreateReview, s.AuthMiddleware)
 
 		pricingsGroup := e.Group("/pricings")
 		pricingsGroup.GET("/:pricingId", s.GetPricing)
@@ -221,7 +226,13 @@ func (s *Server) StartServer() error {
 	syncGroup.POST("/transaction", s.CreateTransaction)
 	syncGroup.PUT("/transaction", s.UpdateTransaction)
 
-	return e.Start(fmt.Sprintf(":%d", s.cfg.Server.Port))
+	var port int64
+	if s.cfg.Mode == "plugin" {
+		port = s.cfg.Plugin.Port
+	} else if s.cfg.Mode == "verifier" {
+		port = s.cfg.Verifier.Port
+	}
+	return e.Start(fmt.Sprintf(":%d", port))
 }
 
 func (s *Server) Ping(c echo.Context) error {

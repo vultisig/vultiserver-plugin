@@ -13,8 +13,12 @@ import { USDC_TOKEN, WETH_TOKEN } from "@/modules/shared/data/tokens";
 
 const customRender = (ui: ReactNode, policyMap: Map<string, PluginPolicy>) => {
   const mockValue: PolicyContextType = {
+    pluginType: "pluginType",
     policyMap: policyMap,
     policySchemaMap: new Map(),
+    policiesTotalCount: 1,
+    currentPage: 1,
+    setCurrentPage: vi.fn(),
     addPolicy: vi.fn(),
     updatePolicy: vi.fn().mockResolvedValue(true),
     removePolicy: vi.fn(),

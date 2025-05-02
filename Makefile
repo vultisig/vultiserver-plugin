@@ -18,3 +18,6 @@ plugin-server:
 
 plugin-worker:
 	@DYLD_LIBRARY_PATH=$(DYLD_LIBRARY) VS_CONFIG_NAME=config-plugin go run cmd/worker/main.go
+
+tests:
+	@DYLD_LIBRARY_PATH=$(DYLD_LIBRARY) go test -v `go list ./... | grep -v scripts | grep -v chainhelper`

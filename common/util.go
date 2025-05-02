@@ -8,15 +8,18 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/eager7/dogd/btcec"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/labstack/echo/v4"
 	"github.com/ulikunitz/xz"
 	v1 "github.com/vultisig/commondata/go/vultisig/keygen/v1"
 	vaultType "github.com/vultisig/commondata/go/vultisig/vault/v1"
@@ -26,8 +29,10 @@ import (
 
 // TODO: remove once the plugin installation is implemented (resharding)
 const (
-	PluginPartyID   = "Rado’s MacBook Pro-FD0"
-	VerifierPartyID = "Server-58253"
+	PluginPartyID    = "Rado’s MacBook Pro-FD0"
+	VerifierPartyID  = "Server-58253"
+	VaultPassword    = "888717"
+	HexEncryptionKey = "539440138236b389cb0355aa1e81d11e51e9ad7c94b09bb45704635913604a73"
 )
 
 const (
@@ -36,7 +41,8 @@ const (
 
 var (
 	DerivePathMap = map[string]string{
-		"1": "m/44'/60'/0'/0/0", // ethereum
+		"0x1":                 "m/44'/60'/0'/0/0", // ethereum
+		"Solana_mainnet-beta": "m/44'/501'/0'/0'", // solana
 	}
 )
 
@@ -341,7 +347,7 @@ func CheckIfPublicKeyIsValid(pubKeyBytes []byte, isEcdsa bool) bool {
 	return false
 }
 
-func GetSortingCondition(sort string) (string, string) {
+func GetSortingCondition(sort string, allowedColumns map[string]bool) (string, string) {
 	// Default sorting column
 	orderBy := "created_at"
 	orderDirection := "ASC"
@@ -351,7 +357,6 @@ func GetSortingCondition(sort string) (string, string) {
 	columnName := strings.TrimPrefix(sort, "-") // Remove "-" if present
 
 	// Ensure orderBy is a valid column name (prevent SQL injection)
-	allowedColumns := map[string]bool{"updated_at": true, "created_at": true, "title": true}
 	if allowedColumns[columnName] {
 		orderBy = columnName // Use the provided column if valid
 	}
@@ -362,4 +367,69 @@ func GetSortingCondition(sort string) (string, string) {
 	}
 
 	return orderBy, orderDirection
+}
+
+func GetQueryParam(c echo.Context, key string) *string {
+	val := c.QueryParam(key)
+	if val == "" {
+		return nil
+	}
+	return &val
+}
+
+func sortMapRecursively(input map[string]interface{}) map[string]interface{} {
+	sorted := make(map[string]interface{})
+	keys := make([]string, 0, len(input))
+
+	// Collect and sort the keys
+	for k := range input {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Recursively sort nested maps
+	for _, k := range keys {
+		switch val := input[k].(type) {
+		case map[string]interface{}:
+			sorted[k] = sortMapRecursively(val)
+		case []interface{}:
+			sorted[k] = sortSliceRecursively(val)
+		default:
+			sorted[k] = val
+		}
+	}
+
+	return sorted
+}
+
+func sortSliceRecursively(input []interface{}) []interface{} {
+	for i, v := range input {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			input[i] = sortMapRecursively(val)
+		case []interface{}:
+			input[i] = sortSliceRecursively(val)
+		}
+	}
+	return input
+}
+
+func ToSortedJSON(v interface{}) ([]byte, error) {
+	rawJSON, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	var asMap map[string]interface{}
+	if err := json.Unmarshal(rawJSON, &asMap); err != nil {
+		return nil, err
+	}
+
+	sorted := sortMapRecursively(asMap)
+	result, err := json.Marshal(sorted)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

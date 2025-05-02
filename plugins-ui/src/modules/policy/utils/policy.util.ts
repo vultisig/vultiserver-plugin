@@ -1,4 +1,5 @@
-import { PluginPolicy, Policy } from "../models/policy";
+import { networks } from "@/modules/core/constants/networks"
+import { PluginProgress, PluginPolicy, Policy } from "../models/policy";
 
 export const generatePolicy = (
   plugin_version: string,
@@ -9,31 +10,45 @@ export const generatePolicy = (
 ): PluginPolicy => {
   return {
     id: policyId,
-    public_key: "",
-    is_ecdsa: true,
-    chain_code_hex: "",
-    derive_path: "",
-    plugin_id: "TODO",
+    public_key_ecdsa: "",
+    public_key_eddsa: "",
     plugin_version,
     policy_version,
     plugin_type,
+    is_ecdsa: true,
+    chain_code_hex: "",
+    derive_path: "",
+    active: true,
+    progress: PluginProgress.InProgress,
     signature: "",
     policy: convertToStrings(policy),
-    active: true,
   };
 };
 
-function convertToStrings<T extends Record<string, any>>(
-  obj: T
+function convertToStrings(
+  obj: Record<string, unknown>
 ): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [
-      key,
-      typeof value === "object" && value !== null
-        ? convertToStrings(value)
-        : String(value),
-    ])
-  ) as Record<string, string>;
+  Object.keys(obj).forEach((k) => {
+    if (obj[k] === null || obj[k] === undefined) {
+      delete obj[k];
+      return;
+    }
+    if (typeof obj[k] === "object" && obj !== null) {
+      return convertToStrings(obj[k] as Record<string, unknown>);
+    }
+    if (Array.isArray(obj[k])) {
+      return obj[k].map((item) => {
+        if (typeof item === "object" && item !== null) {
+          return convertToStrings(item);
+        }
+        return `${item}`;
+      });
+    }
+
+    obj[k] = `${obj[k]}`;
+  });
+
+  return obj as Record<string, string>;
 }
 
 const getValueByPath = (obj: Record<string, any>, path: string) =>
@@ -64,5 +79,31 @@ export const mapTableColumnData = (
     }
   }
 
+  return obj;
+};
+
+/**
+ * Returns if algorithm to sign tx with is ECDSA, based on the chain for which a given policy is signed
+ * Network list: https://github.com/vultisig/vultisig-android/blob/main/data/src/main/kotlin/com/vultisig/wallet/data/models/Chain.kt#L109
+ */
+export const isEcdsaChain = (chainId: string) => {
+  switch (chainId) {
+    case networks.Solana:
+      return false;
+    default:
+      return true;
+  }
+};
+
+export const sortObjectAlphabetically = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectAlphabetically);
+  } else if (obj && typeof obj === "object" && obj.constructor === Object) {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, value]) => [key, sortObjectAlphabetically(value)])
+    );
+  }
   return obj;
 };

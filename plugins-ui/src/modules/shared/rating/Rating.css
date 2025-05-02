@@ -1,0 +1,60 @@
+.rating {
+    display: flex;
+    flex-direction: row;
+    height: fit-content;
+    padding: 24px;
+    background-color: var(--background-secondary-color);
+    border-radius: 12px;
+    gap: 22px;
+}
+
+.rating-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rating-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .bar {
+        width: 336px;
+        position: relative;
+    }
+
+    .bar-track {
+        width: 336px;
+        height: 8px;
+        background-color: var(--background-primary-color);
+        border-radius: 2px;
+        font-size: 2rem;
+        position: absolute;
+    }
+
+    .bar-handle {
+        min-width: 3px;
+        height: 8px;
+        background-color: #FFB400;
+        border-radius: 2px;
+        font-size: 2rem;
+        position: absolute;
+    }
+}
+
+.rating-summary {
+    display: flex;
+    flex-direction: column;
+}
+
+.rating-average {
+    display: flex;
+    flex-direction: row;
+    font-size: 1.375 rem;
+}
+
+.rating-sum {
+    display: flex;
+    font-size: 0.75rem;
+}

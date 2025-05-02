@@ -13,7 +13,7 @@ import (
 	"github.com/vultisig/vultiserver-plugin/internal/types"
 )
 
-func (p *PayrollPlugin) handleBroadcastError(err error, sender gcommon.Address) error {
+func (p *Plugin) handleBroadcastError(err error, sender gcommon.Address) error {
 	errMsg := err.Error()
 
 	switch {
@@ -49,7 +49,7 @@ func (p *PayrollPlugin) handleBroadcastError(err error, sender gcommon.Address) 
 	return nil
 }
 
-func (p *PayrollPlugin) monitorTransaction(tx *gtypes.Transaction) error {
+func (p *Plugin) monitorTransaction(tx *gtypes.Transaction) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute) //how much time should we monitor the tx?
 	defer cancel()
 
@@ -103,18 +103,19 @@ func (p *PayrollPlugin) monitorTransaction(tx *gtypes.Transaction) error {
 				}
 
 				// Transaction successful
+				p.logger.Info("Transaction successfully MINED")
 				return nil
 			}
 		}
 	}
 }
 
-func (p *PayrollPlugin) isRetriableError(reason string) bool {
+func (p *Plugin) isRetriableError(reason string) bool {
 	// implement logic to determine if the error is retriable based on the reason
 	return strings.Contains(reason, "insufficient funds") || strings.Contains(reason, "nonce too low") || strings.Contains(reason, "nonce too high") || strings.Contains(reason, "gas price too low") || strings.Contains(reason, "gas limit reached")
 }
 
-func (p *PayrollPlugin) getRevertReason(ctx context.Context, tx *gtypes.Transaction, blockNum *big.Int) string {
+func (p *Plugin) getRevertReason(ctx context.Context, tx *gtypes.Transaction, blockNum *big.Int) string {
 	callMsg := ethereum.CallMsg{
 		To:       tx.To(),
 		Data:     tx.Data(),

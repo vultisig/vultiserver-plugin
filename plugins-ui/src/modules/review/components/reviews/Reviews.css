@@ -1,0 +1,13 @@
+.review-rating-header {
+    font-size: 1.75rem;
+  }
+  
+  .review-rating {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .reviews {
+    width: 100%;
+  }

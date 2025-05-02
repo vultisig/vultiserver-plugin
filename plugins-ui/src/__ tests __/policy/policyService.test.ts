@@ -1,4 +1,5 @@
 import { get, post, put, remove } from "@/modules/core/services/httpService";
+import MarketplaceService from "@/modules/marketplace/services/marketplaceService";
 import {
   PluginPolicy,
   PolicySchema,
@@ -17,7 +18,7 @@ vi.mock("@/modules/core/services/httpService", () => ({
 
 describe("PolicyService", () => {
   beforeEach(() => {
-    vi.stubEnv("VITE_PLUGIN_URL", "https://mock-api.com");
+    vi.stubEnv("VITE_MARKETPLACE_URL", "https://mock-api.com");
     localStorage.setItem("publicKey", "publicKey");
   });
   afterEach(() => {
@@ -37,22 +38,26 @@ describe("PolicyService", () => {
       );
       const mockResponse: PluginPolicy = {
         id: "1",
-        public_key: "public_key",
+        public_key_ecdsa: "public_key_ecdsa",
+        public_key_eddsa: "public_key_eddsa",
         plugin_type: "pluginType",
         is_ecdsa: true,
         chain_code_hex: "",
         derive_path: "",
-        plugin_id: "",
         plugin_version: "0.0.1",
         policy_version: "0.0.1",
         active: true,
         signature: "signature",
         policy: {},
+        progress: "IN PROGRESS",
       };
 
       (post as Mock).mockResolvedValue(mockResponse);
 
-      const result = await PolicyService.createPolicy(mockPolicy);
+      const result = await PolicyService.createPolicy(
+        "https://mock-api.com",
+        mockPolicy
+      );
 
       expect(post).toHaveBeenCalledWith(
         "https://mock-api.com/plugin/policy",
@@ -76,9 +81,9 @@ describe("PolicyService", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {});
 
-      await expect(PolicyService.createPolicy(mockPolicy)).rejects.toThrow(
-        "API Error"
-      );
+      await expect(
+        PolicyService.createPolicy("https://mock-api.com", mockPolicy)
+      ).rejects.toThrow("API Error");
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         "Error creating policy:",
@@ -98,22 +103,26 @@ describe("PolicyService", () => {
       );
       const mockResponse: PluginPolicy = {
         id: "1",
-        public_key: "public_key",
+        public_key_ecdsa: "public_key_ecdsa",
+        public_key_eddsa: "public_key_eddsa",
         plugin_type: "pluginType",
         is_ecdsa: true,
         chain_code_hex: "",
         derive_path: "",
-        plugin_id: "",
         plugin_version: "0.0.1",
         policy_version: "0.0.1",
         active: true,
         signature: "signature",
         policy: {},
+        progress: "IN PROGRESS",
       };
 
       (put as Mock).mockResolvedValue(mockResponse);
 
-      const result = await PolicyService.updatePolicy(mockPolicy);
+      const result = await PolicyService.updatePolicy(
+        "https://mock-api.com",
+        mockPolicy
+      );
 
       expect(put).toHaveBeenCalledWith(
         "https://mock-api.com/plugin/policy",
@@ -137,9 +146,9 @@ describe("PolicyService", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {});
 
-      await expect(PolicyService.updatePolicy(mockPolicy)).rejects.toThrow(
-        "API Error"
-      );
+      await expect(
+        PolicyService.updatePolicy("https://mock-api.com", mockPolicy)
+      ).rejects.toThrow("API Error");
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         "Error updating policy:",
@@ -149,7 +158,7 @@ describe("PolicyService", () => {
   });
 
   describe("getPolicies", () => {
-    it("should call /plugin/policy endpoint and return json object", async () => {
+    it("should call /plugins/policies endpoint and return json object", async () => {
       const PUBLIC_KEY = localStorage.getItem("publicKey");
       const mockRequest = {
         headers: {
@@ -161,26 +170,27 @@ describe("PolicyService", () => {
       const mockResponse: PluginPolicy[] = [
         {
           id: "1",
-          public_key: "public_key",
+          public_key_ecdsa: "public_key_ecdsa",
+          public_key_eddsa: "public_key_eddsa",
           plugin_type: "pluginType",
           active: true,
           is_ecdsa: true,
           chain_code_hex: "",
           derive_path: "",
-          plugin_id: "",
           plugin_version: "0.0.1",
           policy_version: "0.0.1",
           signature: "signature",
           policy: {},
+          progress: "IN PROGRESS",
         },
       ];
 
       (get as Mock).mockResolvedValue(mockResponse);
 
-      const result = await PolicyService.getPolicies("pluginType");
+      const result = await MarketplaceService.getPolicies("pluginType", 0, 10);
 
       expect(get).toHaveBeenCalledWith(
-        "https://mock-api.com/plugin/policy",
+        "https://mock-api.com/plugins/policies?skip=0&take=10",
         mockRequest
       );
       expect(result).toEqual(mockResponse);
@@ -194,9 +204,9 @@ describe("PolicyService", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {});
 
-      await expect(PolicyService.getPolicies("pluginType")).rejects.toThrow(
-        "API Error"
-      );
+      await expect(
+        MarketplaceService.getPolicies("pluginType", 0, 10)
+      ).rejects.toThrow("API Error");
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         "Error getting policies:",
@@ -206,9 +216,8 @@ describe("PolicyService", () => {
   });
 
   describe("getPolicyTransactionHistory", () => {
-    it("should call /plugin/policy/history/{policyId} endpoint and return json object", async () => {
+    it("should call /plugins/policies/{policyId}/history endpoint and return json object", async () => {
       const PUBLIC_KEY = localStorage.getItem("publicKey");
-      console.log(111, PUBLIC_KEY);
 
       const mockRequest = {
         headers: {
@@ -226,11 +235,14 @@ describe("PolicyService", () => {
 
       (get as Mock).mockResolvedValue(mockResponse);
 
-      const result =
-        await PolicyService.getPolicyTransactionHistory("policyId");
+      const result = await MarketplaceService.getPolicyTransactionHistory(
+        "policyId",
+        0,
+        10
+      );
 
       expect(get).toHaveBeenCalledWith(
-        "https://mock-api.com/plugin/policy/history/policyId",
+        "https://mock-api.com/plugins/policies/policyId/history?skip=0&take=10",
         mockRequest
       );
       expect(result).toEqual(mockResponse);
@@ -245,7 +257,7 @@ describe("PolicyService", () => {
         .mockImplementation(() => {});
 
       await expect(
-        PolicyService.getPolicyTransactionHistory("policyId")
+        MarketplaceService.getPolicyTransactionHistory("policyId", 0, 10)
       ).rejects.toThrow("API Error");
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -259,7 +271,11 @@ describe("PolicyService", () => {
     it("should call /plugin/policy/{policyId} endpoint and return nothing", async () => {
       (remove as Mock).mockResolvedValue(undefined);
 
-      const result = await PolicyService.deletePolicy("policyId", "signature");
+      const result = await PolicyService.deletePolicy(
+        "https://mock-api.com",
+        "policyId",
+        "signature"
+      );
 
       expect(remove).toHaveBeenCalledWith(
         "https://mock-api.com/plugin/policy/policyId",
@@ -279,7 +295,11 @@ describe("PolicyService", () => {
         .mockImplementation(() => {});
 
       await expect(
-        PolicyService.deletePolicy("policyId", "signature")
+        PolicyService.deletePolicy(
+          "https://mock-api.com",
+          "policyId",
+          "signature"
+        )
       ).rejects.toThrow("API Error");
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -314,7 +334,10 @@ describe("PolicyService", () => {
 
       (get as Mock).mockResolvedValue(mockResponse);
 
-      const result = await PolicyService.getPolicySchema("pluginType");
+      const result = await PolicyService.getPolicySchema(
+        "https://mock-api.com",
+        "pluginType"
+      );
 
       expect(get).toHaveBeenCalledWith(
         "https://mock-api.com/plugin/policy/schema",
@@ -331,9 +354,9 @@ describe("PolicyService", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {});
 
-      await expect(PolicyService.getPolicySchema("pluginType")).rejects.toThrow(
-        "API Error"
-      );
+      await expect(
+        PolicyService.getPolicySchema("https://mock-api.com", "pluginType")
+      ).rejects.toThrow("API Error");
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         "Error getting policy schema:",

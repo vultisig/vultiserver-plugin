@@ -58,7 +58,7 @@ func TestGetSortingCondition(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		orderBy, orderDirection := GetSortingCondition(tt.sort)
+		orderBy, orderDirection := GetSortingCondition(tt.sort, map[string]bool{"updated_at": true, "created_at": true, "title": true})
 
 		if orderBy != tt.expectedOrderBy {
 			t.Errorf("sort: %s -> orderBy: %s, expected: %s", tt.sort, orderBy, tt.expectedOrderBy)
@@ -71,8 +71,10 @@ func TestGetSortingCondition(t *testing.T) {
 }
 
 func TestVaultBackupCompatible(t *testing.T) {
-	t.SkipNow()
-	filePathName := filepath.Join("test_vault_backup_files", "test_ios_vault_backup.bak")
+	dir := "../test/test_2of2_vault_backups"
+	vaultPwd := "888717"
+
+	filePathName := filepath.Join(dir, "Fast Vault #2-0985-part1of2-Vultiserver.vult")
 	_, err := os.Stat(filePathName)
 	if err != nil {
 		t.Fatal(err)
@@ -83,12 +85,12 @@ func TestVaultBackupCompatible(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	iosVault, err := DecryptVaultFromBackup("ios_test_pwd", content)
+	firstVault, err := DecryptVaultFromBackup(vaultPwd, content)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	filePathName = filepath.Join("test_vault_backup_files", "test_android_vault_backup.bak")
+	filePathName = filepath.Join(dir, "Fast Vault #2-0985-part2of2.vult")
 	_, err = os.Stat(filePathName)
 	if err != nil {
 		t.Fatal(err)
@@ -99,12 +101,12 @@ func TestVaultBackupCompatible(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	androidVault, err := DecryptVaultFromBackup("android_test_pwd", content)
+	secondVault, err := DecryptVaultFromBackup(vaultPwd, content)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if iosVault.PublicKeyEcdsa != androidVault.PublicKeyEcdsa {
+	if firstVault.PublicKeyEcdsa != secondVault.PublicKeyEcdsa {
 		t.Fatalf("ios backup is not compatible with android backup")
 	}
 }

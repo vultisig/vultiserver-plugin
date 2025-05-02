@@ -10,32 +10,39 @@ import (
 	"github.com/vultisig/vultiserver-plugin/storage"
 )
 
-//go:embed frontend
-var frontend embed.FS
+const (
+	PluginType    = "payroll"
+	pluginVersion = "0.0.1"
+	policyVersion = "0.0.1"
+)
 
-type PayrollPlugin struct {
+var (
+	//go:embed payrollPluginUiSchema.json
+	embeddedFilePayrollSchema embed.FS
+)
+
+type Plugin struct {
 	db           storage.DatabaseStorage
 	nonceManager *plugin.NonceManager
 	rpcClient    *ethclient.Client
 	logger       logrus.FieldLogger
 }
 
-type PayrollPluginConfig struct {
+type PluginConfig struct {
 	RpcURL string `mapstructure:"rpc_url" json:"rpc_url"`
 }
 
-func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rawConfig map[string]interface{}) (*PayrollPlugin, error) {
-	var cfg PayrollPluginConfig
+func NewPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, rawConfig map[string]interface{}) (*Plugin, error) {
+	var cfg PluginConfig
 	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
 		return nil, err
 	}
-
 	rpcClient, err := ethclient.Dial(cfg.RpcURL)
 	if err != nil {
 		return nil, err
 	}
 
-	return &PayrollPlugin{
+	return &Plugin{
 		db:           db,
 		rpcClient:    rpcClient,
 		nonceManager: plugin.NewNonceManager(rpcClient),
@@ -43,10 +50,10 @@ func NewPayrollPlugin(db storage.DatabaseStorage, logger logrus.FieldLogger, raw
 	}, nil
 }
 
-func (p *PayrollPlugin) FrontendSchema() embed.FS {
-	return frontend
+func (p *Plugin) FrontendSchema() ([]byte, error) {
+	return embeddedFilePayrollSchema.ReadFile("payrollPluginUiSchema.json")
 }
 
-func (p *PayrollPlugin) GetNextNonce(address string) (uint64, error) {
+func (p *Plugin) GetNextNonce(address string) (uint64, error) {
 	return p.nonceManager.GetNextNonce(address)
 }

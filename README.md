@@ -35,7 +35,7 @@ Vultisigner / VultiServer consists of two components:
 - encryption_password: Password to encrypt the vault share
 - email: Email to send the encrypted vault share
 - lib_type: Type of the library (e.g., 0 for GG20 , 1 for DKLS)
-- 
+-
 ### Response
 
 Status Code: OK
@@ -51,8 +51,8 @@ Status Code: OK
     "hex encoded message 1",
     "hex encoded message 2",
     "hex encoded message N"
-  ], 
-  "session": "session id for this key sign", 
+  ],
+  "session": "session id for this key sign",
   "hex_encryption_key": "hex encoded encryption key",
   "derive_path": "derive path for the key sign",
   "is_ecdsa": "is the key sign ECDSA or not",
@@ -94,7 +94,7 @@ Note: please set `x-password` header with the password to decrypt the vault shar
   "hex_encryption_key": "hex encoded encryption key",
   "hex_chain_code": "hex encoded chain code",
   "local_party_id": "local party id",
-  "old_parties": ["old party id 1", "old party id 2"], 
+  "old_parties": ["old party id 1", "old party id 2"],
   "encryption_password": "password to encryption the generated vault share",
   "email": "email of the user",
   "old_reshare_prefix":"old reshare prefix",
@@ -231,7 +231,7 @@ go run cmd/worker/main.go
 
 ## 5 Run keyGen
 
-On a 5th terminal, run : 
+On a 5th terminal, run :
 
 ```
 curl -X POST http://localhost:8081/vault/create \
@@ -248,7 +248,7 @@ curl -X POST http://localhost:8081/vault/create \
     "parties": ["1", "2"]
 }'
 ```
-Then 
+Then
 
 ```
 curl -X POST http://localhost:8080/vault/create \
@@ -265,7 +265,7 @@ curl -X POST http://localhost:8080/vault/create \
 }'
 ```
 
-## 6 Run keysign 
+## 6 Run keysign
 
 Once keyGen is done, you can start keysign. You have to replace the ecdsa key by the one appearing in the logs of the keygen.
 ```
@@ -284,7 +284,7 @@ curl -X POST http://localhost:8081/vault/sign \
 EOF
 ```
 
-Then 
+Then
 
 ```
 curl -X POST http://localhost:8080/vault/sign \
@@ -302,14 +302,14 @@ curl -X POST http://localhost:8080/vault/sign \
 EOF
 ```
 
-# Restart everything : 
+# Restart everything :
 
 ```
 docker compose down
 docker compose up -d --remove-orphans
 ```
 
-Restart all in order : 
+Restart all in order :
 
 ```
 # Start servers
@@ -349,7 +349,7 @@ mc ls local
 
 
 
-### 1. Start the required infrastructure
+### 1. Start the required infrastructure (Docker)
 
 - Postgres
 - Redis
@@ -357,7 +357,7 @@ mc ls local
 
 `make up`
 
-Verify the buckets were created by visiting the MinIO Console: 
+Verify the buckets were created by visiting the MinIO Console:
 http://localhost:9001 (username: minioadmin, password: minioadmin)
 
 
@@ -427,6 +427,8 @@ curl --location localhost:8080/pricings --request POST \
 
 Add new plugin listing
 
+*`category_id` can be obtained from `GET /categories`. Curently a plugin listing can be either 'Plugin' or 'AI Agent'. These entries are being added by default in the db.*
+
 ```sh
 curl --location localhost:8080/plugins --request POST \
 --header 'Authorization: Bearer myauthtoken' \
@@ -437,16 +439,32 @@ curl --location localhost:8080/plugins --request POST \
     "description": "Dollar cost averaging plugin automation",
     "metadata": "{\"foo\": \"bar\"}",
     "server_endpoint": "http://localhost:8081",
-    "pricing_id": "12345678-abcd-1234-5678-123456789abc"
+    "pricing_id": "12345678-abcd-1234-5678-123456789abc",
+    "category_id": "1b70fb5d-2d70-4b08-99c1-caf18be45fc6"
+}'
+```
+
+```sh
+curl --location localhost:8080/plugins --request POST \
+--header 'Authorization: Bearer myauthtoken' \
+--header 'Content-Type: application/json' \
+--data '{
+    "title": "Payroll Plugin",
+    "type": "payroll",
+    "description": "Payroll plugin automation",
+    "metadata": "{\"foo\": \"bar\"}",
+    "server_endpoint": "http://localhost:8081",
+    "pricing_id": "12345678-abcd-1234-5678-123456789abc",
+    "category_id": "1b70fb5d-2d70-4b08-99c1-caf18be45fc6"
 }'
 ```
 
 
-### 4. Test the DCA Plugin execution 
+### 4. Test the DCA Plugin execution
 
 #### 4.1 Create vault in production
 
-Create a 2-of-3 vault, allowing you to sign plugin policies using only two user devices and back up both device shares by exporting them from the Vultisig apps on each device. 
+Create a 2-of-3 vault, allowing you to sign plugin policies using only two user devices and back up both device shares by exporting them from the Vultisig apps on each device.
 Alternatively, for ease of testing, you can use the vault provided in the `test/test-2of2-vault-backups` folder and import the backups into the devices intended for use.
 
 #### 4.2 Import the vault into Vulticonnect
@@ -461,7 +479,7 @@ Since you are using a vault from production, there are additional steps required
 #### 4.4 Plugin installation (hack)
 
 As of now, there is no way to install a plugin that enables the "verifier" and "plugin" to be part of a user vault (DKLS resharing), which would allow them to meet the vault threshold and sign transactions without the need for the user to participate.
-For local testing, we are using two shares from the user vault: first one for the "verifier" and the second one for the "plugin". As a result, there are some hardcoded values that should match the vault being used in Vulticonnect. 
+For local testing, we are using two shares from the user vault: first one for the "verifier" and the second one for the "plugin". As a result, there are some hardcoded values that should match the vault being used in Vulticonnect.
 If you are using the vault provided in the `test/test-2of2-vault-backups` folder, the corresponding hardcoded values are already set. Otherwise, make sure that:
   - `PluginPartyID` and `VerifierPartyID` (in common/util.go) match the vault participants (Vultisig app -> Vault settings -> Details).
   - `vaultPassword` matches the vault password
