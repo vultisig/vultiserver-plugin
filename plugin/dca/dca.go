@@ -149,6 +149,13 @@ func (p *Plugin) SigningComplete(
 	}
 
 	p.logger.Info("transaction receipt: ", "status: ", receipt.Status)
+
+	err = p.completePolicyIfAllSwapsDone(ctx, policy, signRequest.TransactionType)
+	if err != nil {
+		p.logger.Errorf("complete policy failed: %v", err)
+		return fmt.Errorf("complete policy failed: %s", policy.ID)
+	}
+
 	return nil
 }
 
@@ -704,10 +711,43 @@ func (p *Plugin) calculateSwapAmountPerOrder(totalAmount, totalOrders *big.Int, 
 	return swapAmount
 }
 
+/**
+ * DCA policy should complete right after the last swap has been made
+ */
+func (p *Plugin) completePolicyIfAllSwapsDone(ctx context.Context, policy types.PluginPolicy, currentTxType string) error {
+	if currentTxType != "SWAP" {
+		return nil
+	}
+
+	var dcaPolicy Policy
+	if err := json.Unmarshal(policy.Policy, &dcaPolicy); err != nil {
+		return fmt.Errorf("fail to unmarshal dca policy, err: %w", err)
+	}
+
+	totalOrders, ok := new(big.Int).SetString(dcaPolicy.TotalOrders, 10)
+	if !ok {
+		return fmt.Errorf("invalid total orders %s", dcaPolicy.TotalOrders)
+	}
+
+	completedSwaps, err := p.getCompletedSwapTransactionsCount(context.Background(), policy.ID)
+	if err != nil {
+		return fmt.Errorf("fail to get completed swap transactions count: %w", err)
+	}
+
+	// completed in the past + the current one
+	if completedSwaps+1 >= totalOrders.Int64() {
+		if err := p.completePolicy(context.Background(), policy); err != nil {
+			return fmt.Errorf("fail to complete policy: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (p *Plugin) completePolicy(ctx context.Context, policy types.PluginPolicy) error {
 	p.logger.WithFields(logrus.Fields{
 		"policy_id": policy.ID,
-	}).Info("DCA: All orders completed, no transactions to propose")
+	}).Info("DCA: All orders completed")
 
 	err := p.db.WithTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		policy.Progress = "DONE"

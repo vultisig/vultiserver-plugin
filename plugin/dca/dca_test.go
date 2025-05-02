@@ -50,7 +50,7 @@ func createValidPolicy() types.PluginPolicy {
 	policyBytes, _ := json.Marshal(dcaPolicy)
 
 	return types.PluginPolicy{
-		ID:            "test-policy-id",
+		ID:            "098c8562-91bd-46da-92a2-d66b38823cb0",
 		PluginType:    PluginType,
 		PluginVersion: PluginVersion,
 		PolicyVersion: PolicyVersion,
@@ -1150,7 +1150,7 @@ func TestSigningComplete(t *testing.T) {
 	testCases := []struct {
 		name         string
 		signRequest  types.PluginKeysignRequest
-		mockSetup    func(*ethclient.MockEthClient)
+		mockSetup    func(*ethclient.MockEthClient, *database.MockDB)
 		waitMined    func(ctx context.Context, backend bind.DeployBackend, tx *gtypes.Transaction) (*gtypes.Receipt, error)
 		signLegacyTx func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error)
 		wantError    bool
@@ -1158,9 +1158,11 @@ func TestSigningComplete(t *testing.T) {
 	}{
 		{
 			name: "Successful transaction",
-			mockSetup: func(ethClient *ethclient.MockEthClient) {
+			mockSetup: func(ethClient *ethclient.MockEthClient, db *database.MockDB) {
 				ethClient.On("SendTransaction", mock.Anything, mock.AnythingOfType("*types.Transaction")).
 					Return(nil)
+				db.On("CountTransactions", mock.Anything, mock.AnythingOfType("uuid.UUID"), types.StatusMined, "SWAP").
+					Return(int64(0), nil)
 			},
 			waitMined: func(ctx context.Context, backend bind.DeployBackend, tx *gtypes.Transaction) (*gtypes.Receipt, error) {
 				return &gtypes.Receipt{Status: 1}, nil
@@ -1178,14 +1180,29 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, policy.ID)
 				return signRequest
 			}(),
 			wantError: false,
 		},
 		{
-			name:      "Empty transaction hash",
-			mockSetup: func(ethClient *ethclient.MockEthClient) {},
+			name: "Successful last transaction",
+			mockSetup: func(ethClient *ethclient.MockEthClient, db *database.MockDB) {
+				ethClient.On("SendTransaction", mock.Anything, mock.AnythingOfType("*types.Transaction")).
+					Return(nil)
+				db.On("CountTransactions", mock.Anything, mock.AnythingOfType("uuid.UUID"), types.StatusMined, "SWAP").
+					Return(int64(9), nil)
+				db.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context, pgx.Tx) error")).
+					Return(true, nil)
+				db.On("UpdatePluginPolicyTx", mock.Anything, nil, mock.AnythingOfType("types.PluginPolicy")).
+					Return(&types.PluginPolicy{}, nil)
+			},
+			waitMined: func(ctx context.Context, backend bind.DeployBackend, tx *gtypes.Transaction) (*gtypes.Receipt, error) {
+				return &gtypes.Receipt{Status: 1}, nil
+			},
+			signLegacyTx: func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error) {
+				return &gtypes.Transaction{}, nil, nil
+			},
 			signRequest: func() types.PluginKeysignRequest {
 				swapHash, swapRawTx, _ := createSwapTransaction(t,
 					big.NewInt(1),
@@ -1196,7 +1213,25 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, policy.ID)
+				return signRequest
+			}(),
+			wantError: false,
+		},
+		{
+			name:      "Empty transaction hash",
+			mockSetup: func(ethClient *ethclient.MockEthClient, db *database.MockDB) {},
+			signRequest: func() types.PluginKeysignRequest {
+				swapHash, swapRawTx, _ := createSwapTransaction(t,
+					big.NewInt(1),
+					big.NewInt(100),
+					big.NewInt(90),
+					[]gcommon.Address{gcommon.HexToAddress("0xtest"), gcommon.HexToAddress("0xtest2")},
+					gcommon.HexToAddress("0xToaddress"),
+					gcommon.HexToAddress("0xRouterAddress"),
+				)
+
+				signRequest := createKeysignRequest(swapHash, swapRawTx, policy.ID)
 				signRequest.Messages[0] = ""
 				return signRequest
 			}(),
@@ -1205,7 +1240,7 @@ func TestSigningComplete(t *testing.T) {
 		},
 		{
 			name:      "SignLegacyTx fails",
-			mockSetup: func(ethClient *ethclient.MockEthClient) {},
+			mockSetup: func(ethClient *ethclient.MockEthClient, db *database.MockDB) {},
 			signRequest: func() types.PluginKeysignRequest {
 				swapHash, swapRawTx, _ := createSwapTransaction(t,
 					big.NewInt(1),
@@ -1216,7 +1251,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, policy.ID)
 				return signRequest
 			}(),
 			signLegacyTx: func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error) {
@@ -1227,7 +1262,7 @@ func TestSigningComplete(t *testing.T) {
 		},
 		{
 			name: "SendTransaction fails",
-			mockSetup: func(ethClient *ethclient.MockEthClient) {
+			mockSetup: func(ethClient *ethclient.MockEthClient, db *database.MockDB) {
 				ethClient.On("SendTransaction", mock.Anything, mock.AnythingOfType("*types.Transaction")).
 					Return(errors.New("network error"))
 			},
@@ -1241,7 +1276,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, policy.ID)
 				return signRequest
 			}(),
 			signLegacyTx: func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error) {
@@ -1252,7 +1287,7 @@ func TestSigningComplete(t *testing.T) {
 		},
 		{
 			name: "WaitMined fails",
-			mockSetup: func(ethClient *ethclient.MockEthClient) {
+			mockSetup: func(ethClient *ethclient.MockEthClient, db *database.MockDB) {
 				ethClient.On("SendTransaction", mock.Anything, mock.AnythingOfType("*types.Transaction")).
 					Return(nil)
 			},
@@ -1266,7 +1301,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, policy.ID)
 				return signRequest
 			}(),
 			signLegacyTx: func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error) {
@@ -1280,7 +1315,7 @@ func TestSigningComplete(t *testing.T) {
 		},
 		{
 			name: "Transaction reverted",
-			mockSetup: func(ethClient *ethclient.MockEthClient) {
+			mockSetup: func(ethClient *ethclient.MockEthClient, db *database.MockDB) {
 				ethClient.On("SendTransaction", mock.Anything, mock.AnythingOfType("*types.Transaction")).
 					Return(nil)
 			},
@@ -1294,7 +1329,7 @@ func TestSigningComplete(t *testing.T) {
 					gcommon.HexToAddress("0xRouterAddress"),
 				)
 
-				signRequest := createKeysignRequest(swapHash, swapRawTx, "policyID")
+				signRequest := createKeysignRequest(swapHash, swapRawTx, policy.ID)
 				return signRequest
 			}(),
 			signLegacyTx: func(keysignResponse tss.KeysignResponse, rawTx string, chainID *big.Int) (*gtypes.Transaction, *gcommon.Address, error) {
@@ -1317,7 +1352,7 @@ func TestSigningComplete(t *testing.T) {
 			logger := logrus.StandardLogger()
 
 			// Setup mocks
-			tc.mockSetup(mockEth)
+			tc.mockSetup(mockEth, mockDB)
 
 			// Create plugin
 			plugin := Plugin{
@@ -1344,6 +1379,7 @@ func TestSigningComplete(t *testing.T) {
 
 			// Verify mocks
 			mockEth.AssertExpectations(t)
+			mockDB.AssertExpectations(t)
 		})
 	}
 }
