@@ -1,6 +1,11 @@
 import { RJSFSchema, UiSchema } from "@rjsf/utils";
 import { ColumnDef } from "@tanstack/react-table";
 
+export enum PluginProgress {
+  InProgress = 'IN PROGRESS',
+  Done = 'DONE',
+};
+
 export type Policy<
   T = string | number | boolean | string[] | null | undefined,
 > = {
@@ -9,18 +14,18 @@ export type Policy<
 
 export type PluginPolicy = {
   id: string;
-  public_key: string;
-  is_ecdsa: boolean;
-  chain_code_hex: string;
-  derive_path: string;
-  plugin_id: string;
+  public_key_ecdsa: string;
+  public_key_eddsa: string;
   plugin_version: string;
   policy_version: string;
   plugin_type: string;
+  is_ecdsa: boolean;
+  chain_code_hex: string;
+  derive_path: string;
+  active: boolean;
+  progress: PluginProgress;
   signature: string;
   policy: Policy;
-  active: boolean;
-  progress: string;
 };
 
 export type PluginPoliciesMap = {

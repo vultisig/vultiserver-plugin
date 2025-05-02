@@ -1,4 +1,4 @@
-import { Policy } from "@/modules/policy/models/policy";
+import { PluginProgress, Policy } from "@/modules/policy/models/policy";
 import { generatePolicy } from "@/modules/policy/utils/policy.util";
 import { describe, expect, it } from "vitest";
 
@@ -26,14 +26,18 @@ describe("generatePolicy", () => {
     );
 
     expect(result).toStrictEqual({
-      active: true,
+      id: "",
+      public_key_ecdsa: "",
+      public_key_eddsa: "",
+      plugin_version: "0.0.1",
+      policy_version: "0.0.1",
+      plugin_type: "pluginType",
+      is_ecdsa: true,
       chain_code_hex: "",
       derive_path: "",
-      id: "",
-      is_ecdsa: true,
-      plugin_id: "TODO",
-      plugin_type: "pluginType",
-      plugin_version: "0.0.1",
+      active: true,
+      progress: PluginProgress.InProgress,
+      signature: "",
       policy: {
         someNumberInput: "5",
         someBooleanInput: "false",
@@ -44,10 +48,6 @@ describe("generatePolicy", () => {
           someStringInput: "text",
         },
       },
-      policy_version: "0.0.1",
-      public_key: "",
-      signature: "",
-      progress: "",
     });
   });
 });

@@ -36,7 +36,7 @@ func createSamplePolicy(progress string) types.PluginPolicy {
 
 func createValidPolicy() types.PluginPolicy {
 	dcaPolicy := Policy{
-		ChainID:            "1",
+		ChainID:            "0x1",
 		SourceTokenID:      "0x1111111111111111111111111111111111111111",
 		DestinationTokenID: "0x2222222222222222222222222222222222222222",
 		TotalAmount:        "1000",
@@ -50,17 +50,18 @@ func createValidPolicy() types.PluginPolicy {
 	policyBytes, _ := json.Marshal(dcaPolicy)
 
 	return types.PluginPolicy{
-		ID:            "098c8562-91bd-46da-92a2-d66b38823cb0",
-		PluginType:    PluginType,
-		PluginVersion: PluginVersion,
-		PolicyVersion: PolicyVersion,
-		ChainCodeHex:  "8769353fa9b5baaf9ceef4c0c747c57d67933ed9865612ce5d8b771708bfaa1d",
-		PublicKey:     "02e23a52d46f02064f60305a5397ed808f4e2dcc4210a3ddc1c4ca9a6ac6d02fb3",
-		DerivePath:    common.DerivePathMap["1"],
-		IsEcdsa:       true,
-		Policy:        policyBytes,
-		Active:        true,
-		Progress:      "IN PROGRESS",
+		ID:             "098c8562-91bd-46da-92a2-d66b38823cb0",
+		PublicKeyEcdsa: "02e23a52d46f02064f60305a5397ed808f4e2dcc4210a3ddc1c4ca9a6ac6d02fb3",
+		PublicKeyEddsa: "cbe9f33d38054defe561b9189f0f78721bb4ba836678030ca9db319a11a590ac",
+		PluginVersion:  PluginVersion,
+		PluginType:     PluginType,
+		PolicyVersion:  PolicyVersion,
+		ChainCodeHex:   "8769353fa9b5baaf9ceef4c0c747c57d67933ed9865612ce5d8b771708bfaa1d",
+		DerivePath:     common.DerivePathMap["0x1"],
+		IsEcdsa:        true,
+		Policy:         policyBytes,
+		Active:         true,
+		Progress:       "IN PROGRESS",
 	}
 }
 
@@ -162,7 +163,7 @@ func createKeysignRequest(txHash []byte, rlpTxBytes []byte, policyID string) typ
 			Parties: []string{"party1", "party2"},
 		},
 		Transaction:     hex.EncodeToString(rlpTxBytes),
-		PluginID:        "pluginID",
+		PluginType:      "dca",
 		PolicyID:        policyID,
 		TransactionType: "SWAP",
 	}
@@ -238,7 +239,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			name: "Missing public key",
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
-				p.PublicKey = ""
+				p.PublicKeyEcdsa = ""
 				return p
 			}(),
 			wantError: true,
@@ -249,7 +250,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
 				dcaPolicy := Policy{
-					ChainID:            "1",
+					ChainID:            "0x1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x1111111111111111111111111111111111111111", // Same as source
 					TotalAmount:        "1000",
@@ -270,7 +271,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
 				dcaPolicy := Policy{
-					ChainID:            "1",
+					ChainID:            "0x1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
 					TotalAmount:        "-1",
@@ -291,7 +292,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
 				dcaPolicy := Policy{
-					ChainID:            "1",
+					ChainID:            "0x1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
 					TotalAmount:        "1000",
@@ -312,7 +313,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
 				dcaPolicy := Policy{
-					ChainID:            "1",
+					ChainID:            "0x1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
 					TotalAmount:        "1000",
@@ -347,7 +348,7 @@ func TestValidatePluginPolicy(t *testing.T) {
 			policy: func() types.PluginPolicy {
 				p := createValidPolicy()
 				dcaPolicy := Policy{
-					ChainID:            "1",
+					ChainID:            "0x1",
 					SourceTokenID:      "0x1111111111111111111111111111111111111111",
 					DestinationTokenID: "0x2222222222222222222222222222222222222222",
 					TotalAmount:        "1000",

@@ -34,7 +34,7 @@ func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginK
 	if err := json.Unmarshal(policy.Policy, &payrollPolicy); err != nil {
 		return txs, fmt.Errorf("fail to unmarshal payroll policy, err: %w", err)
 	}
-	signerAddress, err := common.DeriveAddress(policy.PublicKey, policy.ChainCodeHex, policy.DerivePath)
+	signerAddress, err := common.DeriveAddress(policy.GetPublicKey(), policy.ChainCodeHex, policy.DerivePath)
 	if err != nil {
 		return txs, fmt.Errorf("fail to derive address: %w", err)
 	}
@@ -56,7 +56,7 @@ func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginK
 		// Create signing request
 		signRequest := types.PluginKeysignRequest{
 			KeysignRequest: types.KeysignRequest{
-				PublicKey:        policy.PublicKey,
+				PublicKey:        policy.GetPublicKey(),
 				Messages:         []string{hex.EncodeToString(txHash)},
 				SessionID:        uuid.New().String(),
 				HexEncryptionKey: common.HexEncryptionKey,
@@ -66,7 +66,7 @@ func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginK
 				// Parties:          []string{common.PluginPartyID, common.VerifierPartyID},
 			},
 			Transaction: hex.EncodeToString(rawTx),
-			PluginID:    policy.PluginID,
+			PluginType:  policy.PluginType,
 			PolicyID:    policy.ID,
 		}
 		txs = append(txs, signRequest)

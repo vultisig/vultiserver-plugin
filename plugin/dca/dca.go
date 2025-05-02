@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -105,6 +106,11 @@ func NewPlugin(db Storage, syncer syncer.PolicySyncer, logger *logrus.Logger, ra
 	}, nil
 }
 
+func isValidHex(s string) bool {
+	match, _ := regexp.MatchString(`^(0x)?[0-9a-fA-F]+$`, s)
+	return match
+}
+
 func (p *Plugin) SigningComplete(
 	ctx context.Context,
 	signature tss.KeysignResponse,
@@ -116,10 +122,15 @@ func (p *Plugin) SigningComplete(
 		return fmt.Errorf("fail to unmarshal DCA policy: %w", err)
 	}
 
-	chainID, ok := new(big.Int).SetString(dcaPolicy.ChainID, 10)
-	if !ok {
+	if !isValidHex(dcaPolicy.ChainID) {
+		// Note: non-evm chain ids would not be hex
+		return errors.New("invalid ChainID hex")
+	}
+	chainIDInt, err := strconv.ParseInt(dcaPolicy.ChainID[2:], 16, 64)
+	if err != nil {
 		return errors.New("fail to parse chain ID")
 	}
+	chainID := big.NewInt(chainIDInt)
 
 	// currently we are only signing one transaction
 	txHash := signRequest.Messages[0]
@@ -176,19 +187,28 @@ func (p *Plugin) ValidatePluginPolicy(policyDoc types.PluginPolicy) error {
 		return fmt.Errorf("policy does not contain chain_code_hex")
 	}
 
-	if policyDoc.PublicKey == "" {
-		return fmt.Errorf("policy does not contain public_key")
+	if policyDoc.PublicKeyEcdsa == "" {
+		return fmt.Errorf("policy does not contain public_key_ecdsa")
 	}
-
-	pubKeyBytes, err := hex.DecodeString(policyDoc.PublicKey)
+	pubKeyBytes, err := hex.DecodeString(policyDoc.PublicKeyEcdsa)
 	if err != nil {
 		return fmt.Errorf("invalid hex encoding: %w", err)
 	}
-
-	isValidPublicKey := common.CheckIfPublicKeyIsValid(pubKeyBytes, policyDoc.IsEcdsa)
-
+	isValidPublicKey := common.CheckIfPublicKeyIsValid(pubKeyBytes, true)
 	if !isValidPublicKey {
-		return fmt.Errorf("invalid public_key")
+		return fmt.Errorf("invalid public_key_ecdsa")
+	}
+
+	if policyDoc.PublicKeyEddsa == "" {
+		return fmt.Errorf("policy does not contain public_key_eddsa")
+	}
+	pubKeyBytes, err = hex.DecodeString(policyDoc.PublicKeyEddsa)
+	if err != nil {
+		return fmt.Errorf("invalid hex encoding: %w", err)
+	}
+	isValidPublicKey = common.CheckIfPublicKeyIsValid(pubKeyBytes, false)
+	if !isValidPublicKey {
+		return fmt.Errorf("invalid public_key_eddsa")
 	}
 
 	var dcaPolicy Policy
@@ -360,15 +380,20 @@ func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginK
 	p.logger.Info("DCA: SWAP AMOUNT: ", swapAmount.String())
 
 	// build transactions
-	signerAddress, err := common.DeriveAddress(policy.PublicKey, policy.ChainCodeHex, policy.DerivePath)
+	signerAddress, err := common.DeriveAddress(policy.GetPublicKey(), policy.ChainCodeHex, policy.DerivePath)
 	if err != nil {
 		return txs, fmt.Errorf("fail to derive address: %w", err)
 	}
 
-	chainID, ok := new(big.Int).SetString(dcaPolicy.ChainID, 10)
-	if !ok {
+	if !isValidHex(dcaPolicy.ChainID) {
+		// Note: non-evm chain ids would not be hex
+		return txs, fmt.Errorf("invalid ChainID hex: %s", dcaPolicy.ChainID)
+	}
+	chainIDInt, err := strconv.ParseInt(dcaPolicy.ChainID[2:], 16, 64)
+	if err != nil {
 		return txs, fmt.Errorf("fail to parse chain ID: %s", dcaPolicy.ChainID)
 	}
+	chainID := big.NewInt(chainIDInt)
 
 	rawTxsData, err := p.generateSwapTransactions(chainID, signerAddress, dcaPolicy.SourceTokenID, dcaPolicy.DestinationTokenID, swapAmount)
 	if err != nil {
@@ -378,7 +403,7 @@ func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginK
 	for _, data := range rawTxsData {
 		signRequest := types.PluginKeysignRequest{
 			KeysignRequest: types.KeysignRequest{
-				PublicKey:        policy.PublicKey,
+				PublicKey:        policy.GetPublicKey(),
 				Messages:         []string{hex.EncodeToString(data.TxHash)},
 				SessionID:        uuid.New().String(),
 				HexEncryptionKey: common.HexEncryptionKey,
@@ -388,7 +413,7 @@ func (p *Plugin) ProposeTransactions(policy types.PluginPolicy) ([]types.PluginK
 				Parties:          []string{common.PluginPartyID, common.VerifierPartyID},
 			},
 			Transaction:     hex.EncodeToString(data.RlpTxBytes),
-			PluginID:        policy.PluginID,
+			PluginType:      policy.PluginType,
 			PolicyID:        policy.ID,
 			TransactionType: data.Type,
 		}
@@ -415,10 +440,15 @@ func (p *Plugin) ValidateProposedTransactions(policy types.PluginPolicy, txs []t
 	}
 
 	// Validate policy params.
-	policyChainID, ok := new(big.Int).SetString(dcaPolicy.ChainID, 10)
-	if !ok {
-		return fmt.Errorf("failed to parse chain ID: %s", dcaPolicy.ChainID)
+	if !isValidHex(dcaPolicy.ChainID) {
+		// Note: non-evm chain ids would not be hex
+		return errors.New("invalid ChainID hex")
 	}
+	chainIDInt, err := strconv.ParseInt(dcaPolicy.ChainID[2:], 16, 64)
+	if err != nil {
+		return fmt.Errorf("fail to parse chain ID: %s", dcaPolicy.ChainID)
+	}
+	policyChainID := big.NewInt(chainIDInt)
 
 	sourceAddrPolicy := gcommon.HexToAddress(dcaPolicy.SourceTokenID)
 	destAddrPolicy := gcommon.HexToAddress(dcaPolicy.DestinationTokenID)
@@ -433,7 +463,7 @@ func (p *Plugin) ValidateProposedTransactions(policy types.PluginPolicy, txs []t
 		return fmt.Errorf("invalid total orders")
 	}
 
-	signerAddress, err := common.DeriveAddress(policy.PublicKey, policy.ChainCodeHex, policy.DerivePath)
+	signerAddress, err := common.DeriveAddress(policy.GetPublicKey(), policy.ChainCodeHex, policy.DerivePath)
 	if err != nil {
 		return fmt.Errorf("failed to derive address: %w", err)
 	}

@@ -53,6 +53,7 @@ type Enqueuer interface {
 }
 type WorkerService struct {
 	cfg          config.Config
+	verifierHost string
 	verifierPort int64
 	redis        *storage.RedisStorage
 	logger       *logrus.Logger
@@ -110,6 +111,7 @@ func NewWorker(cfg config.Config, queueClient *asynq.Client, sdClient *statsd.Cl
 		logger:       logger,
 		syncer:       syncer,
 		authService:  authService,
+		verifierHost: cfg.Verifier.Host,
 		verifierPort: cfg.Verifier.Port,
 	}, nil
 }
@@ -411,7 +413,7 @@ func (s *WorkerService) processPluginTransaction(ctx context.Context, policyID s
 
 	s.logger.WithFields(logrus.Fields{
 		"policy_id":   policy.ID,
-		"public_key":  policy.PublicKey,
+		"public_key":  policy.GetPublicKey(),
 		"plugin_type": policy.PluginType,
 	}).Info("Retrieved policy for signing")
 
@@ -445,7 +447,7 @@ func (s *WorkerService) processSignRequest(ctx context.Context, signRequest type
 	// Create transaction history record with PENDING status
 	metadata := map[string]interface{}{
 		"timestamp":        time.Now(),
-		"plugin_id":        signRequest.PluginID,
+		"plugin_type":      signRequest.PluginType,
 		"public_key":       signRequest.KeysignRequest.PublicKey,
 		"transaction_type": signRequest.TransactionType,
 	}
@@ -599,7 +601,7 @@ func (s *WorkerService) initiateTxSignWithVerifier(ctx context.Context, signRequ
 	}
 
 	signResp, err := http.Post(
-		fmt.Sprintf("http://localhost:%d/signFromPlugin", s.verifierPort),
+		fmt.Sprintf("http://%s:%d/signFromPlugin", s.verifierHost, s.verifierPort),
 		"application/json",
 		bytes.NewBuffer(signBytes),
 	)

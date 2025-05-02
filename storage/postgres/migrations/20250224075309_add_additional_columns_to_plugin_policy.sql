@@ -19,7 +19,7 @@ ADD COLUMN progress progress_status NOT NULL DEFAULT 'IN PROGRESS';
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-ALTER TABLE plugin_policies DROP COLUMN status,
+ALTER TABLE plugin_policies DROP COLUMN progress,
   DROP COLUMN active,
   DROP COLUMN derive_path,
   DROP COLUMN chain_code_hex,

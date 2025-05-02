@@ -18,10 +18,10 @@ import (
 
 func createSamplePolicy(id string) types.PluginPolicy {
 	return types.PluginPolicy{
-		ID:         id,
-		PluginType: "testPlugin",
-		PublicKey:  "testPublicKey",
-		Policy:     []byte(`{"key":"value"}`),
+		ID:             id,
+		PluginType:     "testPlugin",
+		PublicKeyEcdsa: "testPublicKey",
+		Policy:         []byte(`{"key":"value"}`),
 	}
 }
 
@@ -467,6 +467,7 @@ func TestGetPluginPolicies(t *testing.T) {
 					},
 					TotalCount: 2,
 				}
+
 				db.On("GetAllPluginPolicies", ctx, "testType", "testKey", take, skip).
 					Return(policies, nil)
 			},
@@ -509,7 +510,7 @@ func TestGetPluginPolicies(t *testing.T) {
 			policyService, err := NewPolicyService(mockDB, nil, nil, logrus.StandardLogger())
 			require.NoError(t, err)
 
-			policies, err := policyService.GetPluginPolicies(ctx, tc.pluginType, tc.publicKey, 10, 0)
+			policies, err := policyService.GetPluginPolicies(ctx, tc.pluginType, tc.publicKey, take, skip)
 
 			if tc.expectErr {
 				require.Error(t, err)

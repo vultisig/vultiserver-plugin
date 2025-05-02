@@ -78,18 +78,17 @@ func main() {
 
 	policyId := uuid.New().String()
 	policy := types.PluginPolicy{
-		ID:            policyId,
-		PublicKey:     key,
-		PluginID:      dca.PluginType,
-		PluginVersion: dca.PluginVersion,
-		PolicyVersion: dca.PolicyVersion,
-		PluginType:    dca.PluginType,
-		Active:        true,
-		Signature:     "0x0000000000000000000000000000000000000000000000000000000000000000",
+		ID:             policyId,
+		PublicKeyEcdsa: key,
+		PluginVersion:  dca.PluginVersion,
+		PolicyVersion:  dca.PolicyVersion,
+		PluginType:     dca.PluginType,
+		Active:         true,
+		Signature:      "0x0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
-	payrollPolicy := dca.Policy{
-		ChainID:            "1",
+	dcaPolicy := dca.Policy{
+		ChainID:            "0x1",
 		SourceTokenID:      sourceTokenContract,
 		DestinationTokenID: destinationTokenContract,
 		TotalAmount:        swapAmountIn,
@@ -101,7 +100,7 @@ func main() {
 		},
 	}
 
-	policyBytes, err := json.Marshal(payrollPolicy)
+	policyBytes, err := json.Marshal(dcaPolicy)
 	if err != nil {
 		panic(err)
 	}

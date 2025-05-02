@@ -1,4 +1,5 @@
-import { PluginPolicy, Policy } from "../models/policy";
+import { networks } from "@/modules/core/constants/networks"
+import { PluginProgress, PluginPolicy, Policy } from "../models/policy";
 
 export const generatePolicy = (
   plugin_version: string,
@@ -9,18 +10,18 @@ export const generatePolicy = (
 ): PluginPolicy => {
   return {
     id: policyId,
-    public_key: "",
-    is_ecdsa: true,
-    chain_code_hex: "",
-    derive_path: "",
-    plugin_id: "TODO",
+    public_key_ecdsa: "",
+    public_key_eddsa: "",
     plugin_version,
     policy_version,
     plugin_type,
+    is_ecdsa: true,
+    chain_code_hex: "",
+    derive_path: "",
+    active: true,
+    progress: PluginProgress.InProgress,
     signature: "",
     policy: convertToStrings(policy),
-    active: true,
-    progress: "",
   };
 };
 
@@ -79,6 +80,19 @@ export const mapTableColumnData = (
   }
 
   return obj;
+};
+
+/**
+ * Returns if algorithm to sign tx with is ECDSA, based on the chain for which a given policy is signed
+ * Network list: https://github.com/vultisig/vultisig-android/blob/main/data/src/main/kotlin/com/vultisig/wallet/data/models/Chain.kt#L109
+ */
+export const isEcdsaChain = (chainId: string) => {
+  switch (chainId) {
+    case networks.Solana:
+      return false;
+    default:
+      return true;
+  }
 };
 
 export const sortObjectAlphabetically = (obj: any): any => {

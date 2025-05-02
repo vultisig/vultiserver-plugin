@@ -36,7 +36,7 @@ type DatabaseStorage interface {
 
 type PolicyRepository interface {
 	GetPluginPolicy(ctx context.Context, id string) (types.PluginPolicy, error)
-	GetAllPluginPolicies(ctx context.Context, pluginType string, publicKey string, take int, skip int) (types.PluginPolicyPaginatedList, error)
+	GetAllPluginPolicies(ctx context.Context, pluginType string, publicKeyEcdsa string, take int, skip int) (types.PluginPolicyPaginatedList, error)
 
 	DeletePluginPolicyTx(ctx context.Context, dbTx pgx.Tx, id string) error
 	InsertPluginPolicyTx(ctx context.Context, dbTx pgx.Tx, policy types.PluginPolicy) (*types.PluginPolicy, error)

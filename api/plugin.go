@@ -62,8 +62,8 @@ func (s *Server) SignPluginMessages(c echo.Context) error {
 	}
 
 	// Validate policy matches plugin
-	if policy.PluginID != req.PluginID {
-		mismatchErr := errors.New("policy plugin ID mismatch")
+	if policy.PluginType != req.PluginType {
+		mismatchErr := errors.New("policy plugin mismatch")
 		s.logger.Error(mismatchErr)
 		message := map[string]interface{}{
 			"error": mismatchErr.Error(),
@@ -253,6 +253,16 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return fmt.Errorf("fail to parse request, err: %w", err)
 	}
 
+	if policy.ID == "" {
+		policy.ID = uuid.NewString()
+	}
+
+	if err := c.Validate(&policy); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": err.Error(),
+		})
+	}
+
 	// We re-init plugin as verification server doesn't have plugin defined
 	var plg plugin.Plugin
 	plg, err := s.initializePlugin(policy.PluginType)
@@ -285,10 +295,6 @@ func (s *Server) CreatePluginPolicy(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, message)
 	}
 
-	if policy.ID == "" {
-		policy.ID = uuid.NewString()
-	}
-
 	if !s.verifyPolicySignature(policy) {
 		s.logger.Error("invalid policy signature")
 		message := map[string]interface{}{
@@ -315,6 +321,12 @@ func (s *Server) UpdatePluginPolicyById(c echo.Context) error {
 	var policy types.PluginPolicy
 	if err := c.Bind(&policy); err != nil {
 		return fmt.Errorf("fail to parse request, err: %w", err)
+	}
+
+	if err := c.Validate(&policy); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": err.Error(),
+		})
 	}
 
 	// We re-init plugin as verification server doesn't have plugin defined
@@ -1003,7 +1015,7 @@ func (s *Server) verifyPolicySignature(policy types.PluginPolicy) bool {
 		return false
 	}
 
-	isVerified, err := sigutil.VerifySignature(policy.PublicKey, policy.ChainCodeHex, policy.DerivePath, msgBytes, signatureBytes)
+	isVerified, err := sigutil.VerifySignature(policy.PublicKeyEcdsa, policy.ChainCodeHex, policy.DerivePath, msgBytes, signatureBytes)
 	if err != nil {
 		s.logger.Error(fmt.Errorf("failed to verify signature: %w", err))
 		return false
