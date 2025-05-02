@@ -1,9 +1,15 @@
 .pair {
-    display: flex;
-    align-items: center;
+  display: flex;
+  flex-direction: column;
 }
 
-.token-icon-right {
-    margin-left: -10px;
-    margin-right: 2px;
+.token-icon {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.token-icon-bottom {
+  margin-top: -5px;
+  margin-left: 10px;
 }

@@ -1,4 +1,4 @@
-type ActiveStatusProps = {
+export type ActiveStatusProps = {
   data: boolean;
 };
 

@@ -1,6 +1,6 @@
 import { supportedTokens } from "../data/tokens";
 
-type TokenNameProps = {
+export type TokenNameProps = {
   data: string;
 };
 
