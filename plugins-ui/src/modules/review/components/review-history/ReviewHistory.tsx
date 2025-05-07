@@ -17,7 +17,7 @@ const ReviewHistory = () => {
 
   return (
     <>
-      <section className="review-history">
+      <section className="review-history" data-testid="review-history-wrapper">
         {reviewHistory &&
           reviewHistory.length > 0 &&
           reviewHistory.map((review) => (

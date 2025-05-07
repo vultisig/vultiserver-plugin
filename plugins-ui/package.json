@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && npm run test && vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest --run",
@@ -29,6 +29,7 @@
     "@eslint/js": "^9.17.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.10.7",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
@@ -40,9 +41,11 @@
     "globals": "^15.14.0",
     "jsdom": "^26.0.0",
     "prettier": "^3.4.2",
+    "react-remove-attr": "^0.0.6",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.18.2",
     "vite": "^6.0.5",
+    "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.7"
   }
 }

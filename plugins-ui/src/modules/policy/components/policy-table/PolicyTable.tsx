@@ -19,25 +19,28 @@ import "@/modules/policy/components/policy-table/PolicyTable.css";
 import TokenPair, {
   type TokenPairProps,
 } from "@/modules/shared/token-pair/TokenPair";
-import PolicyActions from "../policy-actions/PolicyActions";
+import PolicyActions from "@/modules/policy/components/policy-actions/PolicyActions";
 import TokenName, {
   type TokenNameProps,
 } from "@/modules/shared/token-name/TokenName";
 import TokenAmount, {
   type TokenAmountProps,
 } from "@/modules/shared/token-amount/TokenAmount";
-import { mapTableColumnData } from "../../utils/policy.util";
-import ActiveStatus, {
-  type ActiveStatusProps,
-} from "@/modules/shared/active-status/ActiveStatus";
 import DateColumn, {
   type DateColumnProps,
 } from "@/modules/shared/date-column/DateColumn";
-import { PolicySchema, PolicyTableColumn } from "../../models/policy";
 import ExpandableRows, {
   type ExpandableRowsProps,
 } from "@/modules/shared/expandable-rows/ExpandableRows";
 import Pagination from "@/modules/core/components/ui/pagination/Pagination";
+import { mapTableColumnData } from "@/modules/policy/utils/policy.util";
+import ActiveStatus, {
+  type ActiveStatusProps,
+} from "@/modules/shared/active-status/ActiveStatus";
+import {
+  PolicySchema,
+  PolicyTableColumn,
+} from "@/modules/policy/models/policy";
 
 const componentMap: Record<
   string,
@@ -84,7 +87,7 @@ const getTableColumns = (schema: PolicySchema) => {
 };
 
 const PolicyTable = () => {
-  const [data, setData] = useState<unknown[]>([]);
+  const [data, setData] = useState<unknown[]>(() => []);
   const {
     policyMap,
     policySchemaMap,
@@ -119,7 +122,7 @@ const PolicyTable = () => {
       }
       setData(transformedData);
     }
-  }, [policySchemaMap, policyMap]);
+  }, [policySchemaMap, policyMap, pluginType]);
 
   useEffect(() => {
     setTotalPages(Math.ceil(policiesTotalCount / POLICY_ITEMS_PER_PAGE));
@@ -179,12 +182,12 @@ const PolicyTable = () => {
       <PolicyFilters onFiltersChange={setColumnFilters} />
 
       {policySchemaMap.has(pluginType) && (
-        <table className="policy-table">
+        <table data-testid="policy-table" className="policy-table">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id}>
+                  <th data-testid="policy-table-headers" key={header.id}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -201,7 +204,7 @@ const PolicyTable = () => {
               <Fragment key={`${i}-container`}>
                 <tr key={i}>
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id}>
+                    <td data-testid="policy-table-cells" key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -223,7 +226,10 @@ const PolicyTable = () => {
               </Fragment>
             ))}
             {table.getRowModel().rows.length === 0 && (
-              <tr className="expandable-row">
+              <tr
+                className="expandable-row"
+                data-testid="policy-form-empty-row"
+              >
                 <td
                   colSpan={table.getAllColumns().length}
                   className="empty-message-row"

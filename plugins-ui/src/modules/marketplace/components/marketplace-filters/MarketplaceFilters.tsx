@@ -24,21 +24,21 @@ type MarketplaceFiltersProps = {
 };
 
 const getCategoryIdByName = (categories: Category[], name: string) => {
-  const category = categories.find(c => c.name === name);
+  const category = categories.find((c) => c.name === name);
   if (!category) return "";
 
   return category.id;
 };
 
-const sortOptions: { [key: string]: { field: string, order: string } } = {
+const sortOptions: { [key: string]: { field: string; order: string } } = {
   "Date (DESC)": {
     field: "created_at",
-    order: "DESC"
+    order: "DESC",
   },
   "Date (ASC)": {
     field: "created_at",
-    order: "ASC"
-  }
+    order: "ASC",
+  },
 };
 const sortLabels = Object.keys(sortOptions);
 
@@ -49,14 +49,16 @@ const MarketplaceFilters = ({
   filters,
   onFiltersChange,
 }: MarketplaceFiltersProps) => {
-  const categoryNames = categories.map(c => c.name);
-  const defaultCategoryName = (categories.find(c => c.id === filters.categoryId) || {}).name || "";
-  const defaultSorting = Object.keys(sortOptions).find((key) => {
-    return (
-      sortOptions[key].field === filters.sortBy &&
-      sortOptions[key].order === filters.sortOrder
-    );
-  }) || "";
+  const categoryNames = categories.map((c) => c.name);
+  const defaultCategoryName =
+    (categories.find((c) => c.id === filters.categoryId) || {}).name || "";
+  const defaultSorting =
+    Object.keys(sortOptions).find((key) => {
+      return (
+        sortOptions[key].field === filters.sortBy &&
+        sortOptions[key].order === filters.sortOrder
+      );
+    }) || "";
 
   const [view, setView] = useState<ViewFilter>(viewFilter);
   const [term, setTerm] = useState("");
@@ -74,7 +76,7 @@ const MarketplaceFilters = ({
       term,
       categoryId: getCategoryIdByName(categories, categoryName),
       sortBy: sortOptions[sortLabel].field,
-      sortOrder: sortOptions[sortLabel].order
+      sortOrder: sortOptions[sortLabel].order,
     });
   };
 
@@ -84,7 +86,7 @@ const MarketplaceFilters = ({
       term,
       categoryId: getCategoryIdByName(categories, name),
       sortBy: sortOptions[sortLabel].field,
-      sortOrder: sortOptions[sortLabel].order
+      sortOrder: sortOptions[sortLabel].order,
     });
   };
 
@@ -94,7 +96,7 @@ const MarketplaceFilters = ({
       term,
       categoryId: getCategoryIdByName(categories, categoryName),
       sortBy: sortOptions[sortOption].field,
-      sortOrder: sortOptions[sortOption].order
+      sortOrder: sortOptions[sortOption].order,
     });
   };
 
@@ -135,6 +137,7 @@ const MarketplaceFilters = ({
         size="medium"
         className={`view-filter ${view === "grid" ? "active" : ""}`}
         onClick={() => changeView("grid")}
+        data-testid="marketplace-filters-grid"
       >
         <Grid width="20px" height="20px" color="#F0F4FC" />
       </Button>
@@ -145,6 +148,7 @@ const MarketplaceFilters = ({
         size="medium"
         className={`view-filter ${view === "list" ? "active" : ""}`}
         onClick={() => changeView("list")}
+        data-testid="marketplace-filters-list"
       >
         <List width="20px" height="20px" color="#F0F4FC" />
       </Button>
