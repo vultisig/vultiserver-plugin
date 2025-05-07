@@ -17,10 +17,12 @@ function Modal({ isOpen, children, onClose, variant = "modal" }: ModalProps) {
     <div
       className={`modal-overlay ${variant === "panel" ? "panel-overlay" : ""}`}
       role="dialog"
+      data-testid="modal-overlay"
     >
       <div
         className={`modal-content ${variant === "panel" ? "panel-content" : ""}`}
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+        data-testid="modal-content"
       >
         <Button
           ariaLabel="Close modal"
@@ -29,6 +31,7 @@ function Modal({ isOpen, children, onClose, variant = "modal" }: ModalProps) {
           size="medium"
           className="modal-close"
           onClick={onClose}
+          data-testid="modal-close-button"
         >
           <CloseIcon />
         </Button>

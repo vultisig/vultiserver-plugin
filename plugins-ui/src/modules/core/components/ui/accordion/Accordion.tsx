@@ -1,4 +1,4 @@
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, CSSProperties } from "react";
 import "./Accordion.css";
 import ChevronDown from "@/assets/ChevronDown.svg?react";
 import ChevronRight from "@/assets/ChevronRight.svg?react";
@@ -8,7 +8,7 @@ type AccordionProps = {
   header: ReactNode;
   expandButton: {
     text: string;
-    style?: {};
+    style?: CSSProperties;
   };
   children: ReactNode;
 };
@@ -21,7 +21,7 @@ const Accordion = ({ header, expandButton, children }: AccordionProps) => {
   };
 
   return (
-    <div className="accordion">
+    <div data-testid="accordion-wrapper" className="accordion">
       <div className="accordion-header">
         {header}
         <Button
@@ -30,13 +30,18 @@ const Accordion = ({ header, expandButton, children }: AccordionProps) => {
           size="small"
           style={expandButton.style}
           onClick={toggleAccordion}
+          data-testid="accordion-trigger"
         >
           {expandButton.text}
           {isOpen && <ChevronDown width="16px" height="16px" />}
           {!isOpen && <ChevronRight width="16px" height="16px" />}
         </Button>
       </div>
-      {isOpen && <div className="accordion-content">{children}</div>}
+      {isOpen && (
+        <div data-testid="accordion-children" className="accordion-content">
+          {children}
+        </div>
+      )}
     </div>
   );
 };
