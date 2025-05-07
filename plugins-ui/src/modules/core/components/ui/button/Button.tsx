@@ -1,27 +1,26 @@
-import { ReactNode } from "react";
+import { HTMLProps } from "react";
 import "./Button.css";
 
-type ButtonProps = {
+interface IButtonProps
+  extends Omit<HTMLProps<HTMLButtonElement>, "size" | "type"> {
   type: "button" | "submit";
   styleType: "primary" | "secondary" | "tertiary";
   size: "mini" | "small" | "medium";
-  children: ReactNode;
-  className?: string;
-  style?: {};
   ariaLabel?: string;
-  onClick?: () => any;
-};
+}
 
-const Button = ({
-  type,
-  styleType,
-  size,
-  children,
-  className,
-  style,
-  ariaLabel,
-  onClick,
-}: ButtonProps) => {
+const Button = (props: IButtonProps) => {
+  const {
+    type,
+    styleType,
+    size,
+    children,
+    className,
+    style,
+    ariaLabel,
+    onClick,
+    ...rest
+  } = props;
   return (
     <button
       type={type}
@@ -29,6 +28,7 @@ const Button = ({
       className={`button ${styleType} ${size} ${className}`}
       style={style}
       aria-label={ariaLabel}
+      {...rest}
     >
       {children}
     </button>

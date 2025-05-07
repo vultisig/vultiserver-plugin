@@ -34,7 +34,7 @@ const Rating = () => {
       : 0;
 
   return (
-    <section className="rating">
+    <section className="rating" data-testid="rating-wrapper">
       <div className="rating-chart">
         {rating_bars &&
           rating_bars.map((r) => (

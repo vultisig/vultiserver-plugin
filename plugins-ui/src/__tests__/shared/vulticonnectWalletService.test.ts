@@ -1,15 +1,6 @@
 import VulticonnectWalletService from "@/modules/shared/wallet/vulticonnectWalletService";
 import { describe, it, expect, vi, afterEach } from "vitest";
-
-const hoisted = vi.hoisted(() => ({
-  mockEventBus: {
-    publish: vi.fn(),
-  },
-}));
-
-vi.mock("@/utils/eventBus", () => ({
-  publish: hoisted.mockEventBus.publish,
-}));
+import { mockEventBus } from "../utils/global-mocks";
 
 describe("VulticonnectWalletService", () => {
   afterEach(() => {
@@ -18,12 +9,11 @@ describe("VulticonnectWalletService", () => {
 
   describe("connectToVultiConnect", () => {
     it("should alert if no provider is found", async () => {
-      vi.spyOn(window, "alert").mockImplementation(() => {});
       delete (window as any).vultisig;
 
       await VulticonnectWalletService.connectToVultiConnect();
 
-      expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
+      expect(mockEventBus.publish).toBeCalledWith("onToast", {
         message: "No ethereum provider found. Please install VultiConnect.",
         type: "error",
       });
@@ -69,12 +59,10 @@ describe("VulticonnectWalletService", () => {
 
   describe("getConnectedEthAccounts", () => {
     it("should alert if no provider is found", async () => {
-      vi.spyOn(window, "alert").mockImplementation(() => {});
       delete (window as any).vultisig;
 
       await VulticonnectWalletService.getConnectedEthAccounts();
-
-      expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
+      expect(mockEventBus.publish).toBeCalledWith("onToast", {
         message: "No ethereum provider found. Please install VultiConnect.",
         type: "error",
       });
@@ -121,15 +109,14 @@ describe("VulticonnectWalletService", () => {
 
   describe("signCustomMessage", () => {
     it("should alert if no provider is found", async () => {
-      vi.spyOn(window, "alert").mockImplementation(() => {});
       delete (window as any).vultisig;
+      console.log(window.vultisig);
 
       await VulticonnectWalletService.signCustomMessage(
         "hexMessage",
         "walletAddress"
       );
-
-      expect(hoisted.mockEventBus.publish).toHaveBeenCalledWith("onToast", {
+      expect(mockEventBus.publish).toBeCalledWith("onToast", {
         message: "No ethereum provider found. Please install VultiConnect.",
         type: "error",
       });
