@@ -44,6 +44,46 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
       const regex = /^0x[a-fA-F0-9]{40}$/g;
       return regex.test(value);
     },
+    "minutes-validation": (value: string) => {
+      try {
+        const valueAsInt = parseInt(value);
+        return valueAsInt >= 15 && valueAsInt <= 60;
+      } catch {
+        return false;
+      }
+    },
+    "hours-validation": (value: string) => {
+      try {
+        const valueAsInt = parseInt(value);
+        return valueAsInt >= 1 && valueAsInt <= 23;
+      } catch {
+        return false;
+      }
+    },
+    "days-validation": (value: string) => {
+      try {
+        const valueAsInt = parseInt(value);
+        return valueAsInt >= 1 && valueAsInt <= 31;
+      } catch {
+        return false;
+      }
+    },
+    "weeks-validation": (value: string) => {
+      try {
+        const valueAsInt = parseInt(value);
+        return valueAsInt >= 1 && valueAsInt <= 52;
+      } catch {
+        return false;
+      }
+    },
+    "months-validation": (value: string) => {
+      try {
+        const valueAsInt = parseInt(value);
+        return valueAsInt >= 1 && valueAsInt <= 12;
+      } catch {
+        return false;
+      }
+    },
   };
 
   const customValidator = customizeValidator({
@@ -150,11 +190,30 @@ const PolicyForm = ({ data, onSubmitCallback }: PolicyFormProps) => {
         error.message = transformPatternError(error);
       }
       if (error.name === "required") {
-        error.message = "required";
+        error.message = "this field is required";
       }
       if (error.name === "format") {
-        if (error.params.format === "evm-address") {
-          error.message = "should be valid EVM address";
+        switch (error.params.format) {
+          case "evm-address":
+            error.message = "should be valid EVM address";
+            break;
+          case "minutes-validation":
+            error.message = "should be a positive number between 15 and 60";
+            break;
+          case "hours-validation":
+            error.message = "should be a positive number between 1 and 24";
+            break;
+          case "days-validation":
+            error.message = "should be a positive number between 1 and 31";
+            break;
+          case "weeks-validation":
+            error.message = "should be a positive number between 1 and 52";
+            break;
+          case "months-validation":
+            error.message = "should be a positive number between 1 and 12";
+            break;
+          default:
+            break;
         }
       }
       return error;
